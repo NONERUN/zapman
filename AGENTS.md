@@ -43,7 +43,7 @@
 
 | Путь | Роль |
 |---|---|
-| `zapret.bat` | Вход: проверка Windows PowerShell 3.0+ (цель 5.1), затем GUI |
+| `zapret.bat` | Вход: проверка PS 3.0+, x64, `bin/`, WinForms/.NET 4.5+, затем GUI |
 | `utils/gui.ps1` | WinForms: стратегии, Start/Stop, служба, Game Filter, IPSet |
 | `general*.bat` | Стратегии, запускают `bin\winws.exe` — цель: `.ps1` |
 | `service.bat` | Консольный менеджер — цель: `.ps1` |
