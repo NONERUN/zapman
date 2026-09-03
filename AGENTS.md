@@ -32,7 +32,7 @@
 - `Set-StrictMode -Version Latest` запрещает обращение к несуществующим свойствам.
 - `Get-Item HKLM:\...` открывает ключ только на чтение. Для записи — `OpenSubKey(..., $true)`.
 - `$PSScriptRoot`, `Get-CimInstance`, `-LiteralPath` требуют минимум PowerShell **3.0**.
-- WinForms нужен **STA**: `powershell.exe -STA`.
+- WinForms нужен **STA**: `powershell.exe -STA`. Вход — `zapret.bat`.
 - Комментарии в коде — [ASD-STE100](https://www.asd-ste100.org/) Simplified Technical English.
 
 ## Раскладка
@@ -43,7 +43,7 @@
 
 | Путь | Роль |
 |---|---|
-| `gui.bat` | Вход GUI (UAC, `-STA`) — уйдёт в единственный валидирующий `.bat` |
+| `zapret.bat` | Вход: проверка Windows PowerShell 3.0+ (цель 5.1), затем GUI |
 | `utils/gui.ps1` | WinForms: стратегии, Start/Stop, служба, Game Filter, IPSet |
 | `general*.bat` | Стратегии, запускают `bin\winws.exe` — цель: `.ps1` |
 | `service.bat` | Консольный менеджер — цель: `.ps1` |

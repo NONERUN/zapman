@@ -117,7 +117,7 @@ function Enable-TcpTimestamps {
 
 function Get-StrategyFiles {
     Get-ChildItem -LiteralPath $script:rootDir -Filter '*.bat' |
-        Where-Object { $_.Name -notlike 'service*' -and $_.Name -ne 'gui.bat' } |
+        Where-Object { $_.Name -notlike 'service*' -and $_.Name -ne 'gui.bat' -and $_.Name -ne 'zapret.bat' } |
         Sort-Object { [Regex]::Replace($_.Name, '(\d+)', { $args[0].Value.PadLeft(8, '0') }) }
 }
 
