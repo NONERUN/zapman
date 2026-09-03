@@ -1,5 +1,5 @@
 # Zapret WinForms GUI.
-# This script starts and stops strategies from the root folder.
+# This script starts and stops strategies from the strategies folder.
 # This script installs or removes the zapret Windows service.
 
 Set-StrictMode -Version Latest
@@ -9,6 +9,7 @@ $script:rootDir = Split-Path -Parent $PSScriptRoot
 $script:listsDir = Join-Path $script:rootDir 'lists'
 $script:utilsDir = Join-Path $script:rootDir 'utils'
 $script:binDir = Join-Path $script:rootDir 'bin'
+$script:strategiesDir = Join-Path $script:rootDir 'strategies'
 $script:updatingSettings = $false
 $script:busy = $false
 $script:strategyMap = @{}
@@ -75,11 +76,11 @@ function Invoke-GuiPump {
 }
 
 function Get-LocalVersion {
-    $serviceBat = Join-Path $script:rootDir 'service.bat'
-    if (-not (Test-Path -LiteralPath $serviceBat)) {
+    $engine = Join-Path $script:utilsDir 'engine.ps1'
+    if (-not (Test-Path -LiteralPath $engine)) {
         return 'unknown'
     }
-    $match = Select-String -LiteralPath $serviceBat -Pattern 'LOCAL_VERSION=([0-9.]+)' | Select-Object -First 1
+    $match = Select-String -LiteralPath $engine -Pattern "ZapretLocalVersion\s*=\s*'([^']+)'" | Select-Object -First 1
     if ($match) {
         return $match.Matches[0].Groups[1].Value
     }
@@ -116,9 +117,13 @@ function Enable-TcpTimestamps {
 }
 
 function Get-StrategyFiles {
-    Get-ChildItem -LiteralPath $script:rootDir -Filter '*.bat' |
-        Where-Object { $_.Name -notlike 'service*' -and $_.Name -ne 'gui.bat' -and $_.Name -ne 'zapret.bat' } |
-        Sort-Object { [Regex]::Replace($_.Name, '(\d+)', { $args[0].Value.PadLeft(8, '0') }) }
+    if (-not (Test-Path -LiteralPath $script:strategiesDir)) {
+        return @()
+    }
+    return @(
+        Get-ChildItem -LiteralPath $script:strategiesDir -Filter '*.ps1' |
+            Sort-Object { [Regex]::Replace($_.Name, '(\d+)', { $args[0].Value.PadLeft(8, '0') }) }
+    )
 }
 
 function Test-BypassRunning {
@@ -182,7 +187,7 @@ function Get-IpsetStatus {
     if (-not (Test-Path -LiteralPath $listFile)) {
         return 'none'
     }
-    # Match service.bat: empty file = any. Dummy IP = none. Other content = loaded.
+    # Empty file = any. Dummy IP = none. Other content = loaded.
     $lines = @(Get-Content -LiteralPath $listFile -ErrorAction SilentlyContinue)
     if ($lines.Count -eq 0) {
         return 'any'
@@ -206,7 +211,7 @@ function Set-IpsetMode {
         return
     }
 
-    # Match service.bat: move the loaded list to the backup file.
+    # Move the loaded list to the backup file.
     if ($current -eq 'loaded') {
         if (Test-Path -LiteralPath $backupFile) {
             Remove-Item -LiteralPath $backupFile -Force
@@ -223,7 +228,7 @@ function Set-IpsetMode {
         }
         'loaded' {
             if (-not (Test-Path -LiteralPath $backupFile)) {
-                throw 'No IPSet backup found. Use service.bat -> Update IPSet List first.'
+                throw 'No IPSet backup found. Use service.ps1 -> Update IPSet List first.'
             }
             if (Test-Path -LiteralPath $listFile) {
                 Remove-Item -LiteralPath $listFile -Force
@@ -404,7 +409,7 @@ function Start-SelectedStrategy {
         if ($svc.Status -eq 'Running') {
             throw 'The zapret service is already running. Stop it or remove the service first.'
         }
-        throw 'The zapret service is installed. Start the service, or remove it to run a .bat strategy.'
+        throw 'The zapret service is installed. Start the service, or remove it to run a strategy.'
     }
 
     if (Test-BypassRunning) {
@@ -413,7 +418,7 @@ function Start-SelectedStrategy {
 
     Enable-TcpTimestamps
     $env:NO_UPDATE_CHECK = '1'
-    Start-Process -FilePath $File.FullName -WorkingDirectory $script:rootDir -WindowStyle Minimized | Out-Null
+    Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($File.FullName)`"" -WorkingDirectory $script:rootDir -WindowStyle Minimized | Out-Null
 
     if (-not (Wait-ForWinws -TimeoutSeconds 12 -RequireCommandLine)) {
         throw 'winws.exe did not start. Check the bin folder and antivirus exclusions.'
@@ -447,7 +452,7 @@ function Install-ZapretService {
 
     Enable-TcpTimestamps
     $env:NO_UPDATE_CHECK = '1'
-    Start-Process -FilePath $File.FullName -WorkingDirectory $script:rootDir -WindowStyle Minimized | Out-Null
+    Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($File.FullName)`"" -WorkingDirectory $script:rootDir -WindowStyle Minimized | Out-Null
 
     if (-not (Wait-ForWinws -TimeoutSeconds 15 -RequireCommandLine)) {
         throw 'winws.exe did not start. The service was not installed.'
@@ -731,14 +736,14 @@ $lblLog.Location = New-Object System.Drawing.Point(16, 492)
 $lblLog.Size = New-Object System.Drawing.Size(428, 28)
 $lblLog.ForeColor = [System.Drawing.Color]::DimGray
 if ($list.Items.Count -eq 0) {
-    $lblLog.Text = 'No strategy .bat files found in the Zapret folder.'
+    $lblLog.Text = 'No strategy files found in the strategies folder.'
 } else {
     $lblLog.Text = 'Select a strategy, then Start. Install Service enables autostart.'
 }
 $form.Controls.Add($lblLog)
 
 $tips = New-Object System.Windows.Forms.ToolTip
-$tips.SetToolTip($btnStart, 'Start the selected .bat strategy. If the zapret service is installed, start that service.')
+$tips.SetToolTip($btnStart, 'Start the selected strategy. If the zapret service is installed, start that service.')
 $tips.SetToolTip($btnStop, 'Stop winws.exe and the zapret service if it is running.')
 $tips.SetToolTip($btnInstall, 'Install the selected strategy as a Windows service (autostart).')
 $tips.SetToolTip($btnRemove, 'Remove zapret and WinDivert services.')

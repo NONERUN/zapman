@@ -375,7 +375,7 @@ if ($originalIpsetStatus -ne "any") {
 if (Test-ZapretServiceConflict) {
     Write-Host "[ERROR] Windows service 'zapret' is installed" -ForegroundColor Red
     Write-Host "         Remove the service before running tests" -ForegroundColor Yellow
-    Write-Host "         Open service.bat and choose 'Remove Services'" -ForegroundColor Yellow
+    Write-Host "         Open utils\service.ps1 and choose 'Remove Services'" -ForegroundColor Yellow
     $hasErrors = $true
 }
 
@@ -390,9 +390,9 @@ if ($hasErrors) {
 $dpiTargets = @()
 
 # Config
-$targetDir = $rootDir
+$targetDir = Join-Path $rootDir "strategies"
 if (-not $targetDir) { $targetDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
-$batFiles = Get-ChildItem -Path $targetDir -Filter "*.bat" | Where-Object { $_.Name -notlike "service*" } | Sort-Object { [Regex]::Replace($_.Name, "(\d+)", { $args[0].Value.PadLeft(8, "0") }) }
+$batFiles = @(Get-ChildItem -LiteralPath $targetDir -Filter "*.ps1" | Sort-Object { [Regex]::Replace($_.Name, "(\d+)", { $args[0].Value.PadLeft(8, "0") }) })
 
 $globalResults = @()
 
@@ -565,7 +565,7 @@ if ($testType -eq 'standard') {
 
 # Ensure we have configs to run
 if (-not $batFiles -or $batFiles.Count -eq 0) {
-    Write-Host "[ERROR] No general*.bat files found" -ForegroundColor Red
+    Write-Host "[ERROR] No strategy .ps1 files found in strategies\" -ForegroundColor Red
     Write-Host "Press any key to exit..." -ForegroundColor Yellow
     [void][System.Console]::ReadKey($true)
     exit 1
@@ -649,7 +649,7 @@ try {
     
     # Start config
     Write-Host "  > Starting config..." -ForegroundColor Cyan
-    $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$($file.FullName)`"" -WorkingDirectory $targetDir -PassThru -WindowStyle Minimized
+    $proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($file.FullName)`"" -WorkingDirectory $rootDir -PassThru -WindowStyle Minimized
     
     # Wait init
     if (-not (Wait-WinwsReady)) {

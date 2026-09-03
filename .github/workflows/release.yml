@@ -39,6 +39,7 @@ jobs:
           cp -r bin "$NAME/"
           cp -r lists "$NAME/"
           cp -r utils "$NAME/"
+          cp -r strategies "$NAME/"
           cp *.bat "$NAME/"
 
       - name: Create archives

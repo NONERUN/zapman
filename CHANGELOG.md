@@ -13,5 +13,9 @@
 
 - Вход GUI: `zapret.bat` (проверка Windows PowerShell 3.0+, цель 5.1). `gui.bat` удалён.
 - `zapret.bat` проверяет x64, папку `bin/`, WinForms и .NET 4.5+ (на Windows 7 без WMF/.NET — список недостающего).
+
+### Breaking
+
+- Вход только `zapret.bat`. Удалены `gui.bat`, `service.bat` и корневые `general*.bat`. Стратегии: `strategies/*.ps1`. Консоль: `utils/service.ps1`.
 - Целевая раскладка: один `.bat` (проверка среды), остальное `.ps1`; переход на zapret2 (`winws2` + Lua) — [`PLAN.md`](PLAN.md).
 - Обратная совместимость только у набора стратегий; имена стратегий можно менять — [`AGENTS.md`](AGENTS.md).
