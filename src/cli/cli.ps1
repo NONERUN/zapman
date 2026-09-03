@@ -5,7 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
 try {
-    $Host.UI.RawUI.WindowTitle = 'Zapret CLI'
+    $Host.UI.RawUI.WindowTitle = 'Zapret Manager CLI'
 } catch {
     Write-Verbose $_.Exception.Message
 }
@@ -16,10 +16,10 @@ if ($PSVersionTable.PSVersion.Major -lt 3) {
     exit 1
 }
 
-Import-Module -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapret\Zapret.psd1')
+Import-Module -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapman\Zapman.psd1')
 
-Enable-ZapretConsoleUtf8
-[void](Initialize-ZapretUiLanguage)
+Enable-ZapmanConsoleUtf8
+[void](Initialize-ZapmanUiLanguage)
 
 $servicePath = Join-Path $PSScriptRoot 'service.ps1'
 $testsPath = Join-Path $PSScriptRoot 'test-zapret.ps1'
@@ -29,7 +29,7 @@ if (-not (Test-Path -LiteralPath $servicePath)) {
 }
 . $servicePath
 
-function Invoke-ZapretCliTests {
+function Invoke-ZapmanCliTests {
     param([string[]]$Extra = @())
     if (-not (Test-Path -LiteralPath $testsPath)) {
         throw ("File not found: {0}" -f $testsPath)
@@ -43,25 +43,25 @@ function Invoke-ZapretCliTests {
     return [int]$LASTEXITCODE
 }
 
-function Show-ZapretCliUsage {
-    Write-Host (Get-ZapretUiString -Key 'CliUsage')
+function Show-ZapmanCliUsage {
+    Write-Host (Get-ZapmanUiString -Key 'CliUsage')
 }
 
-function Show-ZapretCliMenu {
+function Show-ZapmanCliMenu {
     while ($true) {
         Write-Host ''
-        Write-Host (Get-ZapretUiString -Key 'CliTitle')
-        Write-Host ("  1. {0}" -f (Get-ZapretUiString -Key 'CliService'))
-        Write-Host ("  2. {0}" -f (Get-ZapretUiString -Key 'CliTests'))
-        Write-Host ("  3. {0}" -f (Get-ZapretUiString -Key 'CliEnv'))
-        Write-Host ("  0. {0}" -f (Get-ZapretUiString -Key 'MenuExit'))
+        Write-Host (Get-ZapmanUiString -Key 'CliTitle')
+        Write-Host ("  1. {0}" -f (Get-ZapmanUiString -Key 'CliService'))
+        Write-Host ("  2. {0}" -f (Get-ZapmanUiString -Key 'CliTests'))
+        Write-Host ("  3. {0}" -f (Get-ZapmanUiString -Key 'CliEnv'))
+        Write-Host ("  0. {0}" -f (Get-ZapmanUiString -Key 'MenuExit'))
         $choice = Read-Host
         switch ($choice) {
-            '1' { [void](Start-ZapretServiceConsole) }
-            '2' { [void](Invoke-ZapretCliTests) }
-            '3' { [void](Show-ZapretHostReadyReport) }
+            '1' { [void](Start-ZapmanServiceConsole) }
+            '2' { [void](Invoke-ZapmanCliTests) }
+            '3' { [void](Show-ZapmanHostReadyReport) }
             '0' { return 0 }
-            default { Write-Host (Get-ZapretUiString -Key 'InvalidChoice') }
+            default { Write-Host (Get-ZapmanUiString -Key 'InvalidChoice') }
         }
     }
 }
@@ -77,31 +77,31 @@ if ($tokens.Count -gt 0) {
 }
 
 if ($command -eq 'help' -or $command -eq '-h' -or $command -eq '--help' -or $command -eq '/?') {
-    Show-ZapretCliUsage
+    Show-ZapmanCliUsage
     exit 0
 }
 
 if ($command -eq 'env' -or $command -eq 'check-env') {
-    exit (Show-ZapretHostReadyReport)
+    exit (Show-ZapmanHostReadyReport)
 }
 
-if ((Show-ZapretHostReadyReport) -ne 0) {
+if ((Show-ZapmanHostReadyReport) -ne 0) {
     exit 1
 }
 
 if ([string]::IsNullOrWhiteSpace($command)) {
-    [void](Show-ZapretCliMenu)
+    [void](Show-ZapmanCliMenu)
     return
 }
 
 if ($command -eq 'service') {
-    exit (Start-ZapretServiceConsole)
+    exit (Start-ZapmanServiceConsole)
 }
 
 if ($command -eq 'tests' -or $command -eq 'test') {
-    exit (Invoke-ZapretCliTests -Extra $extra)
+    exit (Invoke-ZapmanCliTests -Extra $extra)
 }
 
-Write-Host (Get-ZapretUiString -Key 'CliUnknown' -FormatArgs @($command))
-Show-ZapretCliUsage
+Write-Host (Get-ZapmanUiString -Key 'CliUnknown' -FormatArgs @($command))
+Show-ZapmanCliUsage
 exit 1

@@ -1,11 +1,11 @@
-﻿# Zapret module: UI language and strings (RU / EN).
+﻿# Zapret Manager: UI language and strings (RU / EN).
 
 Set-StrictMode -Version Latest
 
-$script:ZapretUiLang = 'en'
+$script:ZapmanUiLang = 'en'
 
-$script:ZapretUiEn = @{
-    AppName              = 'Zapret'
+$script:ZapmanUiEn = @{
+    AppName              = 'Zapret Manager'
     AppTitle             = 'Zapret Manager v{0}'
     LangRu               = 'RU'
     LangEn               = 'EN'
@@ -21,7 +21,7 @@ $script:ZapretUiEn = @{
     BtnHosts             = 'Compare hosts'
     BtnVersion           = 'Check version'
     BtnDiag              = 'Diagnostics'
-    BtnRunSelected       = 'Run selected'
+    BtnRunSelected       = 'Run without installing'
     BtnInstall           = 'Install service'
     BtnTests             = 'Run tests'
     BtnCopy              = 'Copy'
@@ -63,7 +63,7 @@ $script:ZapretUiEn = @{
     TipStart             = 'Start the installed zapret service.'
     TipStop              = 'Stop winws / winws2 and the zapret service if it is running.'
     TipRemove            = 'Remove zapret and WinDivert services. No extra confirmation.'
-    TipStrategy          = 'Pick a strategy: try it now, install as a service, or run tests.'
+    TipStrategy          = 'Pick a strategy: install as a service, run without installing, or run tests.'
     TipFakes             = 'Current Discord UDP and Game UDP fake files in bin.'
     TipIpset             = 'Download ipset-all.txt from the repository.'
     TipHosts             = 'Compare the Windows hosts file with the repo copy. Does not overwrite hosts; opens Notepad if they differ.'
@@ -71,19 +71,51 @@ $script:ZapretUiEn = @{
     TipDiag              = 'Check conflicts, path, DNS, WinDivert and Discord cache.'
     TipAuto              = 'When enabled, the GUI checks the app version at start. The check does not block the window.'
     TipStatusClick       = 'Click for full status, WinDivert64.sys and the action journal.'
-    ConfirmRunOver       = 'Stop the running service or bypass process, then start the selected strategy?'
+    ConfirmRunOver       = 'Stop the running service or bypass, then run this strategy without installing?'
     FilterNeedInstall    = 'Game Filter is saved. Install the service again to apply it?'
     FilterNeedRestart    = 'IPSet Filter is saved. Stop, then start the service to apply it?'
     FilterNeedRerun      = 'Filter is saved. Stop, then run a strategy from Strategy... to apply it.'
+    GameHintInstall      = 'Game Filter saved. Run Install Service again to apply.'
+    GameHintRerun        = 'Game Filter saved. Stop, then run without installing to apply.'
+    IpsetHintRestart     = 'IPSet Filter saved. Stop, then Start service to apply.'
+    IpsetHintRerun       = 'IPSet Filter saved. Stop, then run without installing to apply.'
     FakeNeedRestart      = 'Fakes are saved. Stop, then start the service to apply them?'
     FakeNeedRerun        = 'Fakes are saved. Stop, then run a strategy from Strategy... to apply them.'
     AdminRequired        = 'Administrator rights are required.'
     BinMissing           = 'The bin folder is not found. Extract the full Zapret archive first.'
     NoStrategies         = 'No strategy files found in the strategies folder.'
-    TestsNeedNoService   = 'The zapret service will be removed so tests can run.'
+    TestsNeedNoService   = 'The zapret service will be removed for the test run, then installed again.'
     TestsCancelled       = 'Tests cancelled.'
     TestsFinished        = 'Tests finished.'
     TestsTitle           = 'Tests'
+    TestsSetupTitle      = 'Run Tests'
+    TestsType            = 'Test type'
+    TestsTypeStd         = 'Standard (HTTP / ping)'
+    TestsTypeDpi         = 'DPI checkers (TCP 16-20)'
+    TestsPick            = 'Strategies to test ({0})'
+    TestsAll             = 'All'
+    TestsNone            = 'None'
+    TestsStart           = 'Start tests'
+    TestsNeedOne         = 'Select at least one strategy.'
+    TestsStarting        = 'Starting tests...'
+    TestsProgress        = 'Testing {0} / {1}'
+    TestsCancelling      = 'Cancelling...'
+    TestsCancelledShort  = 'Cancelled.'
+    TestsFinishedLog     = 'Tests finished. See test-results\ for the saved log.'
+    DownloadConnecting   = 'Connecting...'
+    DownloadProgress     = 'Downloaded {0} of {1} KB ({2}%)'
+    DownloadProgressKb   = 'Downloaded {0} KB'
+    DownloadCancelled    = 'Download cancelled.'
+    DownloadFailed       = 'Download failed.'
+    StatusLineRunning    = 'Running strategy: {0}'
+    StatusLineService    = 'Service strategy: {0}'
+    StatusLineSvcRun     = '{0} service is RUNNING.'
+    StatusLineSvcPending = '{0} is STOP_PENDING. Run Diagnostics to look for a conflict.'
+    StatusLineSvcOff     = '{0} service is NOT running.'
+    StatusLineSysMissing = 'WinDivert64.sys file NOT found.'
+    StatusLineBypassOn   = 'Bypass ({0}) is RUNNING.'
+    StatusLineBypassOff  = 'Bypass (winws / winws2) is NOT running.'
+    ConfigParseFail      = 'config.json is not valid JSON. Using defaults.'
     FakesTitle           = 'Fakes'
     FakesDiscord         = 'Discord UDP'
     FakesGame            = 'Game UDP'
@@ -139,7 +171,7 @@ $script:ZapretUiEn = @{
     AutoOn               = 'Auto-Update Check enabled.'
     AutoOff              = 'Auto-Update Check disabled.'
     ConsoleUtf8Warn      = 'Console UTF-8 may not display all characters on this system.'
-    CliTitle             = 'Zapret CLI'
+    CliTitle             = 'Zapret Manager CLI'
     CliService           = 'Service manager'
     CliTests             = 'Strategy tests'
     CliEnv               = 'Check environment'
@@ -147,8 +179,8 @@ $script:ZapretUiEn = @{
     CliUsage             = "cli.bat`r`ncli.bat service`r`ncli.bat tests [-TestType standard|dpi] [-Strategies all|name,...] [-NoPause]`r`ncli.bat env"
 }
 
-$script:ZapretUiRu = @{
-    AppName              = 'Zapret'
+$script:ZapmanUiRu = @{
+    AppName              = 'Zapret Manager'
     AppTitle             = 'Zapret Manager v{0}'
     LangRu               = 'RU'
     LangEn               = 'EN'
@@ -164,7 +196,7 @@ $script:ZapretUiRu = @{
     BtnHosts             = 'Сверить hosts'
     BtnVersion           = 'Проверить версию'
     BtnDiag              = 'Диагностика'
-    BtnRunSelected       = 'Запустить выбранную'
+    BtnRunSelected       = 'Запустить без установки'
     BtnInstall           = 'Установить службу'
     BtnTests             = 'Прогнать тесты'
     BtnCopy              = 'Копировать'
@@ -206,7 +238,7 @@ $script:ZapretUiRu = @{
     TipStart             = 'Запустить установленную службу zapret.'
     TipStop              = 'Остановить winws / winws2 и службу zapret, если она запущена.'
     TipRemove            = 'Снять службы zapret и WinDivert. Без дополнительного вопроса.'
-    TipStrategy          = 'Выбрать стратегию: попробовать сейчас, поставить службу или прогнать тесты.'
+    TipStrategy          = 'Выбрать стратегию: поставить службу, запустить без установки или прогнать тесты.'
     TipFakes             = 'Текущие fake Discord UDP и Game UDP в bin.'
     TipIpset             = 'Скачать ipset-all.txt из репозитория.'
     TipHosts             = 'Сравнить файл hosts Windows с копией из репозитория. Сам hosts не перезаписывает; при расхождении откроет блокнот.'
@@ -214,19 +246,51 @@ $script:ZapretUiRu = @{
     TipDiag              = 'Конфликты, путь, DNS, WinDivert и кэш Discord.'
     TipAuto              = 'Если включено, GUI сверяет версию при старте. Проверка не блокирует окно.'
     TipStatusClick       = 'Клик — полный статус, WinDivert64.sys и журнал действий.'
-    ConfirmRunOver       = 'Остановить службу или процесс обхода и запустить выбранную стратегию?'
+    ConfirmRunOver       = 'Остановить службу или процесс обхода и запустить эту стратегию без установки?'
     FilterNeedInstall    = 'Game Filter сохранён. Поставить службу снова, чтобы применить?'
     FilterNeedRestart    = 'IPSet Filter сохранён. Остановить и снова запустить службу, чтобы применить?'
     FilterNeedRerun      = 'Фильтр сохранён. Стоп, затем запуск из «Стратегия...», чтобы применить.'
+    GameHintInstall      = 'Game Filter сохранён. Поставьте службу снова, чтобы применить.'
+    GameHintRerun        = 'Game Filter сохранён. Стоп, затем запуск без установки.'
+    IpsetHintRestart     = 'IPSet Filter сохранён. Стоп, затем старт службы, чтобы применить.'
+    IpsetHintRerun       = 'IPSet Filter сохранён. Стоп, затем запуск без установки.'
     FakeNeedRestart      = 'Fake сохранены. Остановить и снова запустить службу, чтобы применить?'
     FakeNeedRerun        = 'Fake сохранены. Стоп, затем запуск из «Стратегия...», чтобы применить.'
     AdminRequired        = 'Нужны права администратора.'
     BinMissing           = 'Папка bin не найдена. Сначала распакуйте полный архив Zapret.'
     NoStrategies         = 'В папке strategies нет файлов стратегий.'
-    TestsNeedNoService   = 'Служба zapret будет снята, чтобы можно было прогнать тесты.'
+    TestsNeedNoService   = 'Служба zapret будет снята на время тестов, затем поставлена снова.'
     TestsCancelled       = 'Тесты отменены.'
     TestsFinished        = 'Тесты закончены.'
     TestsTitle           = 'Тесты'
+    TestsSetupTitle      = 'Прогнать тесты'
+    TestsType            = 'Тип теста'
+    TestsTypeStd         = 'Обычный (HTTP / ping)'
+    TestsTypeDpi         = 'DPI-проверки (TCP 16-20)'
+    TestsPick            = 'Стратегии для теста ({0})'
+    TestsAll             = 'Все'
+    TestsNone            = 'Нет'
+    TestsStart           = 'Начать тесты'
+    TestsNeedOne         = 'Выберите хотя бы одну стратегию.'
+    TestsStarting        = 'Запуск тестов...'
+    TestsProgress        = 'Тест {0} / {1}'
+    TestsCancelling      = 'Отмена...'
+    TestsCancelledShort  = 'Отменено.'
+    TestsFinishedLog     = 'Тесты закончены. Лог в test-results\.'
+    DownloadConnecting   = 'Подключение...'
+    DownloadProgress     = 'Скачано {0} из {1} КБ ({2}%)'
+    DownloadProgressKb   = 'Скачано {0} КБ'
+    DownloadCancelled    = 'Загрузка отменена.'
+    DownloadFailed       = 'Загрузка не удалась.'
+    StatusLineRunning    = 'Запущенная стратегия: {0}'
+    StatusLineService    = 'Стратегия службы: {0}'
+    StatusLineSvcRun     = 'Служба {0} запущена.'
+    StatusLineSvcPending = '{0} в STOP_PENDING. Диагностика может показать конфликт.'
+    StatusLineSvcOff     = 'Служба {0} не запущена.'
+    StatusLineSysMissing = 'Файл WinDivert64.sys не найден.'
+    StatusLineBypassOn   = 'Обход ({0}) запущен.'
+    StatusLineBypassOff  = 'Обход (winws / winws2) не запущен.'
+    ConfigParseFail      = 'config.json не JSON. Используются значения по умолчанию.'
     FakesTitle           = 'Fake'
     FakesDiscord         = 'Discord UDP'
     FakesGame            = 'Game UDP'
@@ -282,7 +346,7 @@ $script:ZapretUiRu = @{
     AutoOn               = 'Auto-Update Check включён.'
     AutoOff              = 'Auto-Update Check выключен.'
     ConsoleUtf8Warn      = 'UTF-8 в консоли на этой системе может отображаться не полностью.'
-    CliTitle             = 'Zapret CLI'
+    CliTitle             = 'Zapret Manager CLI'
     CliService           = 'Менеджер службы'
     CliTests             = 'Тесты стратегий'
     CliEnv               = 'Проверить среду'
@@ -290,7 +354,7 @@ $script:ZapretUiRu = @{
     CliUsage             = "cli.bat`r`ncli.bat service`r`ncli.bat tests [-TestType standard|dpi] [-Strategies all|name,...] [-NoPause]`r`ncli.bat env"
 }
 
-function Test-ZapretUiLanguageCode {
+function Test-ZapmanUiLanguageCode {
     param([string]$Code)
     if ($Code -eq 'ru' -or $Code -eq 'en') {
         return $true
@@ -298,7 +362,7 @@ function Test-ZapretUiLanguageCode {
     return $false
 }
 
-function Get-ZapretUiLanguageFromOs {
+function Get-ZapmanUiLanguageFromOs {
     $ui = [string]$PSUICulture
     if ([string]::IsNullOrWhiteSpace($ui)) {
         $ui = [System.Globalization.CultureInfo]::CurrentUICulture.Name
@@ -309,9 +373,9 @@ function Get-ZapretUiLanguageFromOs {
     return 'en'
 }
 
-function Initialize-ZapretUiLanguage {
+function Initialize-ZapmanUiLanguage {
     $fromCfg = ''
-    $cfgPath = Get-ZapretConfigPath
+    $cfgPath = Get-ZapmanConfigPath
     if (Test-Path -LiteralPath $cfgPath) {
         try {
             $raw = [System.IO.File]::ReadAllText($cfgPath)
@@ -322,43 +386,43 @@ function Initialize-ZapretUiLanguage {
             $fromCfg = ''
         }
     }
-    if (Test-ZapretUiLanguageCode $fromCfg) {
-        $script:ZapretUiLang = $fromCfg
-        return $script:ZapretUiLang
+    if (Test-ZapmanUiLanguageCode $fromCfg) {
+        $script:ZapmanUiLang = $fromCfg
+        return $script:ZapmanUiLang
     }
-    $script:ZapretUiLang = Get-ZapretUiLanguageFromOs
-    return $script:ZapretUiLang
+    $script:ZapmanUiLang = Get-ZapmanUiLanguageFromOs
+    return $script:ZapmanUiLang
 }
 
-function Get-ZapretUiLanguage {
-    return $script:ZapretUiLang
+function Get-ZapmanUiLanguage {
+    return $script:ZapmanUiLang
 }
 
-function Set-ZapretUiLanguage {
+function Set-ZapmanUiLanguage {
     param([string]$Language)
     $code = ([string]$Language).Trim().ToLowerInvariant()
-    if (-not (Test-ZapretUiLanguageCode $code)) {
+    if (-not (Test-ZapmanUiLanguageCode $code)) {
         throw 'UI language must be ru or en.'
     }
-    $script:ZapretUiLang = $code
-    [void](Update-ZapretConfig -Language $code)
+    $script:ZapmanUiLang = $code
+    [void](Update-ZapmanConfig -Language $code)
 }
 
-function Get-ZapretUiString {
+function Get-ZapmanUiString {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Key,
         [object[]]$FormatArgs = @()
     )
-    $table = $script:ZapretUiEn
-    if ($script:ZapretUiLang -eq 'ru') {
-        $table = $script:ZapretUiRu
+    $table = $script:ZapmanUiEn
+    if ($script:ZapmanUiLang -eq 'ru') {
+        $table = $script:ZapmanUiRu
     }
     $text = ''
     if ($table.ContainsKey($Key)) {
         $text = [string]$table[$Key]
-    } elseif ($script:ZapretUiEn.ContainsKey($Key)) {
-        $text = [string]$script:ZapretUiEn[$Key]
+    } elseif ($script:ZapmanUiEn.ContainsKey($Key)) {
+        $text = [string]$script:ZapmanUiEn[$Key]
     } else {
         $text = $Key
     }
@@ -369,7 +433,7 @@ function Get-ZapretUiString {
     return $text
 }
 
-function Enable-ZapretConsoleUtf8 {
+function Enable-ZapmanConsoleUtf8 {
     try {
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         [Console]::InputEncoding = [System.Text.Encoding]::UTF8

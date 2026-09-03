@@ -1,16 +1,16 @@
-# Zapret local module. Load by path. Do not install this module in PSModulePath.
+# Zapret Manager module. Load by path. Do not install this module in PSModulePath.
+# Engine helpers live in src/Zapret and are dotsourced here.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
 . (Join-Path $PSScriptRoot 'Core.ps1')
 . (Join-Path $PSScriptRoot 'Ui.ps1')
-. (Join-Path $PSScriptRoot 'Bypass.ps1')
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapret\Bypass.ps1')
 . (Join-Path $PSScriptRoot 'Tools.ps1')
-# Tests.ps1 loads on the first test run. Do not parse it at GUI start.
-$script:ZapretTestsLoaded = $false
+. (Join-Path $PSScriptRoot 'Tests.ps1')
 
-function Invoke-ZapretStrategyTests {
+function Invoke-ZapmanStrategyTests {
     param(
         [string]$TestType,
         [string[]]$Names,
@@ -19,24 +19,21 @@ function Invoke-ZapretStrategyTests {
         [switch]$AskType,
         [switch]$AskNames
     )
-    if (-not $script:ZapretTestsLoaded) {
-        . (Join-Path $PSScriptRoot 'Tests.ps1')
-        $script:ZapretTestsLoaded = $true
-    }
-    Invoke-ZapretStrategyTestsCore @PSBoundParameters
+    Invoke-ZapmanStrategyTestsCore @PSBoundParameters
 }
 
 Export-ModuleMember -Function @(
     'Get-ZapretLayout'
-    'Get-ZapretConfig'
-    'Get-ZapretLocalVersion'
-    'Initialize-ZapretUserLists'
-    'Test-ZapretHostReady'
+    'Get-ZapmanConfig'
+    'Get-ZapmanConfigError'
+    'Get-ZapmanLocalVersion'
+    'Initialize-ZapmanUserLists'
+    'Test-ZapmanHostReady'
     'Test-ZapretBinVersions'
-    'Show-ZapretHostReadyReport'
-    'Test-ZapretTcpTimestampsEnabled'
-    'Enable-ZapretTcpTimestamps'
-    'Enable-ZapretTls12'
+    'Show-ZapmanHostReadyReport'
+    'Test-ZapmanTcpTimestampsEnabled'
+    'Enable-ZapmanTcpTimestamps'
+    'Enable-ZapmanTls12'
     'Get-ZapretEngine'
     'Set-ZapretEngine'
     'Get-ZapretEngineExeName'
@@ -65,34 +62,35 @@ Export-ModuleMember -Function @(
     'Wait-ZapretWinws'
     'Get-ZapretWinwsCommandLine'
     'Remove-ZapretServiceRecord'
+    'Suspend-ZapretServiceForTests'
+    'Restore-ZapretServiceAfterTests'
     'Start-ZapretSelectedStrategy'
     'Start-ZapretServiceIfInstalled'
     'Install-ZapretService'
     'Remove-ZapretServices'
-    'Test-ZapretAutoUpdateEnabled'
-    'Set-ZapretAutoUpdateEnabled'
+    'Test-ZapmanAutoUpdateEnabled'
+    'Set-ZapmanAutoUpdateEnabled'
     'Get-ZapretVersionCheckUrl'
     'Get-ZapretRemoteVersion'
     'Get-ZapretReleasePageUrl'
     'Get-ZapretIpsetListUrl'
     'Get-ZapretHostsSourceUrl'
-    'Invoke-ZapretWebDownload'
+    'Invoke-ZapmanWebDownload'
     'Update-ZapretIpsetList'
     'Get-ZapretHostsUpdateInfo'
     'Open-ZapretHostsUpdate'
     'Get-ZapretFakeCatalog'
     'Get-ZapretFakeCurrentText'
     'Set-ZapretActiveFake'
-    'Start-ZapretConfigTests'
-    'Invoke-ZapretStrategyTests'
-    'Get-ZapretStatusLines'
-    'Clear-ZapretDiscordCache'
+    'Invoke-ZapmanStrategyTests'
+    'Get-ZapmanStatusLines'
+    'Clear-ZapmanDiscordCache'
     'Remove-ZapretNamedServices'
-    'Get-ZapretDiagnosticReport'
-    'Invoke-ZapretDiagnosticAction'
-    'Initialize-ZapretUiLanguage'
-    'Get-ZapretUiLanguage'
-    'Set-ZapretUiLanguage'
-    'Get-ZapretUiString'
-    'Enable-ZapretConsoleUtf8'
+    'Get-ZapmanDiagnosticReport'
+    'Invoke-ZapmanDiagnosticAction'
+    'Initialize-ZapmanUiLanguage'
+    'Get-ZapmanUiLanguage'
+    'Set-ZapmanUiLanguage'
+    'Get-ZapmanUiString'
+    'Enable-ZapmanConsoleUtf8'
 )

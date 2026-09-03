@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### Breaking
+
+- GUI: `zapret.bat` → [`zapman.bat`](zapman.bat). Продукт — **Zapret Manager**; zapret остаётся движком (служба `zapret`, `winws` / `winws2`).
+- Модуль: [`src/Zapman/Zapman.psd1`](src/Zapman/Zapman.psd1). Движок — [`src/Zapret/Bypass.ps1`](src/Zapret/Bypass.ps1) (dotsource, не отдельный Import-Module).
+- Функции обвязки: `*-Zapret*` → `*-Zapman*` (config, UI, тесты, диагностика). Winws / служба / стратегии / фильтры остаются `*-Zapret*`. Без алиасов.
+
 ### Added
 
 - WPF GUI (`zapret.bat`, [`src/gui/gui.ps1`](src/gui/gui.ps1) + [`src/gui/*.xaml`](src/gui/)): стратегии, служба, фильтры, Tools/Settings, тесты в окне.
@@ -30,9 +36,12 @@
 - Линтер: `src/utils/lint.ps1` → [`dev/lint.ps1`](dev/lint.ps1).
 - Рабочий `lists/ipset-all.txt` не в git. Заготовка — [`lists/ipset-all.default.txt`](lists/ipset-all.default.txt): нет файла — копируем, есть — оставляем.
 - Settings: «Подменить fake» → «Fake…» / «Fakes…». В окне сразу оба слота (Discord UDP и Game UDP) с текущим файлом. После записи — тот же вопрос, что у IPSet (Stop/Start или повторный запуск стратегии).
-- `zapret.bat`: просто запускает GUI. Нет `where` / `start` / Hidden. Проверки среды и SHA256 не на старте окна — ошибка при реальном сбое (нет WPF, старт движка). Вход — [`src/gui/gui-boot.ps1`](src/gui/gui-boot.ps1) → [`src/gui/gui.ps1`](src/gui/gui.ps1). UAC — `Start-Process -Verb RunAs` на `powershell.exe`. В журнале старта только этот процесс: parse / import / hide-console / build-form / shown / idle.
+- `zapret.bat`: просто запускает GUI. Нет `where` / `start` / Hidden. Проверки среды и SHA256 не на старте окна — ошибка при реальном сбое (нет WPF, старт движка). Вход — [`src/gui/gui-boot.ps1`](src/gui/gui-boot.ps1) → [`src/gui/gui.ps1`](src/gui/gui.ps1). UAC — `Start-Process -Verb RunAs` на `powershell.exe`.
 - Раскладка: GUI — [`src/gui/`](src/gui/), консоль — [`src/cli/`](src/cli/). `test zapret.ps1` → [`src/cli/test-zapret.ps1`](src/cli/test-zapret.ps1). `src/utils/` удалён, без shim.
-- GUI: `Tests.ps1` грузится при первом прогоне тестов. Статус и иконка — после первой отрисовки.
+- GUI: статус и иконка — после первой отрисовки.
+- Диалоги GUI вынесены в [`src/gui/gui-dialogs.ps1`](src/gui/gui-dialogs.ps1) (dotsource из `gui.ps1`). Статус-дамп и подсказки фильтров — ключи [`src/Zapret/Ui.ps1`](src/Zapret/Ui.ps1). Битый `config.json` даёт одну строку в статусе / `cli.bat env`, дефолты те же.
+- Тесты: служба zapret снимается без WinDivert и ставится снова после прогона. «Стратегия…»: слева **Установить службу**, справа **Запустить без установки**.
+- GUI старт: `gui-boot.ps1` сразу скрывает консоль, поднимает UAC и показывает каркас `Main.xaml`. Разбор `gui.ps1` и импорт модуля идут при уже видимом окне. Журнал старта: hide-console / shell / parse / import / build-form / shown / idle.
 
 ### Removed
 
@@ -43,6 +52,9 @@
 - `last_strategy.txt`, `game_filter.enabled`, `check_updates.enabled`, `ui_lang.txt`, `targets.txt`.
 - `src/Zapret/config.json`, `src/utils/test-results/`.
 - `src/utils/lint.ps1` (теперь [`dev/lint.ps1`](dev/lint.ps1)).
+- [`src/cli/check-env.ps1`](src/cli/check-env.ps1); `cli.bat env` по-прежнему в [`src/cli/cli.ps1`](src/cli/cli.ps1).
+- [`src/gui/DiagRun.xaml`](src/gui/DiagRun.xaml) (диагностика собирает строки в коде).
+- `Start-ZapretConfigTests` (GUI и консоль зовут `Invoke-ZapretStrategyTests` в процессе).
 
 ### Breaking
 

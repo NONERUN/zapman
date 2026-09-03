@@ -1,4 +1,4 @@
-# Project lint: Zapret 5.1/WPF checks, then PSScriptAnalyzer and Blinter if installed.
+# Project lint: Zapret Manager 5.1/WPF checks, then PSScriptAnalyzer and Blinter if installed.
 # Usage: powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 # This script re-enters -STA so XamlReader.Load can parse src\gui\*.xaml.
 # Bat files: pipx install Blinter
@@ -37,10 +37,16 @@ function Get-ZapretLintFiles {
             [void]$found.Add($item)
         }
     }
-    foreach ($item in @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'src\Zapret') -File | Where-Object {
-        $_.Extension -in @('.ps1', '.psm1', '.psd1')
-    })) {
-        [void]$found.Add($item)
+    foreach ($modDir in @('src\Zapman', 'src\Zapret')) {
+        $full = Join-Path $RepoRoot $modDir
+        if (-not (Test-Path -LiteralPath $full)) {
+            continue
+        }
+        foreach ($item in @(Get-ChildItem -LiteralPath $full -File | Where-Object {
+            $_.Extension -in @('.ps1', '.psm1', '.psd1')
+        })) {
+            [void]$found.Add($item)
+        }
     }
     foreach ($item in @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'strategies') -Filter '*.ps1' -File)) {
         [void]$found.Add($item)
@@ -253,7 +259,7 @@ function Test-ZapretXamlRules {
             [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretUtf8Bom' -Message 'Cyrillic in XAML must be UTF-8 with BOM.'))
         }
         if ((Test-ZapretFileHasNonAscii -Path $file.FullName) -and -not (Test-ZapretUtf8Bom -Path $file.FullName)) {
-            [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretXamlAsciiOrBom' -Message 'XAML with non-ASCII characters must be UTF-8 with BOM. Prefer ASCII and Get-ZapretUiString.'))
+            [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretXamlAsciiOrBom' -Message 'XAML with non-ASCII characters must be UTF-8 with BOM. Prefer ASCII and Get-ZapmanUiString.'))
         }
         $usesX = [regex]::IsMatch($text, '(?<!xmlns:)x:[A-Za-z]')
         if ($usesX -and ($text.IndexOf('xmlns:x=') -lt 0)) {
@@ -285,12 +291,12 @@ function Test-ZapretXamlRules {
     return @($issues)
 }
 
-function Test-ZapretBatRequiresSta {
+function Test-ZapmanBatRequiresSta {
     param([string]$RepoRoot)
     $issues = New-Object System.Collections.ArrayList
-    $batPath = Join-Path $RepoRoot 'zapret.bat'
+    $batPath = Join-Path $RepoRoot 'zapman.bat'
     if (-not (Test-Path -LiteralPath $batPath)) {
-        [void]$issues.Add((New-ZapretLintIssue -ScriptName 'zapret.bat' -Line 1 -RuleName 'ZapretBatRequiresSta' -Message 'zapret.bat is missing.'))
+        [void]$issues.Add((New-ZapretLintIssue -ScriptName 'zapman.bat' -Line 1 -RuleName 'ZapmanBatRequiresSta' -Message 'zapman.bat is missing.'))
         return @($issues)
     }
     $n = 0
@@ -305,12 +311,12 @@ function Test-ZapretBatRequiresSta {
         if ($line -match 'gui-boot\.ps1') {
             $sawLaunch = $true
             if ($line -notmatch '(?i)-STA') {
-                [void]$issues.Add((New-ZapretLintIssue -ScriptName 'zapret.bat' -Line $n -RuleName 'ZapretBatRequiresSta' -Message 'The GUI launch command must keep -STA.'))
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName 'zapman.bat' -Line $n -RuleName 'ZapmanBatRequiresSta' -Message 'The GUI launch command must keep -STA.'))
             }
         }
     }
     if (-not $sawLaunch) {
-        [void]$issues.Add((New-ZapretLintIssue -ScriptName 'zapret.bat' -Line 1 -RuleName 'ZapretBatRequiresSta' -Message 'zapret.bat must launch gui-boot.ps1 with powershell.exe -STA.'))
+        [void]$issues.Add((New-ZapretLintIssue -ScriptName 'zapman.bat' -Line 1 -RuleName 'ZapmanBatRequiresSta' -Message 'zapman.bat must launch gui-boot.ps1 with powershell.exe -STA.'))
     }
     return @($issues)
 }
@@ -331,7 +337,7 @@ $xamlFiles = @(Get-ZapretXamlFiles -RepoRoot $root)
 foreach ($item in @(Test-ZapretXamlRules -Files $xamlFiles)) {
     [void]$issues.Add($item)
 }
-foreach ($item in @(Test-ZapretBatRequiresSta -RepoRoot $root)) {
+foreach ($item in @(Test-ZapmanBatRequiresSta -RepoRoot $root)) {
     [void]$issues.Add($item)
 }
 
@@ -433,7 +439,7 @@ if ($issues.Count -eq 0) {
     if ($blinterRan) {
         $extra = $extra + ', Blinter clean'
     }
-    Write-Host ("OK: {0} files, no Zapret lint issues{1}." -f $fileCount, $extra)
+    Write-Host ("OK: {0} files, no Zapman lint issues{1}." -f $fileCount, $extra)
     exit 0
 }
 

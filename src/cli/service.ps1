@@ -1,16 +1,16 @@
-# Zapret console manager (same actions as the GUI).
+# Zapret Manager console (same actions as the GUI).
 # Start: cli.bat service
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
-Import-Module -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapret\Zapret.psd1')
+Import-Module -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapman\Zapman.psd1')
 
-Enable-ZapretConsoleUtf8
-Initialize-ZapretUiLanguage | Out-Null
+Enable-ZapmanConsoleUtf8
+Initialize-ZapmanUiLanguage | Out-Null
 
 # Keep the -File path even when this script is dot-sourced from cli.ps1.
-$script:ZapretServiceEntryPath = Join-Path $PSScriptRoot 'service.ps1'
+$script:ZapmanServiceEntryPath = Join-Path $PSScriptRoot 'service.ps1'
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -47,7 +47,7 @@ function Write-MenuItem {
 function Write-MenuSection {
     param([string]$Key)
     Write-MenuSep
-    Write-Host ("  {0}" -f (Get-ZapretUiString -Key $Key))
+    Write-Host ("  {0}" -f (Get-ZapmanUiString -Key $Key))
 }
 
 function Read-YesNo {
@@ -72,12 +72,12 @@ function Read-YesNo {
 function Select-ZapretStrategyFile {
     $files = @(Get-ZapretStrategyFiles)
     if ($files.Count -eq 0) {
-        Write-Bad (Get-ZapretUiString -Key 'NoStrategies')
+        Write-Bad (Get-ZapmanUiString -Key 'NoStrategies')
         Wait-Pause
         return $null
     }
     $engine = Get-ZapretEngine
-    Write-Host (Get-ZapretUiString -Key 'PickStrategy')
+    Write-Host (Get-ZapmanUiString -Key 'PickStrategy')
     for ($i = 0; $i -lt $files.Count; $i++) {
         $ok = Test-ZapretStrategySupportsEngine -Path $files[$i].FullName -Engine $engine
         $line = "  {0}. {1}" -f ($i + 1), $files[$i].BaseName
@@ -87,14 +87,14 @@ function Select-ZapretStrategyFile {
             Write-Host $line -ForegroundColor DarkGray
         }
     }
-    Write-Host ("  {0}" -f (Get-ZapretUiString -Key 'CancelItem'))
+    Write-Host ("  {0}" -f (Get-ZapmanUiString -Key 'CancelItem'))
     $choice = Read-Host 'Input option'
     if ($choice -eq '0' -or [string]::IsNullOrWhiteSpace($choice)) {
         return $null
     }
     $idx = 0
     if (-not [int]::TryParse($choice, [ref]$idx) -or $idx -lt 1 -or $idx -gt $files.Count) {
-        Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
+        Write-Bad (Get-ZapmanUiString -Key 'InvalidChoice')
         Wait-Pause
         return $null
     }
@@ -118,13 +118,13 @@ function Invoke-StrategyRun {
         }
     }
     if ($busy) {
-        if (-not (Read-YesNo -Prompt (Get-ZapretUiString -Key 'ConfirmRunOver') -DefaultYes $false)) {
+        if (-not (Read-YesNo -Prompt (Get-ZapmanUiString -Key 'ConfirmRunOver') -DefaultYes $false)) {
             return
         }
     }
     try {
         Start-ZapretSelectedStrategy -File $file
-        Write-Ok (Get-ZapretUiString -Key 'RunDone' -FormatArgs @($file.BaseName))
+        Write-Ok (Get-ZapmanUiString -Key 'RunDone' -FormatArgs @($file.BaseName))
     } catch {
         Write-Bad $_.Exception.Message
     }
@@ -138,7 +138,7 @@ function Invoke-StrategyInstall {
     }
     try {
         Install-ZapretService -File $file
-        Write-Ok (Get-ZapretUiString -Key 'InstallDone' -FormatArgs @($file.BaseName))
+        Write-Ok (Get-ZapmanUiString -Key 'InstallDone' -FormatArgs @($file.BaseName))
     } catch {
         Write-Bad $_.Exception.Message
     }
@@ -146,20 +146,22 @@ function Invoke-StrategyInstall {
 }
 
 function Invoke-StrategyTests {
-    if (Get-ZapretService) {
-        Write-Host (Get-ZapretUiString -Key 'TestsNeedNoService')
-        try {
-            Remove-ZapretServices
-            Write-Ok (Get-ZapretUiString -Key 'RemoveDone')
-        } catch {
-            Write-Bad $_.Exception.Message
-            Wait-Pause
-            return
-        }
-    }
     try {
-        Invoke-ZapretStrategyTests -AskType -AskNames
-        Write-Host (Get-ZapretUiString -Key 'TestsTitle')
+        $snap = $null
+        if (Get-ZapretService) {
+            Write-Host (Get-ZapmanUiString -Key 'TestsNeedNoService')
+            $snap = Suspend-ZapretServiceForTests
+            Write-Ok (Get-ZapmanUiString -Key 'RemoveDone')
+        }
+        try {
+            Invoke-ZapmanStrategyTests -AskType -AskNames
+            Write-Host (Get-ZapmanUiString -Key 'TestsTitle')
+        } finally {
+            if ($snap -and $snap.File) {
+                Restore-ZapretServiceAfterTests -Snapshot $snap
+                Write-Ok (Get-ZapmanUiString -Key 'InstallDone' -FormatArgs @($snap.File.BaseName))
+            }
+        }
     } catch {
         Write-Bad $_.Exception.Message
     }
@@ -169,26 +171,26 @@ function Invoke-StrategyTests {
 function Invoke-StrategyMenu {
     $files = @(Get-ZapretStrategyFiles)
     if ($files.Count -eq 0) {
-        Write-Bad (Get-ZapretUiString -Key 'NoStrategies')
+        Write-Bad (Get-ZapmanUiString -Key 'NoStrategies')
         Wait-Pause
         return
     }
     while ($true) {
         Clear-Host
         $engine = Get-ZapretEngine
-        Write-Host ("  {0}" -f (Get-ZapretUiString -Key 'StratTitle'))
+        Write-Host ("  {0}" -f (Get-ZapmanUiString -Key 'StratTitle'))
         Write-Host '  ----------------------------------------'
-        Write-Host ("     {0}: {1}" -f (Get-ZapretUiString -Key 'LblEngine'), $engine)
-        Write-Host ("     1. {0}" -f (Get-ZapretUiString -Key 'BtnRunSelected'))
-        Write-Host ("     2. {0}" -f (Get-ZapretUiString -Key 'BtnInstall'))
-        Write-Host ("     3. {0}" -f (Get-ZapretUiString -Key 'BtnTests'))
+        Write-Host ("     {0}: {1}" -f (Get-ZapmanUiString -Key 'LblEngine'), $engine)
+        Write-Host ("     1. {0}" -f (Get-ZapmanUiString -Key 'BtnInstall'))
+        Write-Host ("     2. {0}" -f (Get-ZapmanUiString -Key 'BtnRunSelected'))
+        Write-Host ("     3. {0}" -f (Get-ZapmanUiString -Key 'BtnTests'))
         Write-Host '     4. winws'
         Write-Host '     5. winws2'
-        Write-Host ("     0. {0}" -f (Get-ZapretUiString -Key 'BtnCancel'))
+        Write-Host ("     0. {0}" -f (Get-ZapmanUiString -Key 'BtnCancel'))
         $choice = Read-Host '  Select option (0-5)'
         switch ($choice) {
-            '1' { Invoke-StrategyRun; return }
-            '2' { Invoke-StrategyInstall; return }
+            '1' { Invoke-StrategyInstall; return }
+            '2' { Invoke-StrategyRun; return }
             '3' { Invoke-StrategyTests; return }
             '4' { Set-ZapretEngine -Engine 'winws' | Out-Null }
             '5' { Set-ZapretEngine -Engine 'winws2' | Out-Null }
@@ -202,7 +204,7 @@ function Invoke-StrategyMenu {
 
 function Invoke-StartService {
     if (-not (Get-ZapretService)) {
-        Write-Warn (Get-ZapretUiString -Key 'BannerNoService')
+        Write-Warn (Get-ZapmanUiString -Key 'BannerNoService')
         Wait-Pause
         return
     }
@@ -210,9 +212,9 @@ function Invoke-StartService {
         Start-ZapretServiceIfInstalled
         $name = Get-ZapretInstalledStrategyName
         if ($name) {
-            Write-Ok (Get-ZapretUiString -Key 'StartDoneName' -FormatArgs @($name))
+            Write-Ok (Get-ZapmanUiString -Key 'StartDoneName' -FormatArgs @($name))
         } else {
-            Write-Ok (Get-ZapretUiString -Key 'StartDone')
+            Write-Ok (Get-ZapmanUiString -Key 'StartDone')
         }
     } catch {
         Write-Bad $_.Exception.Message
@@ -223,7 +225,7 @@ function Invoke-StartService {
 function Invoke-Stop {
     try {
         Stop-ZapretBypass
-        Write-Ok (Get-ZapretUiString -Key 'StopDone')
+        Write-Ok (Get-ZapmanUiString -Key 'StopDone')
     } catch {
         Write-Bad $_.Exception.Message
     }
@@ -233,7 +235,7 @@ function Invoke-Stop {
 function Invoke-RemoveServices {
     try {
         Remove-ZapretServices
-        Write-Ok (Get-ZapretUiString -Key 'RemoveDone')
+        Write-Ok (Get-ZapmanUiString -Key 'RemoveDone')
     } catch {
         Write-Bad $_.Exception.Message
     }
@@ -241,7 +243,7 @@ function Invoke-RemoveServices {
 }
 
 function Invoke-CheckStatus {
-    foreach ($line in @(Get-ZapretStatusLines)) {
+    foreach ($line in @(Get-ZapmanStatusLines)) {
         if ($line -like '*NOT found*' -or $line -like '*is NOT running*') {
             Write-Bad $line
         } elseif ($line -like '*RUNNING*') {
@@ -256,7 +258,7 @@ function Invoke-CheckStatus {
 # Settings: Game Filter, IPSet, Auto-Update Check, fakes.
 
 function Invoke-GameFilterMenu {
-    Write-Host (Get-ZapretUiString -Key 'MenuGame')
+    Write-Host (Get-ZapmanUiString -Key 'MenuGame')
     Write-Host '  0. disabled'
     Write-Host '  1. all'
     Write-Host '  2. tcp'
@@ -272,27 +274,27 @@ function Invoke-GameFilterMenu {
         '2' { $mode = 'tcp' }
         '3' { $mode = 'udp' }
         default {
-            Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
+            Write-Bad (Get-ZapmanUiString -Key 'InvalidChoice')
             Wait-Pause
             return
         }
     }
     Set-ZapretGameFilterMode -Mode $mode
     if (Get-ZapretService) {
-        Write-Warn (Get-ZapretUiString -Key 'FilterNeedInstall')
+        Write-Warn (Get-ZapmanUiString -Key 'FilterNeedInstall')
     } else {
-        Write-Warn (Get-ZapretUiString -Key 'FilterNeedRerun')
+        Write-Warn (Get-ZapmanUiString -Key 'FilterNeedRerun')
     }
     Wait-Pause
 }
 
 function Invoke-IpsetMenu {
-    Write-Host (Get-ZapretUiString -Key 'MenuIpset')
+    Write-Host (Get-ZapmanUiString -Key 'MenuIpset')
     Write-Host ("  Current: {0}" -f (Get-ZapretIpsetStatus))
     Write-Host '  1. none'
     Write-Host '  2. loaded'
     Write-Host '  3. any'
-    Write-Host ("  {0}" -f (Get-ZapretUiString -Key 'CancelItem'))
+    Write-Host ("  {0}" -f (Get-ZapmanUiString -Key 'CancelItem'))
     $c = Read-Host 'Select option (1-3)'
     $mode = $null
     switch ($c) {
@@ -304,18 +306,18 @@ function Invoke-IpsetMenu {
             if ([string]::IsNullOrWhiteSpace($c)) {
                 return
             }
-            Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
+            Write-Bad (Get-ZapmanUiString -Key 'InvalidChoice')
             Wait-Pause
             return
         }
     }
     try {
         Set-ZapretIpsetMode -Mode $mode
-        Write-Host (Get-ZapretUiString -Key 'IpsetNow' -FormatArgs @($mode))
+        Write-Host (Get-ZapmanUiString -Key 'IpsetNow' -FormatArgs @($mode))
         if (Get-ZapretService) {
-            Write-Warn (Get-ZapretUiString -Key 'FilterNeedRestart')
+            Write-Warn (Get-ZapmanUiString -Key 'FilterNeedRestart')
         } else {
-            Write-Warn (Get-ZapretUiString -Key 'FilterNeedRerun')
+            Write-Warn (Get-ZapmanUiString -Key 'FilterNeedRerun')
         }
     } catch {
         Write-Bad $_.Exception.Message
@@ -324,12 +326,12 @@ function Invoke-IpsetMenu {
 }
 
 function Invoke-AutoUpdateToggle {
-    $on = -not (Test-ZapretAutoUpdateEnabled)
-    Set-ZapretAutoUpdateEnabled -Enabled $on
+    $on = -not (Test-ZapmanAutoUpdateEnabled)
+    Set-ZapmanAutoUpdateEnabled -Enabled $on
     if ($on) {
-        Write-Host (Get-ZapretUiString -Key 'AutoOn')
+        Write-Host (Get-ZapmanUiString -Key 'AutoOn')
     } else {
-        Write-Host (Get-ZapretUiString -Key 'AutoOff')
+        Write-Host (Get-ZapmanUiString -Key 'AutoOff')
     }
     Wait-Pause
 }
@@ -340,15 +342,15 @@ function Invoke-CheckVersion {
     try {
         $remote = Get-ZapretRemoteVersion
     } catch {
-        Write-Warn (Get-ZapretUiString -Key 'VersionFail')
+        Write-Warn (Get-ZapmanUiString -Key 'VersionFail')
         Wait-Pause
         return
     }
-    $local = Get-ZapretLocalVersion
+    $local = Get-ZapmanLocalVersion
     if ($remote -eq $local) {
-        Write-Ok (Get-ZapretUiString -Key 'VersionLatest' -FormatArgs @($local))
+        Write-Ok (Get-ZapmanUiString -Key 'VersionLatest' -FormatArgs @($local))
     } else {
-        $ask = Get-ZapretUiString -Key 'VersionNew' -FormatArgs @($remote)
+        $ask = Get-ZapmanUiString -Key 'VersionNew' -FormatArgs @($remote)
         if (Read-YesNo -Prompt $ask -DefaultYes $false) {
             Start-Process (Get-ZapretReleasePageUrl)
         }
@@ -357,10 +359,10 @@ function Invoke-CheckVersion {
 }
 
 function Invoke-UpdateIpset {
-    Write-Host (Get-ZapretUiString -Key 'IpsetTitle')
+    Write-Host (Get-ZapmanUiString -Key 'IpsetTitle')
     try {
         Update-ZapretIpsetList
-        Write-Ok (Get-ZapretUiString -Key 'IpsetOk')
+        Write-Ok (Get-ZapmanUiString -Key 'IpsetOk')
     } catch {
         Write-Bad $_.Exception.Message
     }
@@ -371,22 +373,22 @@ function Invoke-CompareHosts {
     try {
         $info = Get-ZapretHostsUpdateInfo
     } catch {
-        Write-Bad (Get-ZapretUiString -Key 'HostsFail')
+        Write-Bad (Get-ZapmanUiString -Key 'HostsFail')
         Wait-Pause
         return
     }
     if ($info.NeedsUpdate) {
-        Write-Warn (Get-ZapretUiString -Key 'HostsNeed')
+        Write-Warn (Get-ZapmanUiString -Key 'HostsNeed')
         Open-ZapretHostsUpdate -Info $info
     } else {
-        Write-Ok (Get-ZapretUiString -Key 'HostsOk')
+        Write-Ok (Get-ZapmanUiString -Key 'HostsOk')
         Remove-Item -LiteralPath $info.TempFile -Force -ErrorAction SilentlyContinue
     }
     Wait-Pause
 }
 
 function Invoke-Diagnostics {
-    $report = Get-ZapretDiagnosticReport
+    $report = Get-ZapmanDiagnosticReport
     foreach ($item in @($report.Items)) {
         $mark = '[OK]'
         if ($item.Status -eq 'fail') {
@@ -410,14 +412,14 @@ function Invoke-Diagnostics {
         $ask = $item.Text
         $yes = ($item.Action -eq 'discord-cache')
         if ($item.Action -eq 'remove-services') {
-            $ask = Get-ZapretUiString -Key 'DiagConflicts'
+            $ask = Get-ZapmanUiString -Key 'DiagConflicts'
         } elseif ($item.Action -eq 'discord-cache') {
-            $ask = Get-ZapretUiString -Key 'DiagCache'
+            $ask = Get-ZapmanUiString -Key 'DiagCache'
         }
         if (-not (Read-YesNo -Prompt $ask -DefaultYes $yes)) {
             continue
         }
-        foreach ($msg in @(Invoke-ZapretDiagnosticAction -Action ([string]$item.Action) -Names @($item.ActionNames))) {
+        foreach ($msg in @(Invoke-ZapmanDiagnosticAction -Action ([string]$item.Action) -Names @($item.ActionNames))) {
             if ($msg -like 'OK:*') {
                 Write-Ok $msg
             } elseif ($msg -like 'FAIL:*') {
@@ -427,7 +429,7 @@ function Invoke-Diagnostics {
             }
         }
     }
-    Write-Host (Get-ZapretUiString -Key 'DiagDone')
+    Write-Host (Get-ZapmanUiString -Key 'DiagDone')
     Wait-Pause
 }
 
@@ -436,13 +438,13 @@ function Read-FakeSlotFileIndex {
         [string]$SlotLabel,
         [int]$FileCount
     )
-    $raw = Read-Host (Get-ZapretUiString -Key 'FakesPick' -FormatArgs @($SlotLabel))
+    $raw = Read-Host (Get-ZapmanUiString -Key 'FakesPick' -FormatArgs @($SlotLabel))
     if ([string]::IsNullOrWhiteSpace($raw) -or $raw -eq '0') {
         return 0
     }
     $idx = 0
     if (-not [int]::TryParse($raw.Trim(), [ref]$idx) -or $idx -lt 1 -or $idx -gt $FileCount) {
-        Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
+        Write-Bad (Get-ZapmanUiString -Key 'InvalidChoice')
         return $null
     }
     return $idx
@@ -458,13 +460,13 @@ function Invoke-ReplaceFakes {
     }
     $files = @($catalog.Files)
     if ($files.Count -eq 0) {
-        Write-Bad (Get-ZapretUiString -Key 'FakesNone')
+        Write-Bad (Get-ZapmanUiString -Key 'FakesNone')
         Wait-Pause
         return
     }
-    $discordLabel = Get-ZapretUiString -Key 'FakesDiscord'
-    $gameLabel = Get-ZapretUiString -Key 'FakesGame'
-    Write-Host (Get-ZapretUiString -Key 'FakesTitle')
+    $discordLabel = Get-ZapmanUiString -Key 'FakesDiscord'
+    $gameLabel = Get-ZapmanUiString -Key 'FakesGame'
+    Write-Host (Get-ZapmanUiString -Key 'FakesTitle')
     Write-Host ("  {0}: {1}" -f $discordLabel, (Get-ZapretFakeCurrentText -Name ([string]$catalog.CurrentDiscord) -State ([string]$catalog.DiscordState)))
     Write-Host ("  {0}: {1}" -f $gameLabel, (Get-ZapretFakeCurrentText -Name ([string]$catalog.CurrentGame) -State ([string]$catalog.GameState)))
     for ($i = 0; $i -lt $files.Count; $i++) {
@@ -497,7 +499,7 @@ function Invoke-ReplaceFakes {
     foreach ($item in @($picks)) {
         try {
             Set-ZapretActiveFake -Slot $item.Slot -SourcePath $item.File.FullName
-            Write-Ok (Get-ZapretUiString -Key 'FakeDone' -FormatArgs @($item.Slot, $item.File.Name))
+            Write-Ok (Get-ZapmanUiString -Key 'FakeDone' -FormatArgs @($item.Slot, $item.File.Name))
             $applied++
         } catch {
             Write-Bad $_.Exception.Message
@@ -505,20 +507,20 @@ function Invoke-ReplaceFakes {
     }
     if ($applied -gt 0) {
         if (Get-ZapretService) {
-            Write-Warn (Get-ZapretUiString -Key 'FakeNeedRestart')
+            Write-Warn (Get-ZapmanUiString -Key 'FakeNeedRestart')
         } else {
-            Write-Warn (Get-ZapretUiString -Key 'FakeNeedRerun')
+            Write-Warn (Get-ZapmanUiString -Key 'FakeNeedRerun')
         }
     }
     Wait-Pause
 }
 
-function Invoke-ZapretServiceMenu {
+function Invoke-ZapmanServiceMenu {
     while ($true) {
         $gf = Get-ZapretGameFilter
         $ipset = Get-ZapretIpsetStatus
         $upd = 'off'
-        if (Test-ZapretAutoUpdateEnabled) {
+        if (Test-ZapmanAutoUpdateEnabled) {
             $upd = 'on'
         }
         $installed = Get-ZapretInstalledStrategyName
@@ -529,47 +531,47 @@ function Invoke-ZapretServiceMenu {
             $svcRunning = $true
         }
         Clear-Host
-        Write-Host ("  {0}" -f (Get-ZapretUiString -Key 'AppTitle' -FormatArgs @(Get-ZapretLocalVersion)))
+        Write-Host ("  {0}" -f (Get-ZapmanUiString -Key 'AppTitle' -FormatArgs @(Get-ZapmanLocalVersion)))
         Write-MenuSection -Key 'GrpStatus'
         if (Test-ZapretBypassRunning) {
-            Write-Host ("    {0}" -f (Get-ZapretUiString -Key 'StatusBypassOn' -FormatArgs @(Get-ZapretStatusBypassName)))
+            Write-Host ("    {0}" -f (Get-ZapmanUiString -Key 'StatusBypassOn' -FormatArgs @(Get-ZapretStatusBypassName)))
         } else {
-            Write-Host ("    {0}" -f (Get-ZapretUiString -Key 'StatusBypassOff'))
+            Write-Host ("    {0}" -f (Get-ZapmanUiString -Key 'StatusBypassOff'))
         }
         if ($svc) {
-            Write-Host ("    {0}" -f (Get-ZapretUiString -Key 'StatusServiceOn' -FormatArgs @($svc.Status)))
+            Write-Host ("    {0}" -f (Get-ZapmanUiString -Key 'StatusServiceOn' -FormatArgs @($svc.Status)))
         } else {
-            Write-Host ("    {0}" -f (Get-ZapretUiString -Key 'StatusServiceOff'))
+            Write-Host ("    {0}" -f (Get-ZapmanUiString -Key 'StatusServiceOff'))
         }
         if ($runningName) {
             if ($svcRunning) {
-                Write-Host ("    {0}" -f (Get-ZapretUiString -Key 'StatusStrategy' -FormatArgs @($runningName)))
+                Write-Host ("    {0}" -f (Get-ZapmanUiString -Key 'StatusStrategy' -FormatArgs @($runningName)))
             } else {
-                Write-Host ("    {0}" -f (Get-ZapretUiString -Key 'StatusStrategyRun' -FormatArgs @($runningName)))
+                Write-Host ("    {0}" -f (Get-ZapmanUiString -Key 'StatusStrategyRun' -FormatArgs @($runningName)))
             }
         } elseif ($installed) {
-            Write-Host ("    {0}" -f (Get-ZapretUiString -Key 'StatusStrategy' -FormatArgs @($installed)))
+            Write-Host ("    {0}" -f (Get-ZapmanUiString -Key 'StatusStrategy' -FormatArgs @($installed)))
         } else {
-            Write-Host ("    {0}" -f (Get-ZapretUiString -Key 'StatusStrategyNone'))
+            Write-Host ("    {0}" -f (Get-ZapmanUiString -Key 'StatusStrategyNone'))
         }
         Write-MenuSep
-        Write-MenuItem -Number '1' -Text (Get-ZapretUiString -Key 'MenuStrategy')
-        Write-MenuItem -Number '2' -Text (Get-ZapretUiString -Key 'MenuStart')
-        Write-MenuItem -Number '3' -Text (Get-ZapretUiString -Key 'MenuStop')
-        Write-MenuItem -Number '4' -Text (Get-ZapretUiString -Key 'MenuRemove')
-        Write-MenuItem -Number '5' -Text (Get-ZapretUiString -Key 'MenuStatus')
+        Write-MenuItem -Number '1' -Text (Get-ZapmanUiString -Key 'MenuStrategy')
+        Write-MenuItem -Number '2' -Text (Get-ZapmanUiString -Key 'MenuStart')
+        Write-MenuItem -Number '3' -Text (Get-ZapmanUiString -Key 'MenuStop')
+        Write-MenuItem -Number '4' -Text (Get-ZapmanUiString -Key 'MenuRemove')
+        Write-MenuItem -Number '5' -Text (Get-ZapmanUiString -Key 'MenuStatus')
         Write-MenuSection -Key 'GrpSettings'
-        Write-MenuItem -Number '6' -Text (Get-ZapretUiString -Key 'MenuGame') -Tag $gf.Status
-        Write-MenuItem -Number '7' -Text (Get-ZapretUiString -Key 'MenuIpset') -Tag $ipset
-        Write-MenuItem -Number '8' -Text (Get-ZapretUiString -Key 'MenuAuto') -Tag $upd
-        Write-MenuItem -Number '9' -Text (Get-ZapretUiString -Key 'MenuFakes')
+        Write-MenuItem -Number '6' -Text (Get-ZapmanUiString -Key 'MenuGame') -Tag $gf.Status
+        Write-MenuItem -Number '7' -Text (Get-ZapmanUiString -Key 'MenuIpset') -Tag $ipset
+        Write-MenuItem -Number '8' -Text (Get-ZapmanUiString -Key 'MenuAuto') -Tag $upd
+        Write-MenuItem -Number '9' -Text (Get-ZapmanUiString -Key 'MenuFakes')
         Write-MenuSection -Key 'GrpTools'
-        Write-MenuItem -Number '10' -Text (Get-ZapretUiString -Key 'MenuIpsetDl')
-        Write-MenuItem -Number '11' -Text (Get-ZapretUiString -Key 'MenuHosts')
-        Write-MenuItem -Number '12' -Text (Get-ZapretUiString -Key 'MenuVersion')
-        Write-MenuItem -Number '13' -Text (Get-ZapretUiString -Key 'MenuDiag')
+        Write-MenuItem -Number '10' -Text (Get-ZapmanUiString -Key 'MenuIpsetDl')
+        Write-MenuItem -Number '11' -Text (Get-ZapmanUiString -Key 'MenuHosts')
+        Write-MenuItem -Number '12' -Text (Get-ZapmanUiString -Key 'MenuVersion')
+        Write-MenuItem -Number '13' -Text (Get-ZapmanUiString -Key 'MenuDiag')
         Write-MenuSep
-        Write-MenuItem -Number '0' -Text (Get-ZapretUiString -Key 'MenuExit')
+        Write-MenuItem -Number '0' -Text (Get-ZapmanUiString -Key 'MenuExit')
         $choice = Read-Host '  Select option (0-13)'
         switch ($choice) {
             '1' { Invoke-StrategyMenu }
@@ -591,26 +593,26 @@ function Invoke-ZapretServiceMenu {
     }
 }
 
-function Start-ZapretServiceConsole {
+function Start-ZapmanServiceConsole {
     if (-not (Test-IsAdministrator)) {
-        $argList = "-NoProfile -NoLogo -ExecutionPolicy Bypass -File `"$script:ZapretServiceEntryPath`""
+        $argList = "-NoProfile -NoLogo -ExecutionPolicy Bypass -File `"$script:ZapmanServiceEntryPath`""
         try {
             Start-Process -FilePath 'powershell.exe' -ArgumentList $argList -Verb RunAs | Out-Null
         } catch {
-            Write-Host (Get-ZapretUiString -Key 'AdminRequired') -ForegroundColor Red
+            Write-Host (Get-ZapmanUiString -Key 'AdminRequired') -ForegroundColor Red
             return 1
         }
         return 0
     }
 
-    Initialize-ZapretUserLists
-    Enable-ZapretTcpTimestamps
-    return (Invoke-ZapretServiceMenu)
+    Initialize-ZapmanUserLists
+    Enable-ZapmanTcpTimestamps
+    return (Invoke-ZapmanServiceMenu)
 }
 
 if ($MyInvocation.InvocationName -eq '.') {
     return
 }
 
-exit (Start-ZapretServiceConsole)
+exit (Start-ZapmanServiceConsole)
 

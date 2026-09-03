@@ -1,39 +1,44 @@
-# Zapret module: roots, version, user lists, TLS, TCP timestamps.
+# Zapret Manager: roots, version, user lists, TLS, TCP timestamps.
 
 Set-StrictMode -Version Latest
 
-$script:ZapretLocalVersion = '1.10.2'
-# This file is in src\Zapret. The package root is two levels up.
-$script:ZapretRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$script:ZapretCliDir = Join-Path $script:ZapretRoot 'src\cli'
-$script:ZapretGuiDir = Join-Path $script:ZapretRoot 'src\gui'
-$script:ZapretBinDir = Join-Path $script:ZapretRoot 'bin'
-$script:ZapretListsDir = Join-Path $script:ZapretRoot 'lists'
-$script:ZapretStrategiesDir = Join-Path $script:ZapretRoot 'strategies'
-$script:ZapretConfigPath = Join-Path $script:ZapretRoot 'config.json'
-$script:ZapretResultsDir = Join-Path $script:ZapretRoot 'test-results'
+$script:ZapmanLocalVersion = '1.10.2'
+# This file is in src\Zapman. The package root is two levels up.
+$script:ZapmanRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$script:ZapmanCliDir = Join-Path $script:ZapmanRoot 'src\cli'
+$script:ZapmanGuiDir = Join-Path $script:ZapmanRoot 'src\gui'
+$script:ZapmanBinDir = Join-Path $script:ZapmanRoot 'bin'
+$script:ZapmanListsDir = Join-Path $script:ZapmanRoot 'lists'
+$script:ZapmanStrategiesDir = Join-Path $script:ZapmanRoot 'strategies'
+$script:ZapmanConfigPath = Join-Path $script:ZapmanRoot 'config.json'
+$script:ZapmanResultsDir = Join-Path $script:ZapmanRoot 'test-results'
 
 function Get-ZapretLayout {
     return New-Object PSObject -Property @{
-        Root       = $script:ZapretRoot
-        Bin        = $script:ZapretBinDir
-        Lists      = $script:ZapretListsDir
-        Cli        = $script:ZapretCliDir
-        Gui        = $script:ZapretGuiDir
-        Strategies = $script:ZapretStrategiesDir
-        Config     = $script:ZapretConfigPath
-        Results    = $script:ZapretResultsDir
-        Versions   = (Join-Path $script:ZapretBinDir 'versions.json')
+        Root       = $script:ZapmanRoot
+        Bin        = $script:ZapmanBinDir
+        Lists      = $script:ZapmanListsDir
+        Cli        = $script:ZapmanCliDir
+        Gui        = $script:ZapmanGuiDir
+        Strategies = $script:ZapmanStrategiesDir
+        Config     = $script:ZapmanConfigPath
+        Results    = $script:ZapmanResultsDir
+        Versions   = (Join-Path $script:ZapmanBinDir 'versions.json')
         Module     = $PSScriptRoot
-        Version    = $script:ZapretLocalVersion
+        Version    = $script:ZapmanLocalVersion
     }
 }
 
-function Get-ZapretConfigPath {
-    return $script:ZapretConfigPath
+function Get-ZapmanConfigPath {
+    return $script:ZapmanConfigPath
 }
 
-function New-ZapretConfigDefaults {
+function Get-ZapmanConfigError {
+    [void](Get-ZapmanConfig)
+    return [string]$script:ZapmanConfigError
+}
+
+function New-ZapmanConfigDefaults {
     return New-Object PSObject -Property @{
         language         = ''
         engine           = 'winws'
@@ -61,32 +66,36 @@ function New-ZapretConfigDefaults {
     }
 }
 
-$script:ZapretConfigCache = $null
-$script:ZapretConfigCacheMtime = $null
+$script:ZapmanConfigCache = $null
+$script:ZapmanConfigCacheMtime = $null
+$script:ZapmanConfigError = ''
 
-function Get-ZapretConfig {
-    $path = $script:ZapretConfigPath
+function Get-ZapmanConfig {
+    $path = $script:ZapmanConfigPath
     $mtime = [int64]0
     if (Test-Path -LiteralPath $path) {
         $mtime = (Get-Item -LiteralPath $path).LastWriteTimeUtc.Ticks
     }
-    if ($script:ZapretConfigCache -and $script:ZapretConfigCacheMtime -eq $mtime) {
-        return $script:ZapretConfigCache
+    if ($script:ZapmanConfigCache -and $script:ZapmanConfigCacheMtime -eq $mtime) {
+        return $script:ZapmanConfigCache
     }
-    $cfg = New-ZapretConfigDefaults
+    $cfg = New-ZapmanConfigDefaults
     if (-not (Test-Path -LiteralPath $path)) {
-        $script:ZapretConfigCache = $cfg
-        $script:ZapretConfigCacheMtime = $mtime
+        $script:ZapmanConfigError = ''
+        $script:ZapmanConfigCache = $cfg
+        $script:ZapmanConfigCacheMtime = $mtime
         return $cfg
     }
     try {
         $raw = [System.IO.File]::ReadAllText($path)
         $parsed = $raw | ConvertFrom-Json
     } catch {
-        $script:ZapretConfigCache = $cfg
-        $script:ZapretConfigCacheMtime = $mtime
+        $script:ZapmanConfigError = Get-ZapmanUiString -Key 'ConfigParseFail'
+        $script:ZapmanConfigCache = $cfg
+        $script:ZapmanConfigCacheMtime = $mtime
         return $cfg
     }
+    $script:ZapmanConfigError = ''
     if ($parsed.PSObject.Properties['language']) {
         $cfg.language = [string]$parsed.language
     }
@@ -111,12 +120,12 @@ function Get-ZapretConfig {
             $cfg.testTargets = @($items)
         }
     }
-    $script:ZapretConfigCache = $cfg
-    $script:ZapretConfigCacheMtime = $mtime
+    $script:ZapmanConfigCache = $cfg
+    $script:ZapmanConfigCacheMtime = $mtime
     return $cfg
 }
 
-function Save-ZapretConfig {
+function Save-ZapmanConfig {
     param($Config)
     $payload = New-Object PSObject -Property @{
         language        = [string]$Config.language
@@ -127,21 +136,22 @@ function Save-ZapretConfig {
     }
     $json = $payload | ConvertTo-Json -Depth 6
     $utf8 = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText($script:ZapretConfigPath, $json, $utf8)
-    $script:ZapretConfigCache = $Config
-    if (Test-Path -LiteralPath $script:ZapretConfigPath) {
-        $script:ZapretConfigCacheMtime = (Get-Item -LiteralPath $script:ZapretConfigPath).LastWriteTimeUtc.Ticks
+    [System.IO.File]::WriteAllText($script:ZapmanConfigPath, $json, $utf8)
+    $script:ZapmanConfigCache = $Config
+    $script:ZapmanConfigError = ''
+    if (Test-Path -LiteralPath $script:ZapmanConfigPath) {
+        $script:ZapmanConfigCacheMtime = (Get-Item -LiteralPath $script:ZapmanConfigPath).LastWriteTimeUtc.Ticks
     }
 }
 
-function Update-ZapretConfig {
+function Update-ZapmanConfig {
     param(
         [string]$Language,
         [string]$Engine,
         [string]$GameFilter,
         [object]$AutoUpdateCheck
     )
-    $cfg = Get-ZapretConfig
+    $cfg = Get-ZapmanConfig
     if ($PSBoundParameters.ContainsKey('Language')) {
         $cfg.language = $Language
     }
@@ -158,12 +168,12 @@ function Update-ZapretConfig {
     if ($PSBoundParameters.ContainsKey('AutoUpdateCheck')) {
         $cfg.autoUpdateCheck = [bool]$AutoUpdateCheck
     }
-    Save-ZapretConfig -Config $cfg
+    Save-ZapmanConfig -Config $cfg
     return $cfg
 }
 
 function Get-ZapretEngine {
-    $cfg = Get-ZapretConfig
+    $cfg = Get-ZapmanConfig
     if ([string]$cfg.engine -eq 'winws2') {
         return 'winws2'
     }
@@ -176,33 +186,33 @@ function Set-ZapretEngine {
     if ($Engine -eq 'winws2') {
         $value = 'winws2'
     }
-    [void](Update-ZapretConfig -Engine $value)
+    [void](Update-ZapmanConfig -Engine $value)
     return $value
 }
 
-function Get-ZapretLocalVersion {
-    return $script:ZapretLocalVersion
+function Get-ZapmanLocalVersion {
+    return $script:ZapmanLocalVersion
 }
 
-function Initialize-ZapretUserLists {
-    if (-not (Test-Path -LiteralPath $script:ZapretListsDir)) {
-        New-Item -ItemType Directory -Path $script:ZapretListsDir | Out-Null
+function Initialize-ZapmanUserLists {
+    if (-not (Test-Path -LiteralPath $script:ZapmanListsDir)) {
+        New-Item -ItemType Directory -Path $script:ZapmanListsDir | Out-Null
     }
-    $ipsetExcludeUser = Join-Path $script:ZapretListsDir 'ipset-exclude-user.txt'
+    $ipsetExcludeUser = Join-Path $script:ZapmanListsDir 'ipset-exclude-user.txt'
     if (-not (Test-Path -LiteralPath $ipsetExcludeUser)) {
         Set-Content -LiteralPath $ipsetExcludeUser -Value '203.0.113.113/32' -Encoding ASCII
     }
-    $listGeneralUser = Join-Path $script:ZapretListsDir 'list-general-user.txt'
+    $listGeneralUser = Join-Path $script:ZapmanListsDir 'list-general-user.txt'
     if (-not (Test-Path -LiteralPath $listGeneralUser)) {
         Set-Content -LiteralPath $listGeneralUser -Value "# Never leave this file empty`r`ndomain.example.abc" -Encoding ASCII
     }
-    $listExcludeUser = Join-Path $script:ZapretListsDir 'list-exclude-user.txt'
+    $listExcludeUser = Join-Path $script:ZapmanListsDir 'list-exclude-user.txt'
     if (-not (Test-Path -LiteralPath $listExcludeUser)) {
         Set-Content -LiteralPath $listExcludeUser -Value 'domain.example.abc' -Encoding ASCII
     }
-    $ipsetAll = Join-Path $script:ZapretListsDir 'ipset-all.txt'
+    $ipsetAll = Join-Path $script:ZapmanListsDir 'ipset-all.txt'
     if (-not (Test-Path -LiteralPath $ipsetAll)) {
-        $seed = Join-Path $script:ZapretListsDir 'ipset-all.default.txt'
+        $seed = Join-Path $script:ZapmanListsDir 'ipset-all.default.txt'
         if (Test-Path -LiteralPath $seed) {
             Copy-Item -LiteralPath $seed -Destination $ipsetAll
         } else {
@@ -211,7 +221,7 @@ function Initialize-ZapretUserLists {
     }
 }
 
-function Test-ZapretTcpTimestampsEnabled {
+function Test-ZapmanTcpTimestampsEnabled {
     param([string]$ShowText = '')
     if ([string]::IsNullOrWhiteSpace($ShowText)) {
         $ShowText = netsh interface tcp show global 2>$null | Out-String
@@ -220,14 +230,14 @@ function Test-ZapretTcpTimestampsEnabled {
     return [bool]($ShowText -match '(?i)(?:timestamps|RFC\s*1323)[^\r\n]*enabled')
 }
 
-function Enable-ZapretTcpTimestamps {
-    if (Test-ZapretTcpTimestampsEnabled) {
+function Enable-ZapmanTcpTimestamps {
+    if (Test-ZapmanTcpTimestampsEnabled) {
         return
     }
     netsh interface tcp set global timestamps=enabled | Out-Null
 }
 
-function Enable-ZapretTls12 {
+function Enable-ZapmanTls12 {
     try {
         $tls = [Net.ServicePointManager]::SecurityProtocol
         [Net.ServicePointManager]::SecurityProtocol = $tls -bor [Net.SecurityProtocolType]::Tls12
@@ -236,7 +246,7 @@ function Enable-ZapretTls12 {
     }
 }
 
-function Test-Zapret64BitOs {
+function Test-Zapman64BitOs {
     try {
         return [Environment]::Is64BitOperatingSystem
     } catch {
@@ -244,7 +254,7 @@ function Test-Zapret64BitOs {
     }
 }
 
-function Get-ZapretNet45Release {
+function Get-ZapmanNet45Release {
     $path = 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full'
     try {
         $item = Get-ItemProperty -LiteralPath $path -Name Release -ErrorAction Stop
@@ -254,7 +264,7 @@ function Get-ZapretNet45Release {
     }
 }
 
-function Test-ZapretWpf {
+function Test-ZapmanWpf {
     try {
         Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
         return $true
@@ -264,7 +274,7 @@ function Test-ZapretWpf {
 }
 
 function Get-ZapretBinVersionsPath {
-    return (Join-Path $script:ZapretBinDir 'versions.json')
+    return (Join-Path $script:ZapmanBinDir 'versions.json')
 }
 
 function Test-ZapretBinVersions {
@@ -297,7 +307,7 @@ function Test-ZapretBinVersions {
             [void]$errors.Add('bin/versions.json has a file entry without path or sha256.')
             continue
         }
-        $full = Join-Path $script:ZapretBinDir ($rel -replace '/', '\')
+        $full = Join-Path $script:ZapmanBinDir ($rel -replace '/', '\')
         if (-not (Test-Path -LiteralPath $full)) {
             [void]$errors.Add(("Pinned file is missing: {0} ({1})." -f $rel, $src))
             continue
@@ -311,20 +321,20 @@ function Test-ZapretBinVersions {
 }
 
 # Console probe only (cli.bat env). The GUI does not call this at start.
-function Test-ZapretHostReady {
+function Test-ZapmanHostReady {
     $errors = New-Object System.Collections.ArrayList
-    if (-not (Test-Zapret64BitOs)) {
+    if (-not (Test-Zapman64BitOs)) {
         [void]$errors.Add('This program needs a 64-bit Windows system. 32-bit is not supported.')
     }
-    if (-not (Test-Path -LiteralPath $script:ZapretBinDir)) {
+    if (-not (Test-Path -LiteralPath $script:ZapmanBinDir)) {
         [void]$errors.Add('The bin folder is not found. Extract the full Zapret archive first.')
     }
-    $netRelease = Get-ZapretNet45Release
+    $netRelease = Get-ZapmanNet45Release
     # 378389 is .NET Framework 4.5.
     if ($netRelease -lt 378389) {
         [void]$errors.Add('.NET Framework 4.5 or newer is not installed. On Windows 7 install .NET 4.5+ and WMF 5.1.')
     }
-    if (-not (Test-ZapretWpf)) {
+    if (-not (Test-ZapmanWpf)) {
         [void]$errors.Add('WPF (PresentationFramework) is not available. Install a full .NET Framework desktop runtime.')
     }
     $installType = ''
@@ -336,7 +346,7 @@ function Test-ZapretHostReady {
     if ($installType -eq 'Server Core') {
         [void]$errors.Add('Windows Server Core is not supported. Use a desktop Windows edition.')
     }
-    if (Test-Path -LiteralPath $script:ZapretBinDir) {
+    if (Test-Path -LiteralPath $script:ZapmanBinDir) {
         foreach ($pinErr in @(Test-ZapretBinVersions)) {
             [void]$errors.Add($pinErr)
         }
@@ -344,8 +354,12 @@ function Test-ZapretHostReady {
     return @($errors)
 }
 
-function Show-ZapretHostReadyReport {
-    $errors = @(Test-ZapretHostReady)
+function Show-ZapmanHostReadyReport {
+    $cfgErr = Get-ZapmanConfigError
+    if (-not [string]::IsNullOrWhiteSpace($cfgErr)) {
+        Write-Host $cfgErr -ForegroundColor Yellow
+    }
+    $errors = @(Test-ZapmanHostReady)
     if (@($errors).Count -lt 1) {
         return 0
     }

@@ -32,7 +32,7 @@ exit /b %ERRORLEVEL%
 :: Explorer starts this file as cmd /c. Open a PowerShell window and close cmd.
 echo(%cmdcmdline%) | find /I /C "/c" >nul
 if errorlevel 1 goto :sameconsole
-start "Zapret CLI" /D "%~dp0" "%PS%" -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%CLI%"
+start "Zapret Manager CLI" /D "%~dp0" "%PS%" -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%CLI%"
 exit 0
 
 :sameconsole

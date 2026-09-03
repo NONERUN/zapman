@@ -1,4 +1,4 @@
-# Console entry for strategy tests. Start: cli.bat tests. The runner is Invoke-ZapretStrategyTests.
+# Console entry for strategy tests. Start: cli.bat tests. The runner is Invoke-ZapmanStrategyTests.
 param(
     [ValidateSet('standard', 'dpi')]
     [string]$TestType,
@@ -6,7 +6,8 @@ param(
     [switch]$NoPause
 )
 
-Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapret\Zapret.psd1')
+Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapman\Zapman.psd1')
+[void](Initialize-ZapmanUiLanguage)
 
 $names = @()
 if (-not [string]::IsNullOrWhiteSpace($Strategies)) {
@@ -16,9 +17,23 @@ if (-not [string]::IsNullOrWhiteSpace($Strategies)) {
 $askType = [string]::IsNullOrWhiteSpace($TestType)
 $askNames = [string]::IsNullOrWhiteSpace($Strategies)
 
-$code = Invoke-ZapretStrategyTests -TestType $TestType -Names $names -AskType:$askType -AskNames:$askNames
-if ($null -eq $code) {
-    $code = 1
+$snap = $null
+$code = 1
+if (Get-ZapretService) {
+    Write-Host (Get-ZapmanUiString -Key 'TestsNeedNoService')
+    $snap = Suspend-ZapretServiceForTests
+}
+
+try {
+    $code = Invoke-ZapmanStrategyTests -TestType $TestType -Names $names -AskType:$askType -AskNames:$askNames
+    if ($null -eq $code) {
+        $code = 1
+    }
+} finally {
+    if ($snap -and $snap.File) {
+        Restore-ZapretServiceAfterTests -Snapshot $snap
+        Write-Host (Get-ZapmanUiString -Key 'InstallDone' -FormatArgs @($snap.File.BaseName))
+    }
 }
 
 if (-not $NoPause) {

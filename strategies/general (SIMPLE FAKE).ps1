@@ -1,4 +1,4 @@
-Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'src\Zapret\Zapret.psd1')
+Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'src\Zapman\Zapman.psd1')
 Invoke-ZapretStrategyPrep
 $layout = Get-ZapretLayout
 $bin = $layout.Bin

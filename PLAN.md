@@ -2,7 +2,7 @@
 
 **alpha.** Ломающие изменения — [`AGENTS.md`](AGENTS.md).
 
-Сейчас: [`zapret.bat`](zapret.bat) (GUI, один `powershell.exe -STA` → [`src/gui/`](src/gui/)), [`cli.bat`](cli.bat) (после проверки — PowerShell → [`src/cli/cli.ps1`](src/cli/cli.ps1)), операции в [`src/Zapret/`](src/Zapret/), стратегии [`strategies/*.ps1`](strategies/). Третий `.bat` не добавлять.
+Сейчас: [`zapman.bat`](zapman.bat) (GUI Zapret Manager, один `powershell.exe -STA` → [`src/gui/`](src/gui/)), [`cli.bat`](cli.bat) (после проверки — PowerShell → [`src/cli/cli.ps1`](src/cli/cli.ps1)), обвязка [`src/Zapman/`](src/Zapman/), движок [`src/Zapret/`](src/Zapret/), стратегии [`strategies/*.ps1`](strategies/). Третий `.bat` не добавлять.
 
 ## Движки (контракт)
 

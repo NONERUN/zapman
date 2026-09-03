@@ -1,10 +1,10 @@
 # Инструкции для агентов
 
-Windows-сборка zapret. Критерии готовности и контракт движков — [`PLAN.md`](PLAN.md).
+**Zapret Manager** (`zapman`) — Windows-обвязка, которая запускает [zapret](https://github.com/bol-van/zapret) / zapret2. Критерии готовности и контракт движков — [`PLAN.md`](PLAN.md).
 
 **Поддерживаемость.** Ясный текущий интерфейс важнее совместимости обвязки, обходных путей и «на всякий случай». Если правка усложняет чтение или правку без необходимости — не делайте её так. Агент и человек опираются только на **текущий** интерфейс.
 
-В корне **два** `.bat`: `zapret.bat` (GUI) и `cli.bat` (консоль). Всё остальное — `.ps1`. Новый `.bat` не добавлять.
+В корне **два** `.bat`: `zapman.bat` (GUI) и `cli.bat` (консоль). Всё остальное — `.ps1`. Новый `.bat` не добавлять.
 
 ## Совместимость (alpha)
 
@@ -40,17 +40,17 @@ Windows-сборка zapret. Критерии готовности и контр
 - `Set-StrictMode -Version Latest` запрещает обращение к несуществующим свойствам.
 - `Get-Item HKLM:\...` открывает ключ только на чтение. Для записи — `OpenSubKey(..., $true)`.
 - `$PSScriptRoot`, `Get-CimInstance`, `-LiteralPath` требуют минимум PowerShell **3.0**.
-- WPF нужен **STA**: `powershell.exe -STA`. Вход — `zapret.bat`.
+- WPF нужен **STA**: `powershell.exe -STA`. Вход — `zapman.bat`.
 - В PS 5.1 не писать `New-Object System.Collections.Generic.List[object]`.
 
 Тексты:
 
 - Комментарии в коде — [ASD-STE100](https://www.asd-ste100.org/) Simplified Technical English. Политику (PS 5.1, не `pwsh`, совместимость стратегий) пишите в этом файле, не копируйте её в каждый `.ps1`.
-- [`src/Zapret/Ui.ps1`](src/Zapret/Ui.ps1) с русскими строками — **UTF-8 с BOM**. Без BOM PowerShell 5.1 ломает литералы. XAML в [`src/gui/`](src/gui/) — ASCII; тексты через `Get-ZapretUiString`.
+- [`src/Zapman/Ui.ps1`](src/Zapman/Ui.ps1) с русскими строками — **UTF-8 с BOM**. Без BOM PowerShell 5.1 ломает литералы. XAML в [`src/gui/`](src/gui/) — ASCII; тексты через `Get-ZapmanUiString`.
 
 ## Линтер
 
-После правок `.ps1`, `.bat`, `src/gui/`, `src/cli/`, `src/Zapret/`, `strategies/` или `dev/` прогоните линтер и исправьте все FAIL до конца задачи:
+После правок `.ps1`, `.bat`, `src/gui/`, `src/cli/`, `src/Zapman/`, `src/Zapret/`, `strategies/` или `dev/` прогоните линтер и исправьте все FAIL до конца задачи:
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
@@ -63,7 +63,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 - XAML только файлом (`XamlReader.Load`, `xmlns:x` если есть `x:`, без `x:Class`)
 - BOM у кириллицы / `Ui.ps1`
 - синтаксис `pwsh`
-- `-STA` в `zapret.bat`
+- `-STA` в `zapman.bat`
 
 Опционально: PSScriptAnalyzer; Blinter для `.bat` (`pipx install Blinter`, [`blinter.ini`](blinter.ini)).
 
@@ -75,15 +75,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 
 | Путь | Роль |
 |---|---|
-| `zapret.bat` | GUI: inbox `powershell.exe -STA` → `src/gui/gui-boot.ps1` → `src/gui/gui.ps1`. UAC — `Start-Process -Verb RunAs` на `powershell.exe`. Без предстартовых проверок: ошибка остаётся в этом окне |
+| `zapman.bat` | GUI: inbox `powershell.exe -STA` → `src/gui/gui-boot.ps1` → `src/gui/gui.ps1`. UAC — `Start-Process -Verb RunAs` на `powershell.exe`. Без предстартовых проверок: ошибка остаётся в этом окне |
 | `cli.bat` | Консоль: проверка `powershell.exe`, затем это окно — PowerShell (`src/cli/cli.ps1`) |
 
 ### GUI
 
 | Путь | Роль |
 |---|---|
-| `src/gui/gui-boot.ps1` | Короткий `-File`: часы старта, затем разбор `gui.ps1`. `Request-Administrator` поднимает этот файл |
-| `src/gui/gui.ps1` | WPF code-behind. Разметка — соседние `*.xaml` |
+| `src/gui/gui-boot.ps1` | Короткий `-File`: скрыть консоль, UAC (этот файл), показать `Main.xaml`, затем разбор `gui.ps1`. `Application.Run` после обвязки |
+| `src/gui/gui.ps1` | WPF code-behind. Разметка — соседние `*.xaml`. Диалоги — `gui-dialogs.ps1` (dotsource) |
 
 ### Консоль
 
@@ -91,16 +91,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 |---|---|
 | `src/cli/cli.ps1` | Меню или `service` / `tests` / `env` в том же процессе |
 | `src/cli/service.ps1` | Консольное меню (как GUI). Elevate — этот файл, не `cli.ps1` |
-| `src/cli/test-zapret.ps1` | Консоль тестов → `Invoke-ZapretStrategyTests` (ненулевой exit, если прогон не удался) |
+| `src/cli/test-zapret.ps1` | Консоль тестов → `Invoke-ZapmanStrategyTests` (ненулевой exit, если прогон не удался) |
 
 ### Модуль и данные
 
 | Путь | Роль |
 |---|---|
-| `src/Zapret/` | Модуль: служба, фильтры, диагностика, тесты, UI. В `src` только исходники |
+| `src/Zapman/` | Модуль обвязки (`Zapman.psd1`): config, UI, тесты, диагностика. GUI и консоль импортируют его. В `src` только исходники |
+| `src/Zapret/` | Движок: `Bypass.ps1` (winws, служба `zapret`, стратегии, фильтры, ipset, fake). Dotsource из Zapman, не отдельный модуль |
 | `config.json` | Язык, `engine` (`winws` / `winws2`, окно стратегий), фильтры, Auto-Update Check, цели тестов |
 | `test-results/` | Логи тестов (на лету) |
-| `strategies/*.ps1` | Стратегии: argv для выбранного `engine` (`winws` / `winws2`) |
+| `strategies/*.ps1` | Стратегии: import `Zapman.psd1`, argv для выбранного `engine`. Prep / winws / filter — `*-Zapret*` |
 | `lists/` | Хостлисты и ipset. Рабочий `ipset-all.txt` локальный; в git — `ipset-all.default.txt`. Нет файла — копия с default. Есть — его и берём. `*-user.txt` создаются на лету |
 | `bin/` | `winws.exe` (zapret v72.13), `winws2.exe` + `lua/` (zapret2 v1.0.4), общий WinDivert. Хеши — [`bin/versions.json`](bin/versions.json). GUI не сверяет при открытии окна; сверка при старте движка и в `cli.bat env` |
 
@@ -114,7 +115,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 
 ## Служба и фильтры
 
-Одинаково для GUI и `src/cli/service.ps1` (логика в `src/Zapret/`).
+Одинаково для GUI и `src/cli/service.ps1` (служба и фильтры — `src/Zapret/Bypass.ps1`; остальное — `src/Zapman/`).
 
 - **Remove Services:** сначала `zapret` и `winws`, потом WinDivert / WinDivert14. Иначе драйвер зависает в `STOP_PENDING`.
 - **Install Service:** дождаться удаления старой службы; ImagePath из шаблона (`"exe" args`; для winws2 ещё `--chdir` на `bin/`); проверить запись в реестр; при сбое откатить `sc delete`.
@@ -125,15 +126,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ## GUI
 
 - **Главное окно:** без списка стратегий. **Старт службы** (выключен, если службы нет) / **Стоп** / **Снять службы** / **Стратегия…**. Смена стратегии = Install из окна стратегий.
-- **Стратегия…:** список `strategies/*.ps1` и выбор `winws` / `winws2`. **Запустить выбранную** останавливает службу/winws и стартует файл (без автозапуска). **Установить службу** закрывает диалог. **Прогнать тесты** снимает службу и открывает тесты с главного окна. Список выделяет запущенную или установленную.
+- **Стратегия…:** список `strategies/*.ps1` и выбор `winws` / `winws2`. **Установить службу** закрывает диалог. **Запустить без установки** останавливает службу/winws и стартует файл (без автозапуска). **Прогнать тесты** снимает службу zapret на время прогона и ставит её снова; WinDivert не трогает. Список выделяет запущенную или установленную.
 - **Settings:** Game Filter (диалог с кнопкой применения), IPSet, Auto-Update Check, **Fake…** (оба слота сразу).
 - **Tools:** скачать ipset, сверить hosts, проверить версию, диагностика (список с галочками; **Запуск** у чисток, **ОК** пропуск). Клик по Status — полный статус и журнал.
-- **Язык:** RU/EN, `Get-ZapretUiString` в модуле. Переключатель на главном. Язык, `engine`, Game Filter, Auto-Update Check и цели тестов — [`config.json`](config.json) в корне.
+- **Язык:** RU/EN, `Get-ZapmanUiString` в модуле. Переключатель на главном. Язык, `engine`, Game Filter, Auto-Update Check и цели тестов — [`config.json`](config.json) в корне.
 
 ### Окно (WPF)
 
 - Крестик = выход; свернуть = панель задач. Трея нет.
-- Главный цикл — `Application.Run($window)`, не `$window.ShowDialog()` (дочерний `ShowDialog` выключает владельца и роняет UI). Не `Hide()` и не `$window.IsEnabled = $false`.
+- Главный цикл — `Application.Run`, не `$window.ShowDialog()` (дочерний `ShowDialog` выключает владельца и роняет UI). Не `Hide()` и не `$window.IsEnabled = $false`. `gui-boot.ps1` делает `$window.Show()` до разбора `gui.ps1`, чтобы каркас был на экране во время импорта модуля.
 - Дочерние — `ShowDialog` с `Owner`.
 - Тесты: без событий `Process` в scriptblock (пул потоков + STA).
 

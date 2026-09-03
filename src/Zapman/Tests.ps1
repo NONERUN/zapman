@@ -1,9 +1,9 @@
-# Strategy test runner. GUI calls Invoke-ZapretStrategyTests and reads each line via -OnLine.
+# Strategy test runner. GUI calls Invoke-ZapmanStrategyTests and reads each line via -OnLine.
 
-$script:ZapretTestOnLine = $null
-$script:ZapretTestShouldStop = $null
+$script:ZapmanTestOnLine = $null
+$script:ZapmanTestShouldStop = $null
 
-function Write-ZapretTestHost {
+function Write-ZapmanTestHost {
     param(
         [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
         [object[]]$Object,
@@ -26,22 +26,22 @@ function Write-ZapretTestHost {
         $splat.NoNewline = $true
     }
     Microsoft.PowerShell.Utility\Write-Host @splat
-    if ($script:ZapretTestOnLine) {
+    if ($script:ZapmanTestOnLine) {
         try {
-            & $script:ZapretTestOnLine $text ([bool]$NoNewline)
+            & $script:ZapmanTestOnLine $text ([bool]$NoNewline)
         } catch {
-            $script:ZapretTestOnLine = $null
+            $script:ZapmanTestOnLine = $null
             Microsoft.PowerShell.Utility\Write-Host ("[WARN] Test log callback failed: {0}" -f $_.Exception.Message) -ForegroundColor Yellow
         }
     }
 }
 
-function Test-ZapretTestStopRequested {
-    if (-not $script:ZapretTestShouldStop) {
+function Test-ZapmanTestStopRequested {
+    if (-not $script:ZapmanTestShouldStop) {
         return $false
     }
     try {
-        return [bool](& $script:ZapretTestShouldStop)
+        return [bool](& $script:ZapmanTestShouldStop)
     } catch {
         return $false
     }
@@ -121,7 +121,7 @@ function Get-DpiSuite {
                 @{n='Host';     e={$_.host}}
     }
     catch {
-        Write-ZapretTestHost "[WARN] Fetch dpi suite failed." -ForegroundColor Yellow
+        Write-ZapmanTestHost "[WARN] Fetch dpi suite failed." -ForegroundColor Yellow
         @()
     }
 }
@@ -162,8 +162,8 @@ function Invoke-DpiSuite {
     $rangeSpec = "0-$($RangeBytes - 1)"
     $warnDetected = $false
 
-    Write-ZapretTestHost "[INFO] Targets: $($Targets.Count) (custom URL overrides suite). Range: $rangeSpec bytes; Timeout: $($TimeoutSeconds)s" -ForegroundColor Cyan
-    Write-ZapretTestHost "[INFO] Starting DPI TCP 16-20 checks (parallel: $MaxParallel)..." -ForegroundColor DarkGray
+    Write-ZapmanTestHost "[INFO] Targets: $($Targets.Count) (custom URL overrides suite). Range: $rangeSpec bytes; Timeout: $($TimeoutSeconds)s" -ForegroundColor Cyan
+    Write-ZapmanTestHost "[INFO] Starting DPI TCP 16-20 checks (parallel: $MaxParallel)..." -ForegroundColor DarkGray
 
     $runspacePool = [runspacefactory]::CreateRunspacePool(1, $MaxParallel)
     $runspacePool.Open()
@@ -281,23 +281,23 @@ function Invoke-DpiSuite {
             if ($handle -and $handle.AsyncWaitHandle) {
                 $completed = $handle.AsyncWaitHandle.WaitOne($waitMs)
                 if (-not $completed) {
-                    Write-ZapretTestHost "[WARN] Runspace for [$($rs.TargetId)] timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
+                    Write-ZapmanTestHost "[WARN] Runspace for [$($rs.TargetId)] timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
                     try {
                         $rs.Powershell.Stop()
                     } catch {
                         $stopFailed = $true
-                        Write-ZapretTestHost "[WARN] Could not stop the timed-out runspace for [$($rs.TargetId)]." -ForegroundColor Yellow
+                        Write-ZapmanTestHost "[WARN] Could not stop the timed-out runspace for [$($rs.TargetId)]." -ForegroundColor Yellow
                     }
                 }
             }
         } catch {
             $completed = $false
             $stopFailed = $true
-            Write-ZapretTestHost "[WARN] Wait for runspace [$($rs.TargetId)] failed." -ForegroundColor Yellow
+            Write-ZapmanTestHost "[WARN] Wait for runspace [$($rs.TargetId)] failed." -ForegroundColor Yellow
             try {
                 $rs.Powershell.Stop()
             } catch {
-                Write-ZapretTestHost "[WARN] Could not stop the runspace for [$($rs.TargetId)] after a wait failure." -ForegroundColor Yellow
+                Write-ZapmanTestHost "[WARN] Could not stop the runspace for [$($rs.TargetId)] after a wait failure." -ForegroundColor Yellow
             }
         }
 
@@ -315,7 +315,7 @@ function Invoke-DpiSuite {
         }
 
         if ((-not $completed) -and $stopFailed) {
-            Write-ZapretTestHost "[WARN] EndInvoke skipped for [$($rs.TargetId)]; treating as failure." -ForegroundColor Yellow
+            Write-ZapmanTestHost "[WARN] EndInvoke skipped for [$($rs.TargetId)]; treating as failure." -ForegroundColor Yellow
             $results += [PSCustomObject]@{
                 TargetId = $rs.TargetId
                 Provider = 'UNKNOWN'
@@ -328,22 +328,22 @@ function Invoke-DpiSuite {
                 $res = $rs.Powershell.EndInvoke($rs.Handle)
                 $results += $res
 
-                Write-ZapretTestHost "`n=== [$($res.Country)][$($res.Provider)] $($res.TargetId) ===" -ForegroundColor DarkCyan
+                Write-ZapmanTestHost "`n=== [$($res.Country)][$($res.Provider)] $($res.TargetId) ===" -ForegroundColor DarkCyan
                 foreach ($line in $res.Lines) {
                     $msg = "[{0}] code={1} buf_up={2} bytes ({3} KB) buf_down={4} bytes ({5} KB) time={6}s status={7}" -f $line.TestLabel, $line.Code, $line.UpBytes, $line.UpKB, $line.DownBytes, $line.DownKB, $line.Time, $line.Status
-                    Write-ZapretTestHost $msg -ForegroundColor $line.Color
+                    Write-ZapmanTestHost $msg -ForegroundColor $line.Color
                     if ($line.Status -eq "LIKELY_BLOCKED") {
-                        Write-ZapretTestHost "  Pattern matches 16-20KB freeze; censor likely cutting this strategy." -ForegroundColor Yellow
+                        Write-ZapmanTestHost "  Pattern matches 16-20KB freeze; censor likely cutting this strategy." -ForegroundColor Yellow
                     }
                 }
 
                 if ($res.Warned) {
                     $warnDetected = $true
                 } else {
-                    Write-ZapretTestHost "  No 16-20KB freeze pattern for this target." -ForegroundColor Green
+                    Write-ZapmanTestHost "  No 16-20KB freeze pattern for this target." -ForegroundColor Green
                 }
             } catch {
-                Write-ZapretTestHost "[WARN] EndInvoke failed for [$($rs.TargetId)]; treating as failure." -ForegroundColor Yellow
+                Write-ZapmanTestHost "[WARN] EndInvoke failed for [$($rs.TargetId)]; treating as failure." -ForegroundColor Yellow
                 $results += [PSCustomObject]@{
                     TargetId = $rs.TargetId
                     Provider = 'UNKNOWN'
@@ -360,11 +360,11 @@ function Invoke-DpiSuite {
     Remove-Item -LiteralPath $payloadFile -Force -ErrorAction SilentlyContinue
 
     if ($warnDetected) {
-        Write-ZapretTestHost ""
-        Write-ZapretTestHost "[WARNING] Detected possible DPI TCP 16-20 blocking on one or more targets. Consider changing strategy/SNI/IP." -ForegroundColor Red
+        Write-ZapmanTestHost ""
+        Write-ZapmanTestHost "[WARNING] Detected possible DPI TCP 16-20 blocking on one or more targets. Consider changing strategy/SNI/IP." -ForegroundColor Red
     } else {
-        Write-ZapretTestHost ""
-        Write-ZapretTestHost "[OK] No 16-20KB freeze pattern detected across targets." -ForegroundColor Green
+        Write-ZapmanTestHost ""
+        Write-ZapmanTestHost "[OK] No 16-20KB freeze pattern detected across targets." -ForegroundColor Green
     }
 
     return $results
@@ -376,15 +376,15 @@ function Test-ZapretServiceConflict {
 
 function Read-TestType {
     while ($true) {
-        Write-ZapretTestHost ""
-        Write-ZapretTestHost "Select test type:" -ForegroundColor Cyan
-        Write-ZapretTestHost "  [1] Standard tests (HTTP/ping)" -ForegroundColor Gray
-        Write-ZapretTestHost "  [2] DPI checkers (TCP 16-20 freeze)" -ForegroundColor Gray
+        Write-ZapmanTestHost ""
+        Write-ZapmanTestHost "Select test type:" -ForegroundColor Cyan
+        Write-ZapmanTestHost "  [1] Standard tests (HTTP/ping)" -ForegroundColor Gray
+        Write-ZapmanTestHost "  [2] DPI checkers (TCP 16-20 freeze)" -ForegroundColor Gray
         $choice = Read-Host "Enter 1 or 2"
         switch ($choice) {
             '1' { return 'standard' }
             '2' { return 'dpi' }
-            default { Write-ZapretTestHost "Incorrect input. Please try again." -ForegroundColor Yellow }
+            default { Write-ZapmanTestHost "Incorrect input. Please try again." -ForegroundColor Yellow }
         }
     }
 }
@@ -392,15 +392,15 @@ function Read-TestType {
 # Select test mode: all configs or custom subset
 function Read-ModeSelection {
     while ($true) {
-        Write-ZapretTestHost ""
-        Write-ZapretTestHost "Select test run mode:" -ForegroundColor Cyan
-        Write-ZapretTestHost "  [1] All configs" -ForegroundColor Gray
-        Write-ZapretTestHost "  [2] Selected configs" -ForegroundColor Gray
+        Write-ZapmanTestHost ""
+        Write-ZapmanTestHost "Select test run mode:" -ForegroundColor Cyan
+        Write-ZapmanTestHost "  [1] All configs" -ForegroundColor Gray
+        Write-ZapmanTestHost "  [2] Selected configs" -ForegroundColor Gray
         $choice = Read-Host "Enter 1 or 2"
         switch ($choice) {
             '1' { return 'all' }
             '2' { return 'select' }
-            default { Write-ZapretTestHost "Incorrect input. Please try again." -ForegroundColor Yellow }
+            default { Write-ZapmanTestHost "Incorrect input. Please try again." -ForegroundColor Yellow }
         }
     }
 }
@@ -409,11 +409,11 @@ function Read-ConfigSelection {
     param([array]$allFiles)
 
     while ($true) {
-        Write-ZapretTestHost ""
-        Write-ZapretTestHost "Available configs:" -ForegroundColor Cyan
+        Write-ZapmanTestHost ""
+        Write-ZapmanTestHost "Available configs:" -ForegroundColor Cyan
         for ($i = 0; $i -lt $allFiles.Count; $i++) {
             $idx = $i + 1
-            Write-ZapretTestHost "  [$idx] $($allFiles[$i].Name)" -ForegroundColor Gray
+            Write-ZapmanTestHost "  [$idx] $($allFiles[$i].Name)" -ForegroundColor Gray
         }
 
         $selectionInput = Read-Host "Enter numbers (e.g. 1,3,5) , ranges (e.g. 2-7), or mixed (e.g. 1,5-10,12). '0' for all"
@@ -425,8 +425,8 @@ function Read-ConfigSelection {
 
         $parts = $selectionInput -split '[,\s]+' | Where-Object { $_ -match '^\d+(-\d+)?$' }
         if ($parts.Count -eq 0) {
-            Write-ZapretTestHost ""
-            Write-ZapretTestHost "Invalid input format. Use numbers, ranges (1-5), or combinations (1,3-7,10). Try again." -ForegroundColor Yellow
+            Write-ZapmanTestHost ""
+            Write-ZapmanTestHost "Invalid input format. Use numbers, ranges (1-5), or combinations (1,3-7,10). Try again." -ForegroundColor Yellow
             continue
         }
         $selectedIndices = @()
@@ -438,13 +438,13 @@ function Read-ConfigSelection {
                 $end = [int]$matches[2]
 
                 if ($start -gt $end) {
-                    Write-ZapretTestHost "  [WARN] Invalid range '$part' (start > end). Skipping." -ForegroundColor Yellow
+                    Write-ZapmanTestHost "  [WARN] Invalid range '$part' (start > end). Skipping." -ForegroundColor Yellow
                     $hasErrors = $true
                     continue
                 }
 
                 if ($start -lt 1 -or $end -gt $allFiles.Count) {
-                    Write-ZapretTestHost "  [WARN] Range '$part' out of bounds (valid: 1-$($allFiles.Count)). Skipping invalid parts." -ForegroundColor Yellow
+                    Write-ZapmanTestHost "  [WARN] Range '$part' out of bounds (valid: 1-$($allFiles.Count)). Skipping invalid parts." -ForegroundColor Yellow
                     $hasErrors = $true
                     $start = [Math]::Max($start, 1)
                     $end = [Math]::Min($end, $allFiles.Count)
@@ -458,30 +458,73 @@ function Read-ConfigSelection {
                 if ($num -ge 1 -and $num -le $allFiles.Count) {
                     $selectedIndices += $num
                 } else {
-                    Write-ZapretTestHost "  [WARN] Number '$num' out of bounds (valid: 1-$($allFiles.Count)). Skipping." -ForegroundColor Yellow
+                    Write-ZapmanTestHost "  [WARN] Number '$num' out of bounds (valid: 1-$($allFiles.Count)). Skipping." -ForegroundColor Yellow
                     $hasErrors = $true
                 }
             }
         }
         $valid = $selectedIndices | Sort-Object -Unique | Where-Object { $_ -ge 1 -and $_ -le $allFiles.Count }
         if ($valid.Count -eq 0) {
-            Write-ZapretTestHost ""
-            Write-ZapretTestHost "No valid configs selected. Try again." -ForegroundColor Yellow
+            Write-ZapmanTestHost ""
+            Write-ZapmanTestHost "No valid configs selected. Try again." -ForegroundColor Yellow
             continue
         }
 
         # Checker
-         Write-ZapretTestHost "Selected configs: $($valid -join ', ')" -ForegroundColor Green
+         Write-ZapmanTestHost "Selected configs: $($valid -join ', ')" -ForegroundColor Green
         if ($hasErrors) {
-            Write-ZapretTestHost "Some entries were skipped due to errors (see warnings above)." -ForegroundColor Yellow
+            Write-ZapmanTestHost "Some entries were skipped due to errors (see warnings above)." -ForegroundColor Yellow
         }
 
         return $valid | ForEach-Object { $allFiles[$_ - 1] }
     }
 }
 
+function Stop-ZapretTestWinws {
+    Stop-ZapretWinwsProcess
+}
 
-function Invoke-ZapretStrategyTestsCore {
+function Get-ZapretTestWinwsSnapshot {
+    try {
+        $a = @(Get-CimInstance Win32_Process -Filter "Name='winws.exe'" -ErrorAction SilentlyContinue)
+        $b = @(Get-CimInstance Win32_Process -Filter "Name='winws2.exe'" -ErrorAction SilentlyContinue)
+        return @($a + $b) | Select-Object ProcessId, CommandLine, ExecutablePath
+    } catch {
+        return @()
+    }
+}
+
+function Restore-ZapretTestWinwsSnapshot {
+    param($snapshot)
+
+    if (-not $snapshot -or $snapshot.Count -eq 0) { return }
+
+    $current = @()
+    try { $current = (Get-ZapretTestWinwsSnapshot).CommandLine } catch { $current = @() }
+
+    Write-ZapmanTestHost "[INFO] Restoring previously running winws instances..." -ForegroundColor DarkGray
+    foreach ($p in $snapshot) {
+        if (-not $p.ExecutablePath) { continue }
+
+        if ($current -and $current -contains $p.CommandLine) { continue }
+
+        $exe = $p.ExecutablePath
+        $processArgs = ""
+        if ($p.CommandLine) {
+            $quotedExe = '"' + $exe + '"'
+            if ($p.CommandLine.StartsWith($quotedExe)) {
+                $processArgs = $p.CommandLine.Substring($quotedExe.Length).Trim()
+            } elseif ($p.CommandLine.StartsWith($exe)) {
+                $processArgs = $p.CommandLine.Substring($exe.Length).Trim()
+            }
+        }
+
+        Start-Process -FilePath $exe -ArgumentList $processArgs -WorkingDirectory (Split-Path $exe -Parent) -WindowStyle Minimized | Out-Null
+    }
+}
+
+
+function Invoke-ZapmanStrategyTestsCore {
     param(
         [string]$TestType,
         [string[]]$Names,
@@ -491,9 +534,9 @@ function Invoke-ZapretStrategyTestsCore {
         [switch]$AskNames
     )
 
-    $script:ZapretTestOnLine = $OnLine
-    $script:ZapretTestShouldStop = $ShouldStop
-    $script:ZapretTestExitCode = 1
+    $script:ZapmanTestOnLine = $OnLine
+    $script:ZapmanTestShouldStop = $ShouldStop
+    $script:ZapmanTestExitCode = 1
 
     try {
         $hasErrors = $false
@@ -519,23 +562,23 @@ function Invoke-ZapretStrategyTestsCore {
 
         $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
         if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-            Write-ZapretTestHost "[ERROR] Run as Administrator to execute tests" -ForegroundColor Red
+            Write-ZapmanTestHost "[ERROR] Run as Administrator to execute tests" -ForegroundColor Red
             $hasErrors = $true
         } else {
-            Write-ZapretTestHost "[OK] Administrator rights detected" -ForegroundColor Green
+            Write-ZapmanTestHost "[OK] Administrator rights detected" -ForegroundColor Green
         }
 
         if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
-            Write-ZapretTestHost "[ERROR] curl.exe not found" -ForegroundColor Red
-            Write-ZapretTestHost "Install curl or add it to PATH" -ForegroundColor Yellow
+            Write-ZapmanTestHost "[ERROR] curl.exe not found" -ForegroundColor Red
+            Write-ZapmanTestHost "Install curl or add it to PATH" -ForegroundColor Yellow
             $hasErrors = $true
         } else {
-            Write-ZapretTestHost "[OK] curl.exe found" -ForegroundColor Green
+            Write-ZapmanTestHost "[OK] curl.exe found" -ForegroundColor Green
         }
 
         $ipsetFlagFile = Join-Path $layout.Results 'ipset_switched.flag'
         if (Test-Path $ipsetFlagFile) {
-            Write-ZapretTestHost "[INFO] Detected leftover ipset switch flag. Restoring ipset..." -ForegroundColor Yellow
+            Write-ZapmanTestHost "[INFO] Detected leftover ipset switch flag. Restoring ipset..." -ForegroundColor Yellow
             Set-ZapretIpsetMode -Mode restore -BackupName 'ipset-all.test-backup.txt'
             Remove-Item -Path $ipsetFlagFile -ErrorAction SilentlyContinue
         }
@@ -543,22 +586,22 @@ function Invoke-ZapretStrategyTestsCore {
         $originalIpsetStatus = Get-ZapretIpsetStatus
 
         if ($originalIpsetStatus -ne "any") {
-            Write-ZapretTestHost "[INFO] Current ipset status: $originalIpsetStatus" -ForegroundColor Cyan
-            Write-ZapretTestHost "[WARNING] Ipset will be switched to 'any' for accurate DPI tests." -ForegroundColor Yellow
-            Write-ZapretTestHost "[WARNING] If you close the window with the X button, ipset will NOT restore immediately." -ForegroundColor Yellow
-            Write-ZapretTestHost "[WARNING] It will be restored automatically on the next script run." -ForegroundColor Yellow
+            Write-ZapmanTestHost "[INFO] Current ipset status: $originalIpsetStatus" -ForegroundColor Cyan
+            Write-ZapmanTestHost "[WARNING] Ipset will be switched to 'any' for accurate DPI tests." -ForegroundColor Yellow
+            Write-ZapmanTestHost "[WARNING] If you close the window with the X button, ipset will NOT restore immediately." -ForegroundColor Yellow
+            Write-ZapmanTestHost "[WARNING] It will be restored automatically on the next script run." -ForegroundColor Yellow
         }
 
         if (Test-ZapretServiceConflict) {
-            Write-ZapretTestHost "[ERROR] Windows service 'zapret' is installed" -ForegroundColor Red
-            Write-ZapretTestHost "         Remove the service before running tests" -ForegroundColor Yellow
-            Write-ZapretTestHost "         Open cli.bat service and choose 'Remove Services'" -ForegroundColor Yellow
+            Write-ZapmanTestHost "[ERROR] Windows service 'zapret' is installed" -ForegroundColor Red
+            Write-ZapmanTestHost "         Remove the service before running tests" -ForegroundColor Yellow
+            Write-ZapmanTestHost "         Open cli.bat service and choose 'Remove Services'" -ForegroundColor Yellow
             $hasErrors = $true
         }
 
         if ($hasErrors) {
-            Write-ZapretTestHost ""
-            Write-ZapretTestHost "Fix the errors above and rerun." -ForegroundColor Yellow
+            Write-ZapmanTestHost ""
+            Write-ZapmanTestHost "Fix the errors above and rerun." -ForegroundColor Yellow
             return 1
         }
 
@@ -566,9 +609,9 @@ function Invoke-ZapretStrategyTestsCore {
         $engine = Get-ZapretEngine
         if (-not (Test-ZapretEngineFiles -Engine $engine)) {
             if ($engine -eq 'winws2') {
-                Write-ZapretTestHost ("[ERROR] {0}" -f (Get-ZapretUiString -Key 'EngineNoWinws2')) -ForegroundColor Red
+                Write-ZapmanTestHost ("[ERROR] {0}" -f (Get-ZapmanUiString -Key 'EngineNoWinws2')) -ForegroundColor Red
             } else {
-                Write-ZapretTestHost ("[ERROR] {0}" -f (Get-ZapretUiString -Key 'EngineNoWinws')) -ForegroundColor Red
+                Write-ZapmanTestHost ("[ERROR] {0}" -f (Get-ZapmanUiString -Key 'EngineNoWinws')) -ForegroundColor Red
             }
             return 1
         }
@@ -579,12 +622,12 @@ function Invoke-ZapretStrategyTestsCore {
             }
         )
         $skippedEngine = $allStrategyFiles.Count - $batFiles.Count
-        Write-ZapretTestHost ("Engine: {0}" -f $engine) -ForegroundColor Cyan
+        Write-ZapmanTestHost ("Engine: {0}" -f $engine) -ForegroundColor Cyan
         if ($skippedEngine -gt 0) {
-            Write-ZapretTestHost ("[INFO] {0} strateg(ies) have no {1} flags and will not run." -f $skippedEngine, $engine) -ForegroundColor DarkGray
+            Write-ZapmanTestHost ("[INFO] {0} strateg(ies) have no {1} flags and will not run." -f $skippedEngine, $engine) -ForegroundColor DarkGray
         }
         if ($batFiles.Count -lt 1) {
-            Write-ZapretTestHost ("[ERROR] No strategies have {0} flags." -f $engine) -ForegroundColor Red
+            Write-ZapmanTestHost ("[ERROR] No strategies have {0} flags." -f $engine) -ForegroundColor Red
             return 1
         }
         $globalResults = @()
@@ -592,7 +635,7 @@ function Invoke-ZapretStrategyTestsCore {
         if ($AskType -or [string]::IsNullOrWhiteSpace($TestType)) {
             $TestType = Read-TestType
         }
-        Write-ZapretTestHost "Test type: $TestType" -ForegroundColor Cyan
+        Write-ZapmanTestHost "Test type: $TestType" -ForegroundColor Cyan
 
         $nameList = @($Names)
         if ($AskNames) {
@@ -619,7 +662,7 @@ $targetList = @()
 $maxNameLen = 10
 if ($TestType -eq 'standard') {
     $rawTargets = New-OrderedDict
-    foreach ($item in @((Get-ZapretConfig).testTargets)) {
+    foreach ($item in @((Get-ZapmanConfig).testTargets)) {
         $tName = [string]$item.name
         $tVal = [string]$item.value
         if ([string]::IsNullOrWhiteSpace($tName) -or [string]::IsNullOrWhiteSpace($tVal)) {
@@ -629,15 +672,15 @@ if ($TestType -eq 'standard') {
     }
 
     if ($rawTargets.Count -eq 0) {
-        Write-ZapretTestHost "[INFO] config.json has no testTargets. Using built-in defaults." -ForegroundColor Gray
-        $cfgDefaults = New-ZapretConfigDefaults
+        Write-ZapmanTestHost "[INFO] config.json has no testTargets. Using built-in defaults." -ForegroundColor Gray
+        $cfgDefaults = New-ZapmanConfigDefaults
         foreach ($item in @($cfgDefaults.testTargets)) {
             Add-OrSet -dict $rawTargets -key ([string]$item.name) -val ([string]$item.value)
         }
     } else {
-        Write-ZapretTestHost ""
-        Write-ZapretTestHost "[INFO] Loaded targets from config.json" -ForegroundColor Gray
-        Write-ZapretTestHost "[INFO] Targets loaded: $($rawTargets.Count)" -ForegroundColor Gray
+        Write-ZapmanTestHost ""
+        Write-ZapmanTestHost "[INFO] Loaded targets from config.json" -ForegroundColor Gray
+        Write-ZapmanTestHost "[INFO] Targets loaded: $($rawTargets.Count)" -ForegroundColor Gray
     }
 
     foreach ($key in $rawTargets.Keys) {
@@ -650,104 +693,58 @@ if ($TestType -eq 'standard') {
 
 # Ensure we have configs to run
 if (-not $batFiles -or $batFiles.Count -eq 0) {
-    Write-ZapretTestHost ("[ERROR] No strategies to test for {0}." -f $engine) -ForegroundColor Red
+    Write-ZapmanTestHost ("[ERROR] No strategies to test for {0}." -f $engine) -ForegroundColor Red
     return 1
 }
 
-# Stop winws
-function Stop-Zapret {
-    Stop-ZapretWinwsProcess
-}
-
-# Capture/restore running winws instances to return user ipset/config
-function Get-WinwsSnapshot {
-    try {
-        $a = @(Get-CimInstance Win32_Process -Filter "Name='winws.exe'" -ErrorAction SilentlyContinue)
-        $b = @(Get-CimInstance Win32_Process -Filter "Name='winws2.exe'" -ErrorAction SilentlyContinue)
-        return @($a + $b) | Select-Object ProcessId, CommandLine, ExecutablePath
-    } catch {
-        return @()
-    }
-}
-
-function Restore-WinwsSnapshot {
-    param($snapshot)
-
-    if (-not $snapshot -or $snapshot.Count -eq 0) { return }
-
-    $current = @()
-    try { $current = (Get-WinwsSnapshot).CommandLine } catch { $current = @() }
-
-    Write-ZapretTestHost "[INFO] Restoring previously running winws instances..." -ForegroundColor DarkGray
-    foreach ($p in $snapshot) {
-        if (-not $p.ExecutablePath) { continue }
-
-        # Skip if an identical command line is already active
-        if ($current -and $current -contains $p.CommandLine) { continue }
-
-        $exe = $p.ExecutablePath
-        $processArgs = ""
-        if ($p.CommandLine) {
-            $quotedExe = '"' + $exe + '"'
-            if ($p.CommandLine.StartsWith($quotedExe)) {
-                $processArgs = $p.CommandLine.Substring($quotedExe.Length).Trim()
-            } elseif ($p.CommandLine.StartsWith($exe)) {
-                $processArgs = $p.CommandLine.Substring($exe.Length).Trim()
-            }
-        }
-
-        Start-Process -FilePath $exe -ArgumentList $processArgs -WorkingDirectory (Split-Path $exe -Parent) -WindowStyle Minimized | Out-Null
-    }
-}
-
 $env:NO_UPDATE_CHECK = "1"
-$originalWinws = Get-WinwsSnapshot
+$originalWinws = Get-ZapretTestWinwsSnapshot
 
-Write-ZapretTestHost ""
-Write-ZapretTestHost "============================================================" -ForegroundColor Cyan
-Write-ZapretTestHost "                 ZAPRET CONFIG TESTS" -ForegroundColor Cyan
-Write-ZapretTestHost "                 Mode: $($TestType.ToUpper())" -ForegroundColor Cyan
-Write-ZapretTestHost ("                 Engine: {0}" -f $engine) -ForegroundColor Cyan
-Write-ZapretTestHost "                 Total configs: $($batFiles.Count.ToString().PadLeft(2))" -ForegroundColor Cyan
-Write-ZapretTestHost "============================================================" -ForegroundColor Cyan
+Write-ZapmanTestHost ""
+Write-ZapmanTestHost "============================================================" -ForegroundColor Cyan
+Write-ZapmanTestHost "                 ZAPRET CONFIG TESTS" -ForegroundColor Cyan
+Write-ZapmanTestHost "                 Mode: $($TestType.ToUpper())" -ForegroundColor Cyan
+Write-ZapmanTestHost ("                 Engine: {0}" -f $engine) -ForegroundColor Cyan
+Write-ZapmanTestHost "                 Total configs: $($batFiles.Count.ToString().PadLeft(2))" -ForegroundColor Cyan
+Write-ZapmanTestHost "============================================================" -ForegroundColor Cyan
 
 try {
     # Save original ipset status and switch to 'any' for accurate DPI tests
     if (($originalIpsetStatus -ne "any") -and ($TestType -eq 'dpi')) {
-        Write-ZapretTestHost "[WARNING] Ipset is in '$originalIpsetStatus' mode. Switching to 'any' for accurate DPI tests..." -ForegroundColor Yellow
+        Write-ZapmanTestHost "[WARNING] Ipset is in '$originalIpsetStatus' mode. Switching to 'any' for accurate DPI tests..." -ForegroundColor Yellow
         Set-ZapretIpsetMode -Mode any -BackupName 'ipset-all.test-backup.txt' -CopyBackup
         # Create flag file to indicate ipset was switched
         "" | Out-File -FilePath $ipsetFlagFile -Encoding UTF8
     }
-    Write-ZapretTestHost "[WARNING] Tests may take several minutes to complete. Please wait..." -ForegroundColor Yellow
+    Write-ZapmanTestHost "[WARNING] Tests may take several minutes to complete. Please wait..." -ForegroundColor Yellow
 
     $configNum = 0
     foreach ($file in $batFiles) {
-    if (Test-ZapretTestStopRequested) {
-        Write-ZapretTestHost "[INFO] Tests cancelled." -ForegroundColor Yellow
+    if (Test-ZapmanTestStopRequested) {
+        Write-ZapmanTestHost "[INFO] Tests cancelled." -ForegroundColor Yellow
         break
     }
     $configNum++
-    Write-ZapretTestHost ""
-    Write-ZapretTestHost "------------------------------------------------------------" -ForegroundColor DarkCyan
-    Write-ZapretTestHost "  [$configNum/$($batFiles.Count)] $($file.Name)" -ForegroundColor Yellow
-    Write-ZapretTestHost "------------------------------------------------------------" -ForegroundColor DarkCyan
+    Write-ZapmanTestHost ""
+    Write-ZapmanTestHost "------------------------------------------------------------" -ForegroundColor DarkCyan
+    Write-ZapmanTestHost "  [$configNum/$($batFiles.Count)] $($file.Name)" -ForegroundColor Yellow
+    Write-ZapmanTestHost "------------------------------------------------------------" -ForegroundColor DarkCyan
 
     # Cleanup
-    Stop-Zapret
+    Stop-ZapretTestWinws
 
     # Start config
     if (-not (Test-ZapretStrategySupportsEngine -Path $file.FullName -Engine $engine)) {
-        Write-ZapretTestHost ("  > No {0} flags. Skipping..." -f $engine) -ForegroundColor DarkGray
+        Write-ZapmanTestHost ("  > No {0} flags. Skipping..." -f $engine) -ForegroundColor DarkGray
         continue
     }
 
-    Write-ZapretTestHost ("  > Starting config ({0})..." -f $engine) -ForegroundColor Cyan
+    Write-ZapmanTestHost ("  > Starting config ({0})..." -f $engine) -ForegroundColor Cyan
     $proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($file.FullName)`"" -WorkingDirectory $rootDir -PassThru -WindowStyle Minimized
 
     # Wait init
     if (-not (Wait-WinwsReady)) {
-        Write-ZapretTestHost ("  > Strategy failed to start ({0} process not found). Skipping..." -f (Get-ZapretEngineExeName -Engine $engine)) -ForegroundColor Red
+        Write-ZapmanTestHost ("  > Strategy failed to start ({0} process not found). Skipping..." -f (Get-ZapretEngineExeName -Engine $engine)) -ForegroundColor Red
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
         continue
     }
@@ -854,7 +851,7 @@ try {
         }
 
         $script:currentLine = "  > Running tests..."
-        Write-ZapretTestHost $script:currentLine -ForegroundColor DarkGray
+        Write-ZapmanTestHost $script:currentLine -ForegroundColor DarkGray
 
         $targetResults = @()
         foreach ($rs in $runspaces) {
@@ -866,28 +863,28 @@ try {
                 if ($handle -and $handle.AsyncWaitHandle) {
                     $completed = $handle.AsyncWaitHandle.WaitOne($waitMs)
                     if (-not $completed) {
-                        Write-ZapretTestHost "[WARN] Runspace for target timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
+                        Write-ZapmanTestHost "[WARN] Runspace for target timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
                         try {
                             $rs.Powershell.Stop()
                         } catch {
                             $stopFailed = $true
-                            Write-ZapretTestHost "[WARN] Could not stop the timed-out runspace." -ForegroundColor Yellow
+                            Write-ZapmanTestHost "[WARN] Could not stop the timed-out runspace." -ForegroundColor Yellow
                         }
                     }
                 }
             } catch {
                 $completed = $false
                 $stopFailed = $true
-                Write-ZapretTestHost "[WARN] Wait for a test runspace failed." -ForegroundColor Yellow
+                Write-ZapmanTestHost "[WARN] Wait for a test runspace failed." -ForegroundColor Yellow
                 try {
                     $rs.Powershell.Stop()
                 } catch {
-                    Write-ZapretTestHost "[WARN] Could not stop the runspace after a wait failure." -ForegroundColor Yellow
+                    Write-ZapmanTestHost "[WARN] Could not stop the runspace after a wait failure." -ForegroundColor Yellow
                 }
             }
 
             if ((-not $completed) -and $stopFailed) {
-                Write-ZapretTestHost "[WARN] EndInvoke skipped; treating as failure." -ForegroundColor Yellow
+                Write-ZapmanTestHost "[WARN] EndInvoke skipped; treating as failure." -ForegroundColor Yellow
                 $targetResults += [PSCustomObject]@{
                     Name       = $rs.TargetName
                     HttpTokens = @('HTTP:ERROR')
@@ -898,7 +895,7 @@ try {
                 try {
                     $targetResults += $rs.Powershell.EndInvoke($rs.Handle)
                 } catch {
-                    Write-ZapretTestHost "[WARN] EndInvoke failed for a runspace; treating as failure." -ForegroundColor Yellow
+                    Write-ZapmanTestHost "[WARN] EndInvoke failed for a runspace; treating as failure." -ForegroundColor Yellow
                     $targetResults += [PSCustomObject]@{
                         Name       = $rs.TargetName
                         HttpTokens = @('HTTP:ERROR')
@@ -920,7 +917,7 @@ try {
             $res = $targetLookup[$target.Name]
             if (-not $res) { continue }
 
-            Write-ZapretTestHost "  $($target.Name.PadRight($maxNameLen))    " -NoNewline
+            Write-ZapmanTestHost "  $($target.Name.PadRight($maxNameLen))    " -NoNewline
 
             if ($res.IsUrl -and $res.HttpTokens) {
                 foreach ($tok in $res.HttpTokens) {
@@ -928,43 +925,43 @@ try {
                     if ($tok -match "UNSUP") { $tokColor = "Yellow" }
                     elseif ($tok -match "SSL") { $tokColor = "Red" }
                     elseif ($tok -match "ERR") { $tokColor = "Red" }
-                    Write-ZapretTestHost " $tok" -NoNewline -ForegroundColor $tokColor
+                    Write-ZapmanTestHost " $tok" -NoNewline -ForegroundColor $tokColor
                 }
-                Write-ZapretTestHost " | Ping: " -NoNewline -ForegroundColor DarkGray
+                Write-ZapmanTestHost " | Ping: " -NoNewline -ForegroundColor DarkGray
                 if ($res.PingResult -eq "Timeout") {
                     $pingColor = "Yellow"
                 } else {
                     $pingColor = "Cyan"
                 }
-                Write-ZapretTestHost "$($res.PingResult)" -NoNewline -ForegroundColor $pingColor
-                Write-ZapretTestHost ""
+                Write-ZapmanTestHost "$($res.PingResult)" -NoNewline -ForegroundColor $pingColor
+                Write-ZapmanTestHost ""
             } else {
                 # Ping-only target
-                Write-ZapretTestHost " Ping: " -NoNewline -ForegroundColor DarkGray
+                Write-ZapmanTestHost " Ping: " -NoNewline -ForegroundColor DarkGray
                 if ($res.PingResult -eq "Timeout") {
                     $pingColor = "Red"
                 } else {
                     $pingColor = "Cyan"
                 }
-                Write-ZapretTestHost "$($res.PingResult)" -ForegroundColor $pingColor
+                Write-ZapmanTestHost "$($res.PingResult)" -ForegroundColor $pingColor
             }
 
         }
 
         $globalResults += @{ Config = $file.Name; Type = 'standard'; Results = $targetResults }
     } else {
-        Write-ZapretTestHost "  > Running DPI checkers..." -ForegroundColor DarkGray
+        Write-ZapmanTestHost "  > Running DPI checkers..." -ForegroundColor DarkGray
         $dpiResults = Invoke-DpiSuite -Targets $dpiTargets -TimeoutSeconds $dpiTimeoutSeconds -RangeBytes $dpiRangeBytes -MaxParallel $dpiMaxParallel
         $globalResults += @{ Config = $file.Name; Type = 'dpi'; Results = $dpiResults }
     }
 
     # Stop
-    Stop-Zapret
+    Stop-ZapretTestWinws
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
 }
 
-    Write-ZapretTestHost ""
-    Write-ZapretTestHost "All tests finished." -ForegroundColor Green
+    Write-ZapmanTestHost ""
+    Write-ZapmanTestHost "All tests finished." -ForegroundColor Green
 
     # Analytics
     $analytics = @{}
@@ -998,12 +995,12 @@ try {
     }
 
     if (@($analytics.Keys).Count -eq 0) {
-        Write-ZapretTestHost "No completed strategy results." -ForegroundColor Yellow
+        Write-ZapmanTestHost "No completed strategy results." -ForegroundColor Yellow
         return 1
     }
 
-    Write-ZapretTestHost ""
-    Write-ZapretTestHost "=== ANALYTICS ===" -ForegroundColor Cyan
+    Write-ZapmanTestHost ""
+    Write-ZapmanTestHost "=== ANALYTICS ===" -ForegroundColor Cyan
     $maxConfigLen = ($analytics.Keys | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum
     foreach ($config in $analytics.Keys) {
         $a = $analytics[$config]
@@ -1015,7 +1012,7 @@ try {
             $line = "{0} : OK: {1,3}, FAIL: {2,3}, UNSUP: {3,3}, BLOCKED: {4,3}" -f `
                 $configPadded, $a.OK, $a.FAIL, $a.UNSUPPORTED, $a.LIKELY_BLOCKED
         }
-        Write-ZapretTestHost $line -ForegroundColor Yellow
+        Write-ZapmanTestHost $line -ForegroundColor Yellow
     }
 
     # Determine best strategy
@@ -1040,9 +1037,9 @@ try {
             }
         }
     }
-    Write-ZapretTestHost ""
-    Write-ZapretTestHost "Best config: $bestConfig" -ForegroundColor Green
-    Write-ZapretTestHost ""
+    Write-ZapmanTestHost ""
+    Write-ZapmanTestHost "Best config: $bestConfig" -ForegroundColor Green
+    Write-ZapmanTestHost ""
 
     # Save to file
     $dateStr = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
@@ -1103,29 +1100,29 @@ try {
     [void]$resultLines.Add("Best strategy: $bestConfig")
     $resultLines | Set-Content $resultFile -Encoding UTF8
 
-    Write-ZapretTestHost "Results saved to $resultFile" -ForegroundColor Green
-    $script:ZapretTestExitCode = 0
+    Write-ZapmanTestHost "Results saved to $resultFile" -ForegroundColor Green
+    $script:ZapmanTestExitCode = 0
 
 } catch {
-    Write-ZapretTestHost "[ERROR] An error occurred during tests. Restoring ipset..." -ForegroundColor Red
+    Write-ZapmanTestHost "[ERROR] An error occurred during tests. Restoring ipset..." -ForegroundColor Red
     if ($originalIpsetStatus -and $originalIpsetStatus -ne "any") {
     Set-ZapretIpsetMode -Mode restore -BackupName 'ipset-all.test-backup.txt'
     }
     Remove-Item -Path $ipsetFlagFile -ErrorAction SilentlyContinue
 } finally {
-    Stop-Zapret
-    Restore-WinwsSnapshot -snapshot $originalWinws
+    Stop-ZapretTestWinws
+    Restore-ZapretTestWinwsSnapshot -snapshot $originalWinws
     if ($originalIpsetStatus -ne "any") {
-        Write-ZapretTestHost "[INFO] Restoring original ipset mode..." -ForegroundColor DarkGray
+        Write-ZapmanTestHost "[INFO] Restoring original ipset mode..." -ForegroundColor DarkGray
     Set-ZapretIpsetMode -Mode restore -BackupName 'ipset-all.test-backup.txt'
     }
     Remove-Item -Path $ipsetFlagFile -ErrorAction SilentlyContinue
 }
 
     } finally {
-        $script:ZapretTestOnLine = $null
-        $script:ZapretTestShouldStop = $null
+        $script:ZapmanTestOnLine = $null
+        $script:ZapmanTestShouldStop = $null
     }
-    return [int]$script:ZapretTestExitCode
+    return [int]$script:ZapmanTestExitCode
 }
 

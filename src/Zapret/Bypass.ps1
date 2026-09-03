@@ -1,4 +1,5 @@
-# Zapret module: winws start/stop, Windows service, Game Filter, IPSet.
+# Zapret engine helpers: winws start/stop, Windows service zapret, Game Filter, IPSet.
+# Zapman.psm1 dotsources this file. Script paths come from src/Zapman/Core.ps1.
 
 Set-StrictMode -Version Latest
 
@@ -11,7 +12,7 @@ function Invoke-ZapretOnWait {
 
 function Get-ZapretGameFilter {
     $modeName = 'disabled'
-    $cfg = Get-ZapretConfig
+    $cfg = Get-ZapmanConfig
     if ($cfg.gameFilter) {
         $modeName = [string]$cfg.gameFilter
     }
@@ -47,7 +48,7 @@ function Set-ZapretGameFilterMode {
     if ($Mode -eq 'all' -or $Mode -eq 'tcp' -or $Mode -eq 'udp') {
         $value = $Mode
     }
-    [void](Update-ZapretConfig -GameFilter $value)
+    [void](Update-ZapmanConfig -GameFilter $value)
 }
 
 function Test-ZapretServiceRunning {
@@ -70,16 +71,16 @@ function Invoke-ZapretStrategyPrep {
         Write-Host 'The zapret service is already running. Remove the service first if you want to run a strategy.' -ForegroundColor Yellow
         throw 'The zapret service is already running.'
     }
-    Enable-ZapretTcpTimestamps
-    Initialize-ZapretUserLists
+    Enable-ZapmanTcpTimestamps
+    Initialize-ZapmanUserLists
 }
 
 function Get-ZapretStrategyFiles {
-    if (-not (Test-Path -LiteralPath $script:ZapretStrategiesDir)) {
+    if (-not (Test-Path -LiteralPath $script:ZapmanStrategiesDir)) {
         return @()
     }
     return @(
-        Get-ChildItem -LiteralPath $script:ZapretStrategiesDir -Filter '*.ps1' |
+        Get-ChildItem -LiteralPath $script:ZapmanStrategiesDir -Filter '*.ps1' |
             Sort-Object { [Regex]::Replace($_.Name, '(\d+)', { $args[0].Value.PadLeft(8, '0') }) }
     )
 }
@@ -197,13 +198,13 @@ function Test-ZapretEngineFiles {
     if ([string]::IsNullOrWhiteSpace($Engine)) {
         $Engine = Get-ZapretEngine
     }
-    $exe = Join-Path $script:ZapretBinDir (Get-ZapretEngineExeName -Engine $Engine)
+    $exe = Join-Path $script:ZapmanBinDir (Get-ZapretEngineExeName -Engine $Engine)
     if (-not (Test-Path -LiteralPath $exe)) {
         return $false
     }
     if ($Engine -eq 'winws2') {
-        $lib = Join-Path $script:ZapretBinDir 'lua\zapret-lib.lua'
-        $anti = Join-Path $script:ZapretBinDir 'lua\zapret-antidpi.lua'
+        $lib = Join-Path $script:ZapmanBinDir 'lua\zapret-lib.lua'
+        $anti = Join-Path $script:ZapmanBinDir 'lua\zapret-antidpi.lua'
         if (-not (Test-Path -LiteralPath $lib)) {
             return $false
         }
@@ -258,8 +259,8 @@ function Expand-ZapretStrategyArgTemplate {
     $t = [string]$Template
     $t = $t.Replace('$($gf.Tcp)', [string]$gf.Tcp)
     $t = $t.Replace('$($gf.Udp)', [string]$gf.Udp)
-    $t = $t.Replace('$bin', $script:ZapretBinDir)
-    $t = $t.Replace('$lists', $script:ZapretListsDir)
+    $t = $t.Replace('$bin', $script:ZapmanBinDir)
+    $t = $t.Replace('$lists', $script:ZapmanListsDir)
     return $t
 }
 
@@ -274,7 +275,7 @@ function Complete-ZapretEngineArgumentList {
     }
     # A Windows service starts in System32. winws2 loads @lua from the current directory.
     if ($Engine -eq 'winws2' -and $flat -notmatch '(?i)(^|\s)--chdir(=|\s|$)') {
-        $flat = '--chdir="' + $script:ZapretBinDir + '" ' + $flat
+        $flat = '--chdir="' + $script:ZapmanBinDir + '" ' + $flat
     }
     return $flat
 }
@@ -291,7 +292,7 @@ function Get-ZapretStrategyServiceImagePath {
     if ([string]::IsNullOrWhiteSpace($tmpl)) {
         return ''
     }
-    $exe = Join-Path $script:ZapretBinDir (Get-ZapretEngineExeName -Engine $Engine)
+    $exe = Join-Path $script:ZapmanBinDir (Get-ZapretEngineExeName -Engine $Engine)
     $flat = Complete-ZapretEngineArgumentList -ArgumentList (Expand-ZapretStrategyArgTemplate -Template $tmpl) -Engine $Engine
     return '"' + $exe + '" ' + $flat
 }
@@ -341,12 +342,12 @@ function Start-ZapretWinws {
     param([string]$ArgumentList)
     $engine = Get-ZapretEngine
     $exeName = Get-ZapretEngineExeName -Engine $engine
-    $exe = Join-Path $script:ZapretBinDir $exeName
+    $exe = Join-Path $script:ZapmanBinDir $exeName
     if (-not (Test-ZapretEngineFiles -Engine $engine)) {
         if ($engine -eq 'winws2') {
-            throw (Get-ZapretUiString -Key 'EngineNoWinws2')
+            throw (Get-ZapmanUiString -Key 'EngineNoWinws2')
         }
-        throw (Get-ZapretUiString -Key 'EngineNoWinws')
+        throw (Get-ZapmanUiString -Key 'EngineNoWinws')
     }
     $pinErrs = @(Test-ZapretBinVersions)
     if (@($pinErrs).Count -gt 0) {
@@ -355,19 +356,19 @@ function Start-ZapretWinws {
     $hasLua = $ArgumentList -match '--lua-desync'
     $hasZ1 = $ArgumentList -match '--dpi-desync'
     if ($engine -eq 'winws2' -and $hasZ1 -and -not $hasLua) {
-        throw (Get-ZapretUiString -Key 'EngineNoFlags' -FormatArgs @('winws2'))
+        throw (Get-ZapmanUiString -Key 'EngineNoFlags' -FormatArgs @('winws2'))
     }
     if ($engine -eq 'winws' -and $hasLua) {
-        throw (Get-ZapretUiString -Key 'EngineNoFlags' -FormatArgs @('winws'))
+        throw (Get-ZapmanUiString -Key 'EngineNoFlags' -FormatArgs @('winws'))
     }
     $flat = Complete-ZapretEngineArgumentList -ArgumentList $ArgumentList -Engine $engine
-    Start-Process -FilePath $exe -ArgumentList $flat -WorkingDirectory $script:ZapretBinDir -WindowStyle Minimized | Out-Null
+    Start-Process -FilePath $exe -ArgumentList $flat -WorkingDirectory $script:ZapmanBinDir -WindowStyle Minimized | Out-Null
 }
 
 function Start-ZapretStrategyFile {
     param([string]$Path)
     $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$Path`""
-    Start-Process -FilePath 'powershell.exe' -ArgumentList $argList -WorkingDirectory $script:ZapretRoot -WindowStyle Minimized | Out-Null
+    Start-Process -FilePath 'powershell.exe' -ArgumentList $argList -WorkingDirectory $script:ZapmanRoot -WindowStyle Minimized | Out-Null
 }
 
 function ConvertTo-ZapretServiceImagePath {
@@ -432,7 +433,7 @@ function Get-ZapretInstalledStrategyName {
 }
 
 function Get-ZapretIpsetStatus {
-    $listFile = Join-Path $script:ZapretListsDir 'ipset-all.txt'
+    $listFile = Join-Path $script:ZapmanListsDir 'ipset-all.txt'
     if (-not (Test-Path -LiteralPath $listFile)) {
         return 'none'
     }
@@ -462,8 +463,8 @@ function Set-ZapretIpsetMode {
         [switch]$CopyBackup
     )
 
-    $listFile = Join-Path $script:ZapretListsDir 'ipset-all.txt'
-    $backupFile = Join-Path $script:ZapretListsDir $BackupName
+    $listFile = Join-Path $script:ZapmanListsDir 'ipset-all.txt'
+    $backupFile = Join-Path $script:ZapmanListsDir $BackupName
 
     if ($Mode -eq 'restore') {
         if (Test-Path -LiteralPath $backupFile) {
@@ -670,13 +671,13 @@ function Start-ZapretSelectedStrategy {
 
     $engine = Get-ZapretEngine
     if (-not (Test-ZapretStrategySupportsEngine -Path $File.FullName -Engine $engine)) {
-        throw (Get-ZapretUiString -Key 'EngineNoFlags' -FormatArgs @($engine))
+        throw (Get-ZapmanUiString -Key 'EngineNoFlags' -FormatArgs @($engine))
     }
     if (-not (Test-ZapretEngineFiles -Engine $engine)) {
         if ($engine -eq 'winws2') {
-            throw (Get-ZapretUiString -Key 'EngineNoWinws2')
+            throw (Get-ZapmanUiString -Key 'EngineNoWinws2')
         }
-        throw (Get-ZapretUiString -Key 'EngineNoWinws')
+        throw (Get-ZapmanUiString -Key 'EngineNoWinws')
     }
 
     $svc = Get-ZapretService
@@ -684,12 +685,12 @@ function Start-ZapretSelectedStrategy {
         Stop-ZapretBypass -OnWait $OnWait
     }
 
-    Enable-ZapretTcpTimestamps
+    Enable-ZapmanTcpTimestamps
     $env:NO_UPDATE_CHECK = '1'
     Start-ZapretStrategyFile -Path $File.FullName
 
     if (-not (Wait-ZapretWinws -TimeoutSeconds 12 -OnWait $OnWait)) {
-        throw (Get-ZapretUiString -Key 'EngineStartFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
+        throw (Get-ZapmanUiString -Key 'EngineStartFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
     }
 }
 
@@ -702,10 +703,10 @@ function Start-ZapretServiceIfInstalled {
     if ($svc.Status -eq 'Running') {
         return
     }
-    Enable-ZapretTcpTimestamps
+    Enable-ZapmanTcpTimestamps
     Start-Service -Name 'zapret' -ErrorAction Stop
     if (-not (Wait-ZapretWinws -TimeoutSeconds 12 -OnWait $OnWait)) {
-        throw (Get-ZapretUiString -Key 'EngineServiceFail' -FormatArgs @(Get-ZapretEngineExeName))
+        throw (Get-ZapmanUiString -Key 'EngineServiceFail' -FormatArgs @(Get-ZapretEngineExeName))
     }
 }
 
@@ -721,13 +722,13 @@ function Install-ZapretService {
 
     $engine = Get-ZapretEngine
     if (-not (Test-ZapretStrategySupportsEngine -Path $File.FullName -Engine $engine)) {
-        throw (Get-ZapretUiString -Key 'EngineNoFlags' -FormatArgs @($engine))
+        throw (Get-ZapmanUiString -Key 'EngineNoFlags' -FormatArgs @($engine))
     }
     if (-not (Test-ZapretEngineFiles -Engine $engine)) {
         if ($engine -eq 'winws2') {
-            throw (Get-ZapretUiString -Key 'EngineNoWinws2')
+            throw (Get-ZapmanUiString -Key 'EngineNoWinws2')
         }
-        throw (Get-ZapretUiString -Key 'EngineNoWinws')
+        throw (Get-ZapmanUiString -Key 'EngineNoWinws')
     }
 
     Stop-ZapretBypass -OnWait $OnWait
@@ -735,15 +736,15 @@ function Install-ZapretService {
 
     $commandLine = Get-ZapretStrategyServiceImagePath -Path $File.FullName -Engine $engine
     if ([string]::IsNullOrWhiteSpace($commandLine)) {
-        throw (Get-ZapretUiString -Key 'EngineCmdFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
+        throw (Get-ZapmanUiString -Key 'EngineCmdFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
     }
 
-    Enable-ZapretTcpTimestamps
+    Enable-ZapmanTcpTimestamps
     $env:NO_UPDATE_CHECK = '1'
     Start-ZapretStrategyFile -Path $File.FullName
 
     if (-not (Wait-ZapretWinws -TimeoutSeconds 15 -RequireCommandLine -OnWait $OnWait)) {
-        throw (Get-ZapretUiString -Key 'EngineInstallFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
+        throw (Get-ZapmanUiString -Key 'EngineInstallFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
     }
 
     Stop-ZapretBypass -OnWait $OnWait
@@ -798,7 +799,7 @@ function Install-ZapretService {
         if ($written -ne $commandLine) {
             throw 'Failed to write the service ImagePath.'
         }
-        if ($writtenName -ne $File.BaseName) {
+            if ($writtenName -ne $File.BaseName) {
             throw 'Failed to write the installed strategy name.'
         }
 
@@ -810,7 +811,7 @@ function Install-ZapretService {
             $waitSec = 15
         }
         if (-not (Wait-ZapretWinws -TimeoutSeconds $waitSec -RequireCommandLine -OnWait $OnWait)) {
-            throw (Get-ZapretUiString -Key 'EngineServiceFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
+            throw (Get-ZapmanUiString -Key 'EngineServiceFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
         }
     } catch {
         if ($created -or (Test-ZapretNamedService -Name 'zapret')) {
@@ -819,6 +820,64 @@ function Install-ZapretService {
         }
         throw
     }
+}
+
+function Get-ZapretInstalledStrategyFile {
+    $name = Get-ZapretInstalledStrategyName
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        return $null
+    }
+    foreach ($file in @(Get-ZapretStrategyFiles)) {
+        if ($file.BaseName -eq $name) {
+            return $file
+        }
+    }
+    return $null
+}
+
+# Remember the installed service, then delete only zapret. Do not delete WinDivert.
+function Suspend-ZapretServiceForTests {
+    param([scriptblock]$OnWait)
+    if (-not (Get-ZapretService)) {
+        return $null
+    }
+    $engine = Get-ZapretServiceEngineName
+    if ([string]::IsNullOrWhiteSpace($engine)) {
+        $engine = Get-ZapretEngine
+    }
+    $snap = New-Object PSObject -Property @{
+        File   = (Get-ZapretInstalledStrategyFile)
+        Engine = $engine
+    }
+    Stop-ZapretBypass -OnWait $OnWait
+    Remove-ZapretServiceRecord -OnWait $OnWait
+    return $snap
+}
+
+function Restore-ZapretServiceAfterTests {
+    param(
+        $Snapshot,
+        [scriptblock]$OnWait
+    )
+    if (-not $Snapshot) {
+        return
+    }
+    $file = $null
+    if ($Snapshot.PSObject.Properties['File']) {
+        $file = $Snapshot.File
+    }
+    if (-not $file) {
+        return
+    }
+    if (-not (Test-Path -LiteralPath $file.FullName)) {
+        return
+    }
+    $engine = [string]$Snapshot.Engine
+    if ($engine -ne 'winws' -and $engine -ne 'winws2') {
+        $engine = Get-ZapretEngine
+    }
+    Set-ZapretEngine -Engine $engine | Out-Null
+    Install-ZapretService -File $file -OnWait $OnWait
 }
 
 function Remove-ZapretServices {
@@ -837,13 +896,16 @@ function Remove-ZapretServices {
         if (Test-ZapretNamedService -Name 'WinDivert') {
             & sc.exe delete WinDivert | Out-Null
         }
+        [void](Wait-ZapretServiceGone -Name 'WinDivert' -TimeoutSeconds 5 -OnWait $OnWait)
     }
 
-    & net.exe stop WinDivert14 2>$null | Out-Null
-    & sc.exe delete WinDivert14 2>$null | Out-Null
-
-    [void](Wait-ZapretServiceGone -Name 'WinDivert' -TimeoutSeconds 5 -OnWait $OnWait)
-    [void](Wait-ZapretServiceGone -Name 'WinDivert14' -TimeoutSeconds 5 -OnWait $OnWait)
+    if (Test-ZapretNamedService -Name 'WinDivert14') {
+        & net.exe stop WinDivert14 2>$null | Out-Null
+        if (Test-ZapretNamedService -Name 'WinDivert14') {
+            & sc.exe delete WinDivert14 | Out-Null
+        }
+        [void](Wait-ZapretServiceGone -Name 'WinDivert14' -TimeoutSeconds 5 -OnWait $OnWait)
+    }
 
     $left = New-Object System.Collections.Generic.List[string]
     foreach ($name in @('zapret', 'WinDivert', 'WinDivert14')) {

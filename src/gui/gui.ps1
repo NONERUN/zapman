@@ -1,7 +1,7 @@
 # Zapret WPF GUI.
 # This script starts and stops strategies from the strategies folder.
 # This script installs or removes the zapret Windows service.
-# Entry from zapret.bat is gui-boot.ps1 so the first mark is the parse of this file.
+# Entry from zapman.bat is gui-boot.ps1. That file shows Main.xaml before this parse.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
@@ -31,8 +31,8 @@ function Add-GuiStartupMark {
     [void]$script:startupMarks.Add(('{0}: {1} ms' -f $Name, $delta))
 }
 
-Import-Module -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapret\Zapret.psd1')
-[void](Initialize-ZapretUiLanguage)
+Import-Module -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapman\Zapman.psd1')
+[void](Initialize-ZapmanUiLanguage)
 Add-GuiStartupMark 'import'
 
 $script:layout = Get-ZapretLayout
@@ -55,6 +55,11 @@ $script:startupReady = $false
 $script:startupShown = $false
 $script:guiJournal = New-Object System.Collections.Generic.List[string]
 $window = $null
+if (Get-Variable -Name guiShellWindow -Scope Script -ErrorAction SilentlyContinue) {
+    if ($script:guiShellWindow) {
+        $window = $script:guiShellWindow
+    }
+}
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -115,7 +120,7 @@ function Show-ConsoleWindow {
     }
 }
 
-function Import-ZapretXaml {
+function Import-ZapmanXaml {
     param([string]$Name)
     $path = Join-Path $PSScriptRoot $Name
     if (-not (Test-Path -LiteralPath $path)) {
@@ -141,7 +146,28 @@ function Get-XamlChild {
     return $el
 }
 
-function Show-ZapretOwnedDialog {
+function Test-GuiBootOwnsRun {
+    if (Get-Variable -Name guiBootOwnsRun -Scope Script -ErrorAction SilentlyContinue) {
+        return [bool]$script:guiBootOwnsRun
+    }
+    return $false
+}
+
+function Update-GuiWindowPaint {
+    if (-not $window) {
+        return
+    }
+    try {
+        $window.Dispatcher.Invoke(
+            [System.Windows.Threading.DispatcherPriority]::Render,
+            [System.Action]{ $null }
+        )
+    } catch {
+        return
+    }
+}
+
+function Show-ZapmanOwnedDialog {
     param($Dialog)
     if ($window) {
         $Dialog.Owner = $window
@@ -218,213 +244,6 @@ function Show-QuestionDialog {
     )
 }
 
-function Show-GuiDiagnostics {
-    $dlg = Import-ZapretXaml 'DiagPick.xaml'
-    $dlg.Title = Get-ZapretUiString -Key 'DiagTitle'
-    $diagPanel = Get-XamlChild -Root $dlg -Name 'diagPanel'
-    $btnOk = Get-XamlChild -Root $dlg -Name 'btnOk'
-    $btnOk.Content = Get-ZapretUiString -Key 'BtnOk'
-    $btnOk.Add_Click({
-        $dlg.DialogResult = $true
-    })
-
-    $script:diagPanel = $diagPanel
-    $script:diagBusy = $false
-    $script:diagRebuild = $null
-
-    $script:diagRebuild = {
-        $p = $script:diagPanel
-        if (-not $p) {
-            return
-        }
-        $p.Children.Clear()
-        $report = Get-ZapretDiagnosticReport
-        $items = @($report.Items)
-        foreach ($item in $items) {
-            $row = New-Object System.Windows.Controls.DockPanel
-            $row.LastChildFill = $true
-            $row.Height = 30
-
-            $hasAction = -not [string]::IsNullOrWhiteSpace([string]$item.Action)
-
-            $mark = New-Object System.Windows.Controls.TextBlock
-            $mark.Width = 22
-            $mark.TextAlignment = [System.Windows.TextAlignment]::Center
-            $mark.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-            $mark.FontSize = 14
-            if ($item.Status -eq 'ok') {
-                $mark.Text = [string][char]0x2713
-                $mark.Foreground = [System.Windows.Media.Brushes]::ForestGreen
-            } elseif ($item.Status -eq 'warn') {
-                $mark.Text = '!'
-                $mark.Foreground = [System.Windows.Media.Brushes]::DarkOrange
-            } else {
-                $mark.Text = [string][char]0x2717
-                $mark.Foreground = [System.Windows.Media.Brushes]::Firebrick
-            }
-            [System.Windows.Controls.DockPanel]::SetDock($mark, [System.Windows.Controls.Dock]::Right)
-            [void]$row.Children.Add($mark)
-
-            if ($hasAction) {
-                $btn = New-Object System.Windows.Controls.Button
-                $btn.Content = Get-ZapretUiString -Key 'DiagRun'
-                $btn.Width = 84
-                $btn.Height = 24
-                $btn.Margin = New-Object System.Windows.Thickness(0, 3, 8, 3)
-                $btn.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-                $btn.Tag = $item
-                $btn.Add_Click({
-                    if ($script:diagBusy) {
-                        return
-                    }
-                    $it = $this.Tag
-                    if (-not $it) {
-                        return
-                    }
-                    $script:diagBusy = $true
-                    try {
-                        $this.IsEnabled = $false
-                        $msgs = @(Invoke-ZapretDiagnosticAction -Action ([string]$it.Action) -Names @($it.ActionNames))
-                        Invoke-GuiPump
-                        $fails = @($msgs | Where-Object { $_ -like 'FAIL:*' })
-                        if ($fails.Count -gt 0) {
-                            Show-ErrorDialog (($fails -join [Environment]::NewLine))
-                        }
-                        if ($script:diagRebuild) {
-                            & $script:diagRebuild
-                        }
-                    } catch {
-                        Show-ErrorDialog $_.Exception.Message
-                    } finally {
-                        $script:diagBusy = $false
-                    }
-                })
-                [System.Windows.Controls.DockPanel]::SetDock($btn, [System.Windows.Controls.Dock]::Right)
-                [void]$row.Children.Add($btn)
-            }
-
-            $lbl = New-Object System.Windows.Controls.TextBlock
-            $lbl.Text = [string]$item.Text
-            $lbl.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
-            $lbl.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-            $lbl.Margin = New-Object System.Windows.Thickness(4, 0, 8, 0)
-            [void]$row.Children.Add($lbl)
-            [void]$p.Children.Add($row)
-        }
-    }
-
-    $dlg.Add_Loaded({
-        if ($script:diagRebuild) {
-            & $script:diagRebuild
-        }
-    })
-
-    [void](Show-ZapretOwnedDialog -Dialog $dlg)
-    $script:diagRebuild = $null
-    $script:diagPanel = $null
-}
-
-function Add-FakeSlotComboItems {
-    param(
-        [System.Windows.Controls.ComboBox]$Combo,
-        [object[]]$Files,
-        [string]$CurrentName,
-        [string]$State
-    )
-    $offset = 0
-    if ($State -ne 'matched') {
-        [void]$Combo.Items.Add((Get-ZapretFakeCurrentText -Name $CurrentName -State $State))
-        $offset = 1
-    }
-    $selected = 0
-    foreach ($item in @($Files)) {
-        [void]$Combo.Items.Add([string]$item.Name)
-        if ($State -eq 'matched' -and $item.Name -eq $CurrentName) {
-            $selected = $Combo.Items.Count - 1
-        }
-    }
-    if ($Combo.Items.Count -gt 0) {
-        $Combo.SelectedIndex = $selected
-    }
-    return $offset
-}
-
-function Get-FakeSlotPickedFile {
-    param(
-        [System.Windows.Controls.ComboBox]$Combo,
-        [int]$Offset,
-        [object[]]$Files,
-        [string]$CurrentName,
-        [string]$State
-    )
-    $idx = $Combo.SelectedIndex
-    if ($idx -lt 0) {
-        return $null
-    }
-    if ($State -ne 'matched') {
-        if ($idx -lt $Offset) {
-            return $null
-        }
-        return @($Files)[$idx - $Offset]
-    }
-    $picked = @($Files)[$idx]
-    if ($CurrentName -and $picked.Name -eq $CurrentName) {
-        return $null
-    }
-    return $picked
-}
-
-function Show-FakesDialog {
-    $catalog = Get-ZapretFakeCatalog
-    $files = @($catalog.Files)
-    if (@($files).Count -eq 0) {
-        throw (Get-ZapretUiString -Key 'FakesNone')
-    }
-
-    $dlg = Import-ZapretXaml 'Fake.xaml'
-    $dlg.Title = Get-ZapretUiString -Key 'FakesTitle'
-    $lblDiscord = Get-XamlChild -Root $dlg -Name 'lblDiscord'
-    $lblDiscord.Text = Get-ZapretUiString -Key 'FakesDiscord'
-    $cmbDiscord = Get-XamlChild -Root $dlg -Name 'cmbDiscord'
-    $discordOffset = Add-FakeSlotComboItems -Combo $cmbDiscord -Files $files -CurrentName ([string]$catalog.CurrentDiscord) -State ([string]$catalog.DiscordState)
-    $lblGame = Get-XamlChild -Root $dlg -Name 'lblGame'
-    $lblGame.Text = Get-ZapretUiString -Key 'FakesGame'
-    $cmbGameFake = Get-XamlChild -Root $dlg -Name 'cmbGameFake'
-    $gameOffset = Add-FakeSlotComboItems -Combo $cmbGameFake -Files $files -CurrentName ([string]$catalog.CurrentGame) -State ([string]$catalog.GameState)
-    $btnOk = Get-XamlChild -Root $dlg -Name 'btnOk'
-    $btnOk.Content = Get-ZapretUiString -Key 'BtnOk'
-    $btnOk.Add_Click({
-        $dlg.DialogResult = $true
-    })
-    $btnCancel = Get-XamlChild -Root $dlg -Name 'btnCancel'
-    $btnCancel.Content = Get-ZapretUiString -Key 'BtnCancel'
-
-    $result = Show-ZapretOwnedDialog -Dialog $dlg
-    $choice = $null
-    if ($result -eq $true) {
-        $changes = New-Object System.Collections.ArrayList
-        $discordPicked = Get-FakeSlotPickedFile -Combo $cmbDiscord -Offset $discordOffset -Files $files -CurrentName ([string]$catalog.CurrentDiscord) -State ([string]$catalog.DiscordState)
-        if ($discordPicked) {
-            [void]$changes.Add((New-Object PSObject -Property @{
-                Slot = 'discord'
-                Path = [string]$discordPicked.FullName
-                Name = [string]$discordPicked.Name
-            }))
-        }
-        $gamePicked = Get-FakeSlotPickedFile -Combo $cmbGameFake -Offset $gameOffset -Files $files -CurrentName ([string]$catalog.CurrentGame) -State ([string]$catalog.GameState)
-        if ($gamePicked) {
-            [void]$changes.Add((New-Object PSObject -Property @{
-                Slot = 'game'
-                Path = [string]$gamePicked.FullName
-                Name = [string]$gamePicked.Name
-            }))
-        }
-        $choice = New-Object PSObject -Property @{
-            Changes = @($changes)
-        }
-    }
-    return $choice
-}
 
 function Invoke-GuiPump {
     $disp = $null
@@ -482,34 +301,34 @@ function Complete-GuiVersionCheck {
     $script:versionCheckReportUpToDate = $false
     if ($Cancelled -or $ErrorObject) {
         if ($reportUpToDate) {
-            Show-InfoDialog (Get-ZapretUiString -Key 'VersionFail')
-            Write-GuiLog (Get-ZapretUiString -Key 'VersionFail')
+            Show-InfoDialog (Get-ZapmanUiString -Key 'VersionFail')
+            Write-GuiLog (Get-ZapmanUiString -Key 'VersionFail')
         } else {
-            Write-GuiLog (Get-ZapretUiString -Key 'AutoFail')
+            Write-GuiLog (Get-ZapmanUiString -Key 'AutoFail')
         }
         return
     }
     $remote = ([string]$RemoteText).Trim()
-    $local = Get-ZapretLocalVersion
+    $local = Get-ZapmanLocalVersion
     if ($remote -eq $local) {
         if ($reportUpToDate) {
-            Show-InfoDialog (Get-ZapretUiString -Key 'VersionLatest' -FormatArgs @($local))
-            Write-GuiLog (Get-ZapretUiString -Key 'VersionLatest' -FormatArgs @($local))
+            Show-InfoDialog (Get-ZapmanUiString -Key 'VersionLatest' -FormatArgs @($local))
+            Write-GuiLog (Get-ZapmanUiString -Key 'VersionLatest' -FormatArgs @($local))
         }
         return
     }
     if (-not $remote) {
         if ($reportUpToDate) {
-            Show-InfoDialog (Get-ZapretUiString -Key 'VersionFail')
-            Write-GuiLog (Get-ZapretUiString -Key 'VersionFail')
+            Show-InfoDialog (Get-ZapmanUiString -Key 'VersionFail')
+            Write-GuiLog (Get-ZapmanUiString -Key 'VersionFail')
         }
         return
     }
-    $answer = Show-QuestionDialog (Get-ZapretUiString -Key 'VersionNew' -FormatArgs @($remote))
+    $answer = Show-QuestionDialog (Get-ZapmanUiString -Key 'VersionNew' -FormatArgs @($remote))
     if ($answer -eq [System.Windows.MessageBoxResult]::Yes) {
         Start-Process (Get-ZapretReleasePageUrl)
     }
-    Write-GuiLog (Get-ZapretUiString -Key 'VersionNew' -FormatArgs @($remote))
+    Write-GuiLog (Get-ZapmanUiString -Key 'VersionNew' -FormatArgs @($remote))
 }
 
 function Start-GuiVersionCheck {
@@ -520,7 +339,7 @@ function Start-GuiVersionCheck {
     }
     $script:versionCheckBusy = $true
     $script:versionCheckReportUpToDate = $ReportUpToDate
-    Enable-ZapretTls12
+    Enable-ZapmanTls12
     $wc = New-Object System.Net.WebClient
     $wc.Headers.Add('Cache-Control', 'no-cache')
     $wc.Headers.Add('User-Agent', 'zapret')
@@ -571,562 +390,8 @@ function Start-GuiVersionCheck {
     }
 }
 
-function Invoke-GuiDownload {
-    param(
-        [string]$Url,
-        [string]$Destination,
-        [string]$Title
-    )
 
-    Enable-ZapretTls12
-    $partial = $Destination + '.partial'
-    $script:dlDone = $false
-    $script:dlError = $null
-
-    $dlg = Import-ZapretXaml 'Download.xaml'
-    $dlg.Title = $Title
-    $lbl = Get-XamlChild -Root $dlg -Name 'lblStatus'
-    $lbl.Text = 'Connecting...'
-    $bar = Get-XamlChild -Root $dlg -Name 'barProgress'
-    $btnCancel = Get-XamlChild -Root $dlg -Name 'btnCancel'
-    $btnCancel.Content = 'Cancel'
-    if ($window) {
-        $dlg.Owner = $window
-        $dlg.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
-    }
-
-    $script:dlBar = $bar
-    $script:dlLabel = $lbl
-    $wc = New-Object System.Net.WebClient
-    $wc.Headers.Add('Cache-Control', 'no-cache')
-    $wc.Headers.Add('User-Agent', 'zapret')
-
-    $wc.add_DownloadProgressChanged({
-        param($source, $e)
-        try {
-            if ($null -eq $source) { return }
-            if (-not $e) { return }
-            $script:dlBytes = $e.BytesReceived
-            $script:dlTotal = $e.TotalBytesToReceive
-            $script:dlPct = $e.ProgressPercentage
-            Invoke-GuiOnUi {
-                $total = $script:dlTotal
-                $pct = $script:dlPct
-                if ($total -gt 0 -and $pct -ge 0) {
-                    $script:dlBar.IsIndeterminate = $false
-                    $script:dlBar.Minimum = 0
-                    $script:dlBar.Maximum = 100
-                    $script:dlBar.Value = [Math]::Min(100, [Math]::Max(0, $pct))
-                    $script:dlLabel.Text = ('Downloaded {0} of {1} KB ({2}%)' -f [int]($script:dlBytes / 1024), [int]($total / 1024), $pct)
-                } else {
-                    $script:dlLabel.Text = ('Downloaded {0} KB' -f [int]($script:dlBytes / 1024))
-                }
-            }
-        } catch {
-            return
-        }
-    })
-
-    $wc.add_DownloadFileCompleted({
-        param($source, $e)
-        try {
-            if ($null -eq $source) {
-                return
-            }
-            if ($e -and $e.Cancelled) {
-                $script:dlError = 'Download cancelled.'
-            } elseif ($e -and $e.Error) {
-                $script:dlError = $e.Error.Message
-            }
-        } catch {
-            $script:dlError = 'Download failed.'
-        }
-        $script:dlDone = $true
-    })
-
-    $btnCancel.Add_Click({
-        $wc.CancelAsync()
-    })
-    $dlg.Add_Closing({
-        if (-not $script:dlDone) {
-            $wc.CancelAsync()
-        }
-    })
-
-    try {
-        $dlg.Show()
-        $wc.DownloadFileAsync([Uri]$Url, $partial)
-        while (-not $script:dlDone) {
-            Invoke-GuiPump
-            Start-Sleep -Milliseconds 40
-        }
-    } finally {
-        $dlg.Close()
-        $wc.Dispose()
-    }
-
-    if ($script:dlError) {
-        if (Test-Path -LiteralPath $partial) {
-            Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
-        }
-        throw $script:dlError
-    }
-    if (-not (Test-Path -LiteralPath $partial)) {
-        throw 'Download failed.'
-    }
-    if (Test-Path -LiteralPath $Destination) {
-        Remove-Item -LiteralPath $Destination -Force
-    }
-    Move-Item -LiteralPath $partial -Destination $Destination -Force
-}
-
-function Show-GuiTestsSetup {
-    $engine = Get-ZapretEngine
-    if (-not (Test-ZapretEngineFiles -Engine $engine)) {
-        if ($engine -eq 'winws2') {
-            throw (Get-ZapretUiString -Key 'EngineNoWinws2')
-        }
-        throw (Get-ZapretUiString -Key 'EngineNoWinws')
-    }
-    $files = @(
-        @(Get-ZapretStrategyFiles) | Where-Object {
-            Test-ZapretStrategySupportsEngine -Path $_.FullName -Engine $engine
-        }
-    )
-    if ($files.Count -eq 0) {
-        throw (Get-ZapretUiString -Key 'EngineNoFlags' -FormatArgs @($engine))
-    }
-
-    $dlg = Import-ZapretXaml 'TestsSetup.xaml'
-    $dlg.Title = 'Run Tests'
-    $lblType = Get-XamlChild -Root $dlg -Name 'lblType'
-    $lblType.Text = 'Test type'
-    $rbStd = Get-XamlChild -Root $dlg -Name 'rbStd'
-    $rbStd.Content = 'Standard (HTTP / ping)'
-    $rbDpi = Get-XamlChild -Root $dlg -Name 'rbDpi'
-    $rbDpi.Content = 'DPI checkers (TCP 16-20)'
-    $lblPick = Get-XamlChild -Root $dlg -Name 'lblPick'
-    $lblPick.Text = ('Strategies to test ({0})' -f $engine)
-    $checks = Get-XamlChild -Root $dlg -Name 'listChecks'
-    $selectedName = Get-ZapretRunningStrategyName
-    if ([string]::IsNullOrWhiteSpace($selectedName)) {
-        $selectedName = Get-ZapretInstalledStrategyName
-    }
-    foreach ($file in $files) {
-        $cb = New-Object System.Windows.Controls.CheckBox
-        $cb.Content = $file.BaseName
-        $cb.Margin = New-Object System.Windows.Thickness(4, 2, 4, 2)
-        if ($file.BaseName -eq $selectedName) {
-            $cb.IsChecked = $true
-        }
-        [void]$checks.Items.Add($cb)
-    }
-    $checkedCount = @($checks.Items | Where-Object { $_.IsChecked -eq $true }).Count
-    if ($checkedCount -eq 0 -and $checks.Items.Count -gt 0) {
-        $checks.Items[0].IsChecked = $true
-    }
-    $btnAll = Get-XamlChild -Root $dlg -Name 'btnAll'
-    $btnAll.Content = 'All'
-    $btnAll.Add_Click({
-        foreach ($cb in @($checks.Items)) {
-            $cb.IsChecked = $true
-        }
-    })
-    $btnNone = Get-XamlChild -Root $dlg -Name 'btnNone'
-    $btnNone.Content = 'None'
-    $btnNone.Add_Click({
-        foreach ($cb in @($checks.Items)) {
-            $cb.IsChecked = $false
-        }
-    })
-    $btnRun = Get-XamlChild -Root $dlg -Name 'btnRun'
-    $btnRun.Content = 'Start tests'
-    $btnRun.Add_Click({
-        $dlg.DialogResult = $true
-    })
-    $btnCancel = Get-XamlChild -Root $dlg -Name 'btnCancel'
-    $btnCancel.Content = 'Cancel'
-
-    $result = Show-ZapretOwnedDialog -Dialog $dlg
-    $choice = $null
-    if ($result -eq $true) {
-        $names = New-Object System.Collections.Generic.List[string]
-        foreach ($cb in @($checks.Items)) {
-            if ($cb.IsChecked -eq $true) {
-                [void]$names.Add([string]$cb.Content)
-            }
-        }
-        if ($names.Count -eq 0) {
-            throw 'Select at least one strategy.'
-        }
-        $kind = 'standard'
-        if ($rbDpi.IsChecked -eq $true) {
-            $kind = 'dpi'
-        }
-        $choice = New-Object PSObject -Property @{
-            TestType = $kind
-            Names    = @($names)
-        }
-    }
-    return $choice
-}
-
-function Add-GuiTestLine {
-    param(
-        [string]$Text,
-        [bool]$NoNewline
-    )
-    if (-not $script:testBox) {
-        return
-    }
-    if ($NoNewline) {
-        $script:testBox.AppendText($Text)
-    } else {
-        $script:testBox.AppendText($Text + [Environment]::NewLine)
-    }
-    $script:testBox.ScrollToEnd()
-    if ($Text -match '\[(\d+)/(\d+)\]') {
-        $total = [int]$matches[2]
-        if ($total -lt 1) {
-            $total = 1
-        }
-        if ($script:testBar) {
-            $script:testBar.IsIndeterminate = $false
-            $script:testBar.Minimum = 0
-            $script:testBar.Maximum = $total
-            $cur = [int]$matches[1]
-            if ($cur -gt $script:testBar.Maximum) { $cur = [int]$script:testBar.Maximum }
-            if ($cur -lt 0) { $cur = 0 }
-            $script:testBar.Value = $cur
-        }
-        $script:testLbl.Text = ('Testing {0} / {1}' -f $matches[1], $matches[2])
-    }
-}
-
-function Start-GuiTestRun {
-    param(
-        [string]$TestType,
-        [string[]]$Names
-    )
-
-    $nameList = @($Names)
-    $dlg = Import-ZapretXaml 'Tests.xaml'
-    $dlg.Title = 'Tests'
-    $lbl = Get-XamlChild -Root $dlg -Name 'lblStatus'
-    $lbl.Text = 'Starting tests...'
-    $bar = Get-XamlChild -Root $dlg -Name 'barProgress'
-    $box = Get-XamlChild -Root $dlg -Name 'txtLog'
-    $btnStop = Get-XamlChild -Root $dlg -Name 'btnStop'
-    $btnStop.Content = 'Cancel'
-
-    $script:testExited = $false
-    $script:testCancel = $false
-    $script:testShown = $false
-    $script:testDlg = $dlg
-    $script:testBar = $bar
-    $script:testBox = $box
-    $script:testLbl = $lbl
-    $script:testBtn = $btnStop
-    $script:testType = $TestType
-    $script:testNames = $nameList
-
-    $btnStop.Add_Click({
-        if (-not $script:testExited) {
-            $script:testCancel = $true
-            Stop-ZapretWinwsProcess
-            if ($script:testLbl) {
-                $script:testLbl.Text = 'Cancelling...'
-            }
-            return
-        }
-        if ($script:testDlg) {
-            $script:testDlg.Close()
-        }
-    })
-    $dlg.Add_Closing({
-        if (-not $script:testExited) {
-            $script:testCancel = $true
-            Stop-ZapretWinwsProcess
-            $_.Cancel = $true
-        }
-    })
-    $dlg.Add_ContentRendered({
-        if ($script:testShown) {
-            return
-        }
-        $script:testShown = $true
-        try {
-            Invoke-ZapretStrategyTests -TestType $script:testType -Names @($script:testNames) -OnLine {
-                param($text, $noNewline)
-                Add-GuiTestLine -Text $text -NoNewline ([bool]$noNewline)
-                Invoke-GuiPump
-            } -ShouldStop { [bool]$script:testCancel }
-        } catch {
-            Add-GuiTestLine -Text $_.Exception.Message -NoNewline $false
-        } finally {
-            $script:testExited = $true
-            if ($script:testBar) {
-                $script:testBar.IsIndeterminate = $false
-                if ($script:testBar.Maximum -lt 1) {
-                    $script:testBar.Maximum = 1
-                }
-                $script:testBar.Value = $script:testBar.Maximum
-            }
-            if ($script:testLbl) {
-                if ($script:testCancel) {
-                    $script:testLbl.Text = 'Cancelled.'
-                } else {
-                    $script:testLbl.Text = 'Tests finished. See test-results\ for the saved log.'
-                }
-            }
-            if ($script:testBtn) {
-                $script:testBtn.Content = 'Close'
-            }
-        }
-    })
-
-    try {
-        [void](Show-ZapretOwnedDialog -Dialog $dlg)
-    } finally {
-        $script:testDlg = $null
-        $script:testBar = $null
-        $script:testBox = $null
-        $script:testLbl = $null
-        $script:testBtn = $null
-        $script:testNames = $null
-    }
-}
-
-function Get-SelectedStrategy {
-    param($ListBox)
-    $sel = $ListBox.SelectedItem
-    if ($null -eq $sel) {
-        return $null
-    }
-    $name = $null
-    if ($sel -is [System.Windows.Controls.ListBoxItem]) {
-        $name = [string]$sel.Tag
-    } else {
-        $name = [string]$sel
-    }
-    if ([string]::IsNullOrWhiteSpace($name)) {
-        return $null
-    }
-    if (-not $script:strategyMap.ContainsKey($name)) {
-        return $null
-    }
-    return $script:strategyMap[$name]
-}
-
-function Show-StatusJournalDialog {
-    $status = @((@(Get-ZapretStatusLines)) -join [Environment]::NewLine)
-    $journal = @((@($script:guiJournal)) -join [Environment]::NewLine)
-    $text = $status + [Environment]::NewLine + [Environment]::NewLine + (Get-ZapretUiString -Key 'JournalHeader') + [Environment]::NewLine + $journal
-    $dlg = Import-ZapretXaml 'Status.xaml'
-    $dlg.Title = Get-ZapretUiString -Key 'StatusDlgTitle'
-    $box = Get-XamlChild -Root $dlg -Name 'txtStatus'
-    $box.Text = $text
-    $box.CaretIndex = 0
-    $copy = Get-XamlChild -Root $dlg -Name 'btnCopy'
-    $copy.Content = Get-ZapretUiString -Key 'BtnCopy'
-    $copy.Add_Click({
-        try {
-            [System.Windows.Clipboard]::SetText($box.Text)
-        } catch {
-            Show-ErrorDialog $_.Exception.Message
-        }
-    })
-    $ok = Get-XamlChild -Root $dlg -Name 'btnClose'
-    $ok.Content = Get-ZapretUiString -Key 'BtnClose'
-    $ok.Add_Click({
-        $dlg.DialogResult = $true
-    })
-    [void](Show-ZapretOwnedDialog -Dialog $dlg)
-}
-
-function Update-StrategyListMarks {
-    param($ListBox)
-    $runningName = Get-ZapretRunningStrategyName
-    $installedName = Get-ZapretInstalledStrategyName
-    $running = Test-ZapretBypassRunning
-    $eng = Get-ZapretEngine
-    foreach ($it in @($ListBox.Items)) {
-        if (-not ($it -is [System.Windows.Controls.ListBoxItem])) {
-            continue
-        }
-        $name = [string]$it.Tag
-        $label = $name
-        if ($running -and $name -eq $runningName) {
-            $label = $name + (Get-ZapretUiString -Key 'StratMarkRun')
-        } elseif ($name -eq $installedName) {
-            $label = $name + (Get-ZapretUiString -Key 'StratMarkService')
-        }
-        $it.Content = $label
-        $file = $null
-        if ($script:strategyMap.ContainsKey($name)) {
-            $file = $script:strategyMap[$name]
-        }
-        $ok = $false
-        if ($file) {
-            $ok = Test-ZapretStrategySupportsEngine -Path $file.FullName -Engine $eng
-        }
-        if ($ok) {
-            $it.ClearValue([System.Windows.Controls.Control]::ForegroundProperty)
-        } else {
-            $it.Foreground = [System.Windows.Media.Brushes]::Gray
-        }
-    }
-}
-
-function Show-StrategyDialog {
-    $dlg = Import-ZapretXaml 'Strategy.xaml'
-    $dlg.Title = Get-ZapretUiString -Key 'StratTitle'
-    $lblEngine = Get-XamlChild -Root $dlg -Name 'lblEngine'
-    $lblEngine.Text = Get-ZapretUiString -Key 'LblEngine'
-    $rbWinws = Get-XamlChild -Root $dlg -Name 'rbWinws'
-    $rbWinws.Content = 'winws'
-    $rbWinws2 = Get-XamlChild -Root $dlg -Name 'rbWinws2'
-    $rbWinws2.Content = 'winws2'
-    if ((Get-ZapretEngine) -eq 'winws2') {
-        $rbWinws2.IsChecked = $true
-    } else {
-        $rbWinws.IsChecked = $true
-    }
-    $lb = Get-XamlChild -Root $dlg -Name 'listStrategies'
-    foreach ($name in @($script:strategyMap.Keys | Sort-Object)) {
-        $item = New-Object System.Windows.Controls.ListBoxItem
-        $item.Content = $name
-        $item.Tag = $name
-        [void]$lb.Items.Add($item)
-    }
-    Select-InstalledOrFirstStrategy -ListBox $lb
-    $btnRun = Get-XamlChild -Root $dlg -Name 'btnRun'
-    $btnRun.Content = Get-ZapretUiString -Key 'BtnRunSelected'
-    $btnInst = Get-XamlChild -Root $dlg -Name 'btnInst'
-    $btnInst.Content = Get-ZapretUiString -Key 'BtnInstall'
-    $btnT = Get-XamlChild -Root $dlg -Name 'btnTests'
-    $btnT.Content = Get-ZapretUiString -Key 'BtnTests'
-    $syncEngineUi = {
-        $eng = 'winws'
-        if ($rbWinws2.IsChecked -eq $true) {
-            $eng = 'winws2'
-        }
-        Set-ZapretEngine -Engine $eng | Out-Null
-        Update-StrategyListMarks -ListBox $lb
-        $file = Get-SelectedStrategy -ListBox $lb
-        $can = $false
-        if ($file -and (Test-ZapretStrategySupportsEngine -Path $file.FullName -Engine $eng)) {
-            if (Test-ZapretEngineFiles -Engine $eng) {
-                $can = $true
-            }
-        }
-        $btnRun.IsEnabled = $can
-        $btnInst.IsEnabled = $can
-    }
-    $rbWinws.Add_Checked({ & $syncEngineUi })
-    $rbWinws2.Add_Checked({ & $syncEngineUi })
-    $lb.Add_SelectionChanged({ & $syncEngineUi })
-    & $syncEngineUi
-    $btnRun.Add_Click({
-        $file = Get-SelectedStrategy -ListBox $lb
-        if (-not $file) {
-            Show-ErrorDialog (Get-ZapretUiString -Key 'NoStrategies')
-            return
-        }
-        $live = $false
-        if (Test-ZapretBypassRunning) {
-            $live = $true
-        } else {
-            $svcLive = Get-ZapretService
-            if ($svcLive -and $svcLive.Status -eq 'Running') {
-                $live = $true
-            }
-        }
-        if ($live) {
-            $ans = Show-QuestionDialog -Message (Get-ZapretUiString -Key 'ConfirmRunOver') -DefaultYes $false
-            if ($ans -ne [System.Windows.MessageBoxResult]::Yes) {
-                return
-            }
-        }
-        Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnRunSelected') -FreezeUi -Action {
-            Start-ZapretSelectedStrategy -File $file -OnWait { Invoke-GuiPump }
-            Write-GuiLog (Get-ZapretUiString -Key 'RunDone' -FormatArgs @($file.BaseName))
-        }
-        Update-StrategyListMarks -ListBox $lb
-    })
-    $btnInst.Add_Click({
-        $file = Get-SelectedStrategy -ListBox $lb
-        if (-not $file) {
-            Show-ErrorDialog (Get-ZapretUiString -Key 'NoStrategies')
-            return
-        }
-        $script:installOk = $false
-        Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnInstall') -FreezeUi -Action {
-            Install-ZapretService -File $file -OnWait { Invoke-GuiPump }
-            Write-GuiLog (Get-ZapretUiString -Key 'InstallDone' -FormatArgs @($file.BaseName))
-            $script:installOk = $true
-        }
-        if ($script:installOk) {
-            $dlg.Close()
-        }
-    })
-    $btnT.Add_Click({
-        $script:strategyPendingTests = $true
-        $dlg.Close()
-    })
-    $script:strategyDialogOpen = $true
-    $script:strategyPendingTests = $false
-    try {
-        [void](Show-ZapretOwnedDialog -Dialog $dlg)
-    } finally {
-        $script:strategyDialogOpen = $false
-        Update-Status
-    }
-    if ($script:strategyPendingTests) {
-        $script:strategyPendingTests = $false
-        Invoke-GuiTestsFromMain
-    }
-}
-
-function Invoke-GuiTestsFromMain {
-    if (Get-ZapretService) {
-        Write-GuiLog (Get-ZapretUiString -Key 'TestsNeedNoService')
-        Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnRemove') -FreezeUi -Action {
-            Remove-ZapretServices -OnWait { Invoke-GuiPump }
-            Write-GuiLog (Get-ZapretUiString -Key 'RemoveDone')
-        }
-        if (Get-ZapretService) {
-            return
-        }
-    }
-    try {
-        $setup = Show-GuiTestsSetup
-    } catch {
-        Show-ErrorDialog $_.Exception.Message
-        return
-    }
-    if (-not $setup) {
-        return
-    }
-    Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnTests') -Action {
-        Start-GuiTestRun -TestType $setup.TestType -Names @($setup.Names)
-        Write-GuiLog (Get-ZapretUiString -Key 'TestsFinished')
-    }
-}
-
-function Get-GameFilterApplyHint {
-    if (Get-ZapretService) {
-        return 'Game Filter saved. Run Install Service again to apply.'
-    }
-    return 'Game Filter saved. Stop and Run selected to apply.'
-}
-
-function Get-IpsetApplyHint {
-    if (Get-ZapretService) {
-        return 'IPSet Filter saved. Stop, then Start service to apply.'
-    }
-    return 'IPSet Filter saved. Stop and Run selected to apply.'
-}
+. (Join-Path $PSScriptRoot 'gui-dialogs.ps1')
 
 try {
     Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
@@ -1138,18 +403,19 @@ try {
     exit 1
 }
 Hide-ConsoleWindow
-Add-GuiStartupMark 'hide-console'
-
-if (-not (Test-IsAdministrator)) {
-    if (-not (Request-Administrator)) {
-        Show-ConsoleWindow
-        Show-ErrorDialog (Get-ZapretUiString -Key 'AdminRequired')
-        exit 1
+if (-not $window) {
+    Add-GuiStartupMark 'hide-console'
+    if (-not (Test-IsAdministrator)) {
+        if (-not (Request-Administrator)) {
+            Show-ConsoleWindow
+            Show-ErrorDialog (Get-ZapmanUiString -Key 'AdminRequired')
+            exit 1
+        }
+        exit 0
     }
-    exit 0
 }
 
-Initialize-ZapretUserLists
+Initialize-ZapmanUserLists
 
 $strategies = @(Get-ZapretStrategyFiles)
 $script:strategyMap = @{}
@@ -1157,7 +423,9 @@ foreach ($file in $strategies) {
     $script:strategyMap[$file.BaseName] = $file
 }
 
-$window = Import-ZapretXaml 'Main.xaml'
+if (-not $window) {
+    $window = Import-ZapmanXaml 'Main.xaml'
+}
 $title = Get-XamlChild -Root $window -Name 'title'
 $rbRu = Get-XamlChild -Root $window -Name 'rbRu'
 $rbEn = Get-XamlChild -Root $window -Name 'rbEn'
@@ -1202,37 +470,37 @@ function Write-GuiLog {
 }
 
 function Update-GuiLanguage {
-    $ver = Get-ZapretLocalVersion
-    $window.Title = Get-ZapretUiString -Key 'AppTitle' -FormatArgs @($ver)
-    $title.Text = Get-ZapretUiString -Key 'AppName'
-    $grpStatus.Header = Get-ZapretUiString -Key 'GrpStatus'
-    $grpSettings.Header = Get-ZapretUiString -Key 'GrpSettings'
-    $grpTools.Header = Get-ZapretUiString -Key 'GrpTools'
-    $btnStart.Content = Get-ZapretUiString -Key 'BtnStart'
-    $btnStop.Content = Get-ZapretUiString -Key 'BtnStop'
-    $btnRemove.Content = Get-ZapretUiString -Key 'BtnRemove'
-    $btnStrategy.Content = Get-ZapretUiString -Key 'BtnStrategy'
-    $btnFakes.Content = Get-ZapretUiString -Key 'BtnFakes'
-    $btnIpsetUpd.Content = Get-ZapretUiString -Key 'BtnIpset'
-    $btnHosts.Content = Get-ZapretUiString -Key 'BtnHosts'
-    $btnUpdates.Content = Get-ZapretUiString -Key 'BtnVersion'
-    $btnDiag.Content = Get-ZapretUiString -Key 'BtnDiag'
-    $chkAuto.Content = Get-ZapretUiString -Key 'ChkAuto'
-    $lblGame.Text = Get-ZapretUiString -Key 'LblGame'
-    $lblIpset.Text = Get-ZapretUiString -Key 'LblIpset'
-    $rbRu.Content = Get-ZapretUiString -Key 'LangRu'
-    $rbEn.Content = Get-ZapretUiString -Key 'LangEn'
-    $btnStart.ToolTip = Get-ZapretUiString -Key 'TipStart'
-    $btnStop.ToolTip = Get-ZapretUiString -Key 'TipStop'
-    $btnRemove.ToolTip = Get-ZapretUiString -Key 'TipRemove'
-    $btnStrategy.ToolTip = Get-ZapretUiString -Key 'TipStrategy'
-    $btnFakes.ToolTip = Get-ZapretUiString -Key 'TipFakes'
-    $btnIpsetUpd.ToolTip = Get-ZapretUiString -Key 'TipIpset'
-    $btnHosts.ToolTip = Get-ZapretUiString -Key 'TipHosts'
-    $btnUpdates.ToolTip = Get-ZapretUiString -Key 'TipVersion'
-    $btnDiag.ToolTip = Get-ZapretUiString -Key 'TipDiag'
-    $chkAuto.ToolTip = Get-ZapretUiString -Key 'TipAuto'
-    $grpStatus.ToolTip = Get-ZapretUiString -Key 'TipStatusClick'
+    $ver = Get-ZapmanLocalVersion
+    $window.Title = Get-ZapmanUiString -Key 'AppTitle' -FormatArgs @($ver)
+    $title.Text = Get-ZapmanUiString -Key 'AppName'
+    $grpStatus.Header = Get-ZapmanUiString -Key 'GrpStatus'
+    $grpSettings.Header = Get-ZapmanUiString -Key 'GrpSettings'
+    $grpTools.Header = Get-ZapmanUiString -Key 'GrpTools'
+    $btnStart.Content = Get-ZapmanUiString -Key 'BtnStart'
+    $btnStop.Content = Get-ZapmanUiString -Key 'BtnStop'
+    $btnRemove.Content = Get-ZapmanUiString -Key 'BtnRemove'
+    $btnStrategy.Content = Get-ZapmanUiString -Key 'BtnStrategy'
+    $btnFakes.Content = Get-ZapmanUiString -Key 'BtnFakes'
+    $btnIpsetUpd.Content = Get-ZapmanUiString -Key 'BtnIpset'
+    $btnHosts.Content = Get-ZapmanUiString -Key 'BtnHosts'
+    $btnUpdates.Content = Get-ZapmanUiString -Key 'BtnVersion'
+    $btnDiag.Content = Get-ZapmanUiString -Key 'BtnDiag'
+    $chkAuto.Content = Get-ZapmanUiString -Key 'ChkAuto'
+    $lblGame.Text = Get-ZapmanUiString -Key 'LblGame'
+    $lblIpset.Text = Get-ZapmanUiString -Key 'LblIpset'
+    $rbRu.Content = Get-ZapmanUiString -Key 'LangRu'
+    $rbEn.Content = Get-ZapmanUiString -Key 'LangEn'
+    $btnStart.ToolTip = Get-ZapmanUiString -Key 'TipStart'
+    $btnStop.ToolTip = Get-ZapmanUiString -Key 'TipStop'
+    $btnRemove.ToolTip = Get-ZapmanUiString -Key 'TipRemove'
+    $btnStrategy.ToolTip = Get-ZapmanUiString -Key 'TipStrategy'
+    $btnFakes.ToolTip = Get-ZapmanUiString -Key 'TipFakes'
+    $btnIpsetUpd.ToolTip = Get-ZapmanUiString -Key 'TipIpset'
+    $btnHosts.ToolTip = Get-ZapmanUiString -Key 'TipHosts'
+    $btnUpdates.ToolTip = Get-ZapmanUiString -Key 'TipVersion'
+    $btnDiag.ToolTip = Get-ZapmanUiString -Key 'TipDiag'
+    $chkAuto.ToolTip = Get-ZapmanUiString -Key 'TipAuto'
+    $grpStatus.ToolTip = Get-ZapmanUiString -Key 'TipStatusClick'
 }
 
 function ConvertTo-GameComboIndex {
@@ -1280,16 +548,16 @@ function Update-Status {
     $running = Test-ZapretBypassRunning
     $bypassName = Get-ZapretStatusBypassName
     if ($running) {
-        $lblBypass.Text = Get-ZapretUiString -Key 'StatusBypassOn' -FormatArgs @($bypassName)
+        $lblBypass.Text = Get-ZapmanUiString -Key 'StatusBypassOn' -FormatArgs @($bypassName)
     } else {
-        $lblBypass.Text = Get-ZapretUiString -Key 'StatusBypassOff'
+        $lblBypass.Text = Get-ZapmanUiString -Key 'StatusBypassOff'
     }
 
     $svc = Get-ZapretService
     if ($svc) {
-        $lblService.Text = Get-ZapretUiString -Key 'StatusServiceOn' -FormatArgs @($svc.Status)
+        $lblService.Text = Get-ZapmanUiString -Key 'StatusServiceOn' -FormatArgs @($svc.Status)
     } else {
-        $lblService.Text = Get-ZapretUiString -Key 'StatusServiceOff'
+        $lblService.Text = Get-ZapmanUiString -Key 'StatusServiceOff'
     }
 
     $installed = Get-ZapretInstalledStrategyName
@@ -1301,33 +569,33 @@ function Update-Status {
     }
     if ($running -and -not [string]::IsNullOrWhiteSpace($runningName)) {
         if ($svcRunning) {
-            $lblInstalled.Text = Get-ZapretUiString -Key 'StatusStrategy' -FormatArgs @($runningName)
+            $lblInstalled.Text = Get-ZapmanUiString -Key 'StatusStrategy' -FormatArgs @($runningName)
         } else {
-            $lblInstalled.Text = Get-ZapretUiString -Key 'StatusStrategyRun' -FormatArgs @($runningName)
+            $lblInstalled.Text = Get-ZapmanUiString -Key 'StatusStrategyRun' -FormatArgs @($runningName)
         }
     } elseif ([string]::IsNullOrWhiteSpace($installed)) {
         if ($running -and -not $svc) {
-            $lblInstalled.Text = Get-ZapretUiString -Key 'StatusStrategyManual'
+            $lblInstalled.Text = Get-ZapmanUiString -Key 'StatusStrategyManual'
         } else {
-            $lblInstalled.Text = Get-ZapretUiString -Key 'StatusStrategyNone'
+            $lblInstalled.Text = Get-ZapmanUiString -Key 'StatusStrategyNone'
         }
     } elseif (-not $hasStrategies) {
-        $lblInstalled.Text = Get-ZapretUiString -Key 'StatusStrategyGone' -FormatArgs @($installed)
+        $lblInstalled.Text = Get-ZapmanUiString -Key 'StatusStrategyGone' -FormatArgs @($installed)
     } else {
-        $lblInstalled.Text = Get-ZapretUiString -Key 'StatusStrategy' -FormatArgs @($installed)
+        $lblInstalled.Text = Get-ZapmanUiString -Key 'StatusStrategy' -FormatArgs @($installed)
     }
 
     $wd = Get-Service -Name 'WinDivert' -ErrorAction SilentlyContinue
     $pending = $false
     if ($wd -and $wd.Status -eq 'Running') {
-        $lblDivert.Text = Get-ZapretUiString -Key 'StatusDivertOn'
+        $lblDivert.Text = Get-ZapmanUiString -Key 'StatusDivertOn'
     } elseif ($wd -and ([string]$wd.Status -eq 'StopPending')) {
-        $lblDivert.Text = Get-ZapretUiString -Key 'StatusDivertPending'
+        $lblDivert.Text = Get-ZapmanUiString -Key 'StatusDivertPending'
         $pending = $true
     } elseif ($wd) {
-        $lblDivert.Text = Get-ZapretUiString -Key 'StatusDivertOther' -FormatArgs @($wd.Status)
+        $lblDivert.Text = Get-ZapmanUiString -Key 'StatusDivertOther' -FormatArgs @($wd.Status)
     } else {
-        $lblDivert.Text = Get-ZapretUiString -Key 'StatusDivertNone'
+        $lblDivert.Text = Get-ZapmanUiString -Key 'StatusDivertNone'
     }
 
     $bannerKey = ''
@@ -1352,9 +620,9 @@ function Update-Status {
     }
     if ($bannerKey) {
         if ($bannerKey -eq 'BannerMismatch') {
-            $lblBanner.Text = Get-ZapretUiString -Key $bannerKey -FormatArgs @($bypassName)
+            $lblBanner.Text = Get-ZapmanUiString -Key $bannerKey -FormatArgs @($bypassName)
         } else {
-            $lblBanner.Text = Get-ZapretUiString -Key $bannerKey
+            $lblBanner.Text = Get-ZapmanUiString -Key $bannerKey
         }
         $lblBanner.Background = New-Object System.Windows.Media.SolidColorBrush($bannerBg)
         $lblBanner.Foreground = New-Object System.Windows.Media.SolidColorBrush($bannerFg)
@@ -1369,7 +637,7 @@ function Update-Status {
     $ipsetIndex = @('none', 'loaded', 'any').IndexOf($ipset)
     if ($ipsetIndex -lt 0) { $ipsetIndex = 0 }
 
-    $autoOn = Test-ZapretAutoUpdateEnabled
+    $autoOn = Test-ZapmanAutoUpdateEnabled
     $script:updatingSettings = $true
     try {
         if ($cmbGame.SelectedIndex -ne $gameIndex) {
@@ -1454,41 +722,41 @@ function Invoke-GuiAction {
 }
 
 $btnStart.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnStart') -FreezeUi -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnStart') -FreezeUi -Action {
         Start-ZapretServiceIfInstalled -OnWait { Invoke-GuiPump }
         $name = Get-ZapretInstalledStrategyName
         if ($name) {
-            Write-GuiLog (Get-ZapretUiString -Key 'StartDoneName' -FormatArgs @($name))
+            Write-GuiLog (Get-ZapmanUiString -Key 'StartDoneName' -FormatArgs @($name))
         } else {
-            Write-GuiLog (Get-ZapretUiString -Key 'StartDone')
+            Write-GuiLog (Get-ZapmanUiString -Key 'StartDone')
         }
     }
 })
 
 $btnStop.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnStop') -FreezeUi -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnStop') -FreezeUi -Action {
         Stop-ZapretBypass -OnWait { Invoke-GuiPump }
-        Write-GuiLog (Get-ZapretUiString -Key 'StopDone')
+        Write-GuiLog (Get-ZapmanUiString -Key 'StopDone')
     }
 })
 
 $btnRemove.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnRemove') -FreezeUi -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnRemove') -FreezeUi -Action {
         Remove-ZapretServices -OnWait { Invoke-GuiPump }
-        Write-GuiLog (Get-ZapretUiString -Key 'RemoveDone')
+        Write-GuiLog (Get-ZapmanUiString -Key 'RemoveDone')
     }
 })
 
 $btnStrategy.Add_Click({
     if ($script:strategyMap.Count -lt 1) {
-        Show-ErrorDialog (Get-ZapretUiString -Key 'NoStrategies')
+        Show-ErrorDialog (Get-ZapmanUiString -Key 'NoStrategies')
         return
     }
     Show-StrategyDialog
 })
 
 # One handler on the group. Child MouseLeftButtonUp bubbles; extra handlers
-# opened a new dialog after each Close (WinForms Click does not bubble).
+# opened a new dialog after each Close.
 $grpStatus.Add_MouseLeftButtonUp({
     $_.Handled = $true
     Show-StatusJournalDialog
@@ -1500,12 +768,12 @@ $cmbGame.Add_SelectionChanged({
         Set-ZapretGameFilterMode (ConvertFrom-GameComboIndex $cmbGame.SelectedIndex)
         Write-GuiLog (Get-GameFilterApplyHint)
         if (Get-ZapretService) {
-            $ans = Show-QuestionDialog -Message (Get-ZapretUiString -Key 'FilterNeedInstall')
+            $ans = Show-QuestionDialog -Message (Get-ZapmanUiString -Key 'FilterNeedInstall')
             if ($ans -eq [System.Windows.MessageBoxResult]::Yes) {
                 Show-StrategyDialog
             }
         } else {
-            Show-InfoDialog (Get-ZapretUiString -Key 'FilterNeedRerun')
+            Show-InfoDialog (Get-ZapmanUiString -Key 'FilterNeedRerun')
         }
     } catch {
         Show-ErrorDialog $_.Exception.Message
@@ -1519,16 +787,16 @@ $cmbIpset.Add_SelectionChanged({
         Set-ZapretIpsetMode -Mode ([string]$cmbIpset.SelectedItem)
         Write-GuiLog (Get-IpsetApplyHint)
         if (Get-ZapretService) {
-            $ans = Show-QuestionDialog -Message (Get-ZapretUiString -Key 'FilterNeedRestart')
+            $ans = Show-QuestionDialog -Message (Get-ZapmanUiString -Key 'FilterNeedRestart')
             if ($ans -eq [System.Windows.MessageBoxResult]::Yes) {
-                Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnStop') -FreezeUi -Action {
+                Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnStop') -FreezeUi -Action {
                     Stop-ZapretBypass -OnWait { Invoke-GuiPump }
                     Start-ZapretServiceIfInstalled -OnWait { Invoke-GuiPump }
-                    Write-GuiLog (Get-ZapretUiString -Key 'StartDone')
+                    Write-GuiLog (Get-ZapmanUiString -Key 'StartDone')
                 }
             }
         } else {
-            Show-InfoDialog (Get-ZapretUiString -Key 'FilterNeedRerun')
+            Show-InfoDialog (Get-ZapmanUiString -Key 'FilterNeedRerun')
         }
     } catch {
         Show-ErrorDialog $_.Exception.Message
@@ -1540,11 +808,11 @@ $autoChanged = {
     if ($script:updatingSettings) { return }
     try {
         $on = $chkAuto.IsChecked -eq $true
-        Set-ZapretAutoUpdateEnabled -Enabled $on
+        Set-ZapmanAutoUpdateEnabled -Enabled $on
         if ($on) {
-            Write-GuiLog (Get-ZapretUiString -Key 'AutoOn')
+            Write-GuiLog (Get-ZapmanUiString -Key 'AutoOn')
         } else {
-            Write-GuiLog (Get-ZapretUiString -Key 'AutoOff')
+            Write-GuiLog (Get-ZapmanUiString -Key 'AutoOff')
         }
     } catch {
         Show-ErrorDialog $_.Exception.Message
@@ -1571,19 +839,19 @@ $btnFakes.Add_Click({
     try {
         foreach ($item in $changes) {
             Set-ZapretActiveFake -Slot $item.Slot -SourcePath $item.Path
-            Write-GuiLog (Get-ZapretUiString -Key 'FakeDone' -FormatArgs @($item.Slot, $item.Name))
+            Write-GuiLog (Get-ZapmanUiString -Key 'FakeDone' -FormatArgs @($item.Slot, $item.Name))
         }
         if (Get-ZapretService) {
-            $ans = Show-QuestionDialog -Message (Get-ZapretUiString -Key 'FakeNeedRestart')
+            $ans = Show-QuestionDialog -Message (Get-ZapmanUiString -Key 'FakeNeedRestart')
             if ($ans -eq [System.Windows.MessageBoxResult]::Yes) {
-                Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnStop') -FreezeUi -Action {
+                Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnStop') -FreezeUi -Action {
                     Stop-ZapretBypass -OnWait { Invoke-GuiPump }
                     Start-ZapretServiceIfInstalled -OnWait { Invoke-GuiPump }
-                    Write-GuiLog (Get-ZapretUiString -Key 'StartDone')
+                    Write-GuiLog (Get-ZapmanUiString -Key 'StartDone')
                 }
             }
         } else {
-            Show-InfoDialog (Get-ZapretUiString -Key 'FakeNeedRerun')
+            Show-InfoDialog (Get-ZapmanUiString -Key 'FakeNeedRerun')
         }
     } catch {
         Show-ErrorDialog $_.Exception.Message
@@ -1592,43 +860,43 @@ $btnFakes.Add_Click({
 })
 
 $btnIpsetUpd.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnIpset') -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnIpset') -Action {
         $temp = Join-Path $env:TEMP 'zapret-ipset-all.txt'
         try {
-            Invoke-GuiDownload -Url (Get-ZapretIpsetListUrl) -Destination $temp -Title (Get-ZapretUiString -Key 'IpsetTitle')
+            Invoke-GuiDownload -Url (Get-ZapretIpsetListUrl) -Destination $temp -Title (Get-ZapmanUiString -Key 'IpsetTitle')
         } catch {
             if ($_.Exception.Message -eq 'Download cancelled.') {
-                Write-GuiLog (Get-ZapretUiString -Key 'IpsetCancel')
+                Write-GuiLog (Get-ZapmanUiString -Key 'IpsetCancel')
                 return
             }
             throw
         }
         Update-ZapretIpsetList -SourceFile $temp
-        Write-GuiLog (Get-ZapretUiString -Key 'IpsetOk')
+        Write-GuiLog (Get-ZapmanUiString -Key 'IpsetOk')
     }
 })
 
 $btnHosts.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnHosts') -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnHosts') -Action {
         $temp = Join-Path $env:TEMP 'zapret_hosts.txt'
         try {
-            Invoke-GuiDownload -Url ((Get-ZapretHostsSourceUrl) + '?t=' + [guid]::NewGuid().ToString()) -Destination $temp -Title (Get-ZapretUiString -Key 'HostsTitle')
+            Invoke-GuiDownload -Url ((Get-ZapretHostsSourceUrl) + '?t=' + [guid]::NewGuid().ToString()) -Destination $temp -Title (Get-ZapmanUiString -Key 'HostsTitle')
             $info = Get-ZapretHostsUpdateInfo -TempFile $temp
         } catch {
             if ($_.Exception.Message -eq 'Download cancelled.') {
-                Write-GuiLog (Get-ZapretUiString -Key 'HostsCancel')
+                Write-GuiLog (Get-ZapmanUiString -Key 'HostsCancel')
                 return
             }
-            throw (Get-ZapretUiString -Key 'HostsFail')
+            throw (Get-ZapmanUiString -Key 'HostsFail')
         }
         if ($info.NeedsUpdate) {
             Open-ZapretHostsUpdate -Info $info
-            Show-InfoDialog (Get-ZapretUiString -Key 'HostsNeed')
-            Write-GuiLog (Get-ZapretUiString -Key 'HostsNeed')
+            Show-InfoDialog (Get-ZapmanUiString -Key 'HostsNeed')
+            Write-GuiLog (Get-ZapmanUiString -Key 'HostsNeed')
         } else {
             Remove-Item -LiteralPath $info.TempFile -Force -ErrorAction SilentlyContinue
-            Show-InfoDialog (Get-ZapretUiString -Key 'HostsOk')
-            Write-GuiLog (Get-ZapretUiString -Key 'HostsOk')
+            Show-InfoDialog (Get-ZapmanUiString -Key 'HostsOk')
+            Write-GuiLog (Get-ZapmanUiString -Key 'HostsOk')
         }
     }
 })
@@ -1637,14 +905,14 @@ $btnUpdates.Add_Click({
     if ($script:versionCheckBusy) {
         return
     }
-    Write-GuiLog (Get-ZapretUiString -Key 'VersionChecking')
+    Write-GuiLog (Get-ZapmanUiString -Key 'VersionChecking')
     Start-GuiVersionCheck -ReportUpToDate $true
 })
 
 $btnDiag.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapretUiString -Key 'BtnDiag') -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnDiag') -Action {
         Show-GuiDiagnostics
-        Write-GuiLog (Get-ZapretUiString -Key 'DiagDone')
+        Write-GuiLog (Get-ZapmanUiString -Key 'DiagDone')
     }
 })
 
@@ -1664,7 +932,7 @@ $timer.Add_Tick({
     }
 })
 
-$window.Add_ContentRendered({
+function Start-GuiFirstPaint {
     if ($script:startupShown) {
         return
     }
@@ -1707,8 +975,12 @@ $window.Add_ContentRendered({
                 }
                 Set-ActionButtonsEnabled -Enabled $true
                 Update-Status
+                $cfgErr = Get-ZapmanConfigError
+                if (-not [string]::IsNullOrWhiteSpace($cfgErr)) {
+                    Write-GuiLog $cfgErr
+                }
                 $timer.Start()
-                if (Test-ZapretAutoUpdateEnabled) {
+                if (Test-ZapmanAutoUpdateEnabled) {
                     Start-GuiVersionCheck
                 }
                 Add-GuiStartupMark 'idle'
@@ -1721,7 +993,9 @@ $window.Add_ContentRendered({
     } catch {
         Show-ErrorDialog $_.Exception.Message
     }
-})
+}
+
+$window.Add_ContentRendered({ Start-GuiFirstPaint })
 
 $window.Add_Closed({
     $script:guiClosing = $true
@@ -1736,7 +1010,7 @@ $window.Add_Closed({
 $rbRu.Add_Checked({
     if ($script:updatingLang) { return }
     if ($rbRu.IsChecked -eq $true) {
-        Set-ZapretUiLanguage -Language 'ru'
+        Set-ZapmanUiLanguage -Language 'ru'
         Update-GuiLanguage
         Update-Status
     }
@@ -1744,14 +1018,14 @@ $rbRu.Add_Checked({
 $rbEn.Add_Checked({
     if ($script:updatingLang) { return }
     if ($rbEn.IsChecked -eq $true) {
-        Set-ZapretUiLanguage -Language 'en'
+        Set-ZapmanUiLanguage -Language 'en'
         Update-GuiLanguage
         Update-Status
     }
 })
 
 $script:updatingLang = $true
-if ((Get-ZapretUiLanguage) -eq 'ru') {
+if ((Get-ZapmanUiLanguage) -eq 'ru') {
     $rbRu.IsChecked = $true
 } else {
     $rbEn.IsChecked = $true
@@ -1759,13 +1033,25 @@ if ((Get-ZapretUiLanguage) -eq 'ru') {
 $script:updatingLang = $false
 Update-GuiLanguage
 Add-GuiStartupMark 'build-form'
+Update-GuiWindowPaint
+if ($window.IsLoaded) {
+    [void]$window.Dispatcher.BeginInvoke(
+        [System.Windows.Threading.DispatcherPriority]::Normal,
+        [System.Action]{ Start-GuiFirstPaint }
+    )
+}
 
-try {
-    $app = New-Object System.Windows.Application
-    $app.ShutdownMode = [System.Windows.ShutdownMode]::OnMainWindowClose
-    # Application.Run is the main loop. ShowDialog on $window ends when a child dialog disables the owner.
-    [void]$app.Run($window)
-} catch {
-    Show-ErrorDialog $_.Exception.Message
-    exit 1
+if (-not (Test-GuiBootOwnsRun)) {
+    try {
+        $app = [System.Windows.Application]::Current
+        if (-not $app) {
+            $app = New-Object System.Windows.Application
+        }
+        $app.ShutdownMode = [System.Windows.ShutdownMode]::OnMainWindowClose
+        # Application.Run is the main loop. ShowDialog on $window ends when a child dialog disables the owner.
+        [void]$app.Run($window)
+    } catch {
+        Show-ErrorDialog $_.Exception.Message
+        exit 1
+    }
 }

@@ -21,9 +21,9 @@
         'PSUseSupportsShouldProcess'                   # Not shipped cmdlets; no SupportsShouldProcess.
         'PSAvoidShouldContinueWithoutForce'            # No ShouldContinue prompts; GUI/console uses MessageBox and Read-Host.
         'PSAvoidUsingWriteHost'                        # Console manager, GUI prompts, and tests print to the host on purpose.
-        'PSUseSingularNouns'                           # Zapret, Winws, and Ipset are product names, not nouns to inflect.
+        'PSUseSingularNouns'                           # Zapman, Zapret, Winws, and Ipset are product names, not nouns to inflect.
         'PSUseBOMForUnicodeEncodedFile'                # UTF-8 without BOM is the encoding for these scripts.
-        'PSAvoidUsingWMICmdlet'                        # check-env.ps1 uses Get-WmiObject only after CIM fails (Windows 7).
+        'PSAvoidUsingWMICmdlet'                        # Core.ps1 uses Get-WmiObject only after CIM fails (Windows 7).
         'PSUseConstrainedLanguageMode'                 # Target is full-language desktop Windows PowerShell, not CLM.
         'PSUseCompatibleCommands'                      # Needs a 5.1 command profile; syntax is pinned to 5.1 below.
         'PSUseCompatibleCmdlets'                       # Needs a 5.1 cmdlet profile; syntax is pinned to 5.1 below.

@@ -1,14 +1,14 @@
-# Zapret module: status, diagnostics, fakes, list download, version check.
+# Zapret Manager: status, diagnostics, fakes, list download, version check.
 
 Set-StrictMode -Version Latest
 
-function Test-ZapretAutoUpdateEnabled {
-    return [bool]((Get-ZapretConfig).autoUpdateCheck)
+function Test-ZapmanAutoUpdateEnabled {
+    return [bool]((Get-ZapmanConfig).autoUpdateCheck)
 }
 
-function Set-ZapretAutoUpdateEnabled {
+function Set-ZapmanAutoUpdateEnabled {
     param([bool]$Enabled)
-    [void](Update-ZapretConfig -AutoUpdateCheck $Enabled)
+    [void](Update-ZapmanConfig -AutoUpdateCheck $Enabled)
 }
 
 function Get-ZapretVersionCheckUrl {
@@ -32,12 +32,12 @@ function Get-ZapretHostsSourceUrl {
     return 'https://raw.githubusercontent.com/Flowseal/zapret-discord-youtube/refs/heads/main/.service/hosts'
 }
 
-function Invoke-ZapretWebDownload {
+function Invoke-ZapmanWebDownload {
     param(
         [string]$Url,
         [string]$Destination
     )
-    Enable-ZapretTls12
+    Enable-ZapmanTls12
     $dir = Split-Path -Parent $Destination
     if ($dir -and -not (Test-Path -LiteralPath $dir)) {
         New-Item -ItemType Directory -Path $dir | Out-Null
@@ -57,7 +57,7 @@ function Invoke-ZapretWebDownload {
 
 function Update-ZapretIpsetList {
     param([string]$SourceFile = '')
-    $listFile = Join-Path $script:ZapretListsDir 'ipset-all.txt'
+    $listFile = Join-Path $script:ZapmanListsDir 'ipset-all.txt'
     $dir = Split-Path -Parent $listFile
     if (-not (Test-Path -LiteralPath $dir)) {
         New-Item -ItemType Directory -Path $dir | Out-Null
@@ -70,7 +70,7 @@ function Update-ZapretIpsetList {
         return
     }
     $temp = Join-Path $env:TEMP 'zapret-ipset-all.txt'
-    Invoke-ZapretWebDownload -Url (Get-ZapretIpsetListUrl) -Destination $temp
+    Invoke-ZapmanWebDownload -Url (Get-ZapretIpsetListUrl) -Destination $temp
     Copy-Item -LiteralPath $temp -Destination $listFile -Force
 }
 
@@ -80,7 +80,7 @@ function Get-ZapretHostsUpdateInfo {
     $hostsUrl = Get-ZapretHostsSourceUrl
     if (-not $TempFile) {
         $TempFile = Join-Path $env:TEMP 'zapret_hosts.txt'
-        Invoke-ZapretWebDownload -Url ($hostsUrl + '?t=' + [guid]::NewGuid().ToString()) -Destination $TempFile
+        Invoke-ZapmanWebDownload -Url ($hostsUrl + '?t=' + [guid]::NewGuid().ToString()) -Destination $TempFile
     }
     $lines = @(Get-Content -LiteralPath $TempFile | Where-Object { $_ -ne '' })
     $first = ''
@@ -109,7 +109,7 @@ function Open-ZapretHostsUpdate {
 }
 
 function Get-ZapretFakeCatalog {
-    $bin = $script:ZapretBinDir
+    $bin = $script:ZapmanBinDir
     if (-not (Test-Path -LiteralPath $bin)) {
         throw 'The bin folder is not found.'
     }
@@ -168,9 +168,9 @@ function Get-ZapretFakeCurrentText {
         return $Name
     }
     if ($State -eq 'unlisted') {
-        return (Get-ZapretUiString -Key 'FakesUnlisted')
+        return (Get-ZapmanUiString -Key 'FakesUnlisted')
     }
-    return (Get-ZapretUiString -Key 'FakesMissing')
+    return (Get-ZapmanUiString -Key 'FakesMissing')
 }
 
 function Set-ZapretActiveFake {
@@ -182,9 +182,9 @@ function Set-ZapretActiveFake {
     if (-not (Test-Path -LiteralPath $SourcePath)) {
         throw 'The fake file is not found.'
     }
-    $dest = Join-Path $script:ZapretBinDir 'ACTIVE_GAME_UDP.bin'
+    $dest = Join-Path $script:ZapmanBinDir 'ACTIVE_GAME_UDP.bin'
     if ($Slot -eq 'discord') {
-        $dest = Join-Path $script:ZapretBinDir 'ACTIVE_DISCORD_UDP.bin'
+        $dest = Join-Path $script:ZapmanBinDir 'ACTIVE_DISCORD_UDP.bin'
     }
     if (Test-Path -LiteralPath $dest) {
         Remove-Item -LiteralPath $dest -Force
@@ -192,53 +192,49 @@ function Set-ZapretActiveFake {
     Copy-Item -LiteralPath $SourcePath -Destination $dest -Force
 }
 
-function Start-ZapretConfigTests {
-    $test = Join-Path $script:ZapretCliDir 'test-zapret.ps1'
-    if (-not (Test-Path -LiteralPath $test)) {
-        throw 'src\cli\test-zapret.ps1 is not found.'
-    }
-    Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$test`"" | Out-Null
-}
-
-function Get-ZapretStatusLines {
+function Get-ZapmanStatusLines {
     $lines = New-Object System.Collections.Generic.List[string]
+    $cfgErr = Get-ZapmanConfigError
+    if (-not [string]::IsNullOrWhiteSpace($cfgErr)) {
+        [void]$lines.Add($cfgErr)
+    }
     $runningName = Get-ZapretRunningStrategyName
     if ($runningName) {
-        [void]$lines.Add("Running strategy: $runningName")
+        [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineRunning' -FormatArgs @($runningName)))
     }
     $name = Get-ZapretInstalledStrategyName
     if ($name) {
-        [void]$lines.Add("Service strategy: $name")
+        [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineService' -FormatArgs @($name)))
     }
     foreach ($svcName in @('zapret', 'WinDivert')) {
         $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
         if ($svc -and $svc.Status -eq 'Running') {
-            [void]$lines.Add("$svcName service is RUNNING.")
+            [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineSvcRun' -FormatArgs @($svcName)))
         } elseif ($svc -and ([string]$svc.Status -eq 'StopPending')) {
-            [void]$lines.Add("$svcName is STOP_PENDING. Run Diagnostics to look for a conflict.")
+            [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineSvcPending' -FormatArgs @($svcName)))
         } else {
-            [void]$lines.Add("$svcName service is NOT running.")
+            [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineSvcOff' -FormatArgs @($svcName)))
         }
     }
-    $sys = Get-ChildItem -LiteralPath $script:ZapretBinDir -Filter '*.sys' -ErrorAction SilentlyContinue
+    $sys = Get-ChildItem -LiteralPath $script:ZapmanBinDir -Filter '*.sys' -ErrorAction SilentlyContinue
     if (-not $sys) {
-        [void]$lines.Add('WinDivert64.sys file NOT found.')
+        [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineSysMissing'))
     }
     $winws = @(Get-Process -Name 'winws' -ErrorAction SilentlyContinue)
     $winws2 = @(Get-Process -Name 'winws2' -ErrorAction SilentlyContinue)
     if ($winws.Count -gt 0) {
-        [void]$lines.Add('Bypass (winws.exe) is RUNNING.')
+        [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineBypassOn' -FormatArgs @('winws.exe')))
     }
     if ($winws2.Count -gt 0) {
-        [void]$lines.Add('Bypass (winws2.exe) is RUNNING.')
+        [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineBypassOn' -FormatArgs @('winws2.exe')))
     }
     if (($winws.Count + $winws2.Count) -eq 0) {
-        [void]$lines.Add('Bypass (winws / winws2) is NOT running.')
+        [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineBypassOff'))
     }
     return @($lines)
 }
 
-function Get-ZapretDiscordCacheApps {
+function Get-ZapmanDiscordCacheApps {
     $pairs = @(
         @{ Exe = 'Discord.exe'; Dir = Join-Path $env:APPDATA 'discord'; Label = 'Discord' },
         @{ Exe = 'DiscordPTB.exe'; Dir = Join-Path $env:APPDATA 'discordptb'; Label = 'Discord PTB' },
@@ -268,9 +264,9 @@ function Get-ZapretDiscordCacheApps {
     return @($found)
 }
 
-function Clear-ZapretDiscordCache {
+function Clear-ZapmanDiscordCache {
     $lines = New-Object System.Collections.Generic.List[string]
-    $apps = @(Get-ZapretDiscordCacheApps)
+    $apps = @(Get-ZapmanDiscordCacheApps)
     if ($apps.Count -lt 1) {
         [void]$lines.Add('WARN: No Discord cache folders found.')
         return @($lines)
@@ -314,7 +310,7 @@ function Remove-ZapretNamedServices {
     return @($lines)
 }
 
-function New-ZapretDiagItem {
+function New-ZapmanDiagItem {
     param(
         [string]$Id,
         [string]$Status,
@@ -331,13 +327,13 @@ function New-ZapretDiagItem {
     }
 }
 
-function Invoke-ZapretDiagnosticAction {
+function Invoke-ZapmanDiagnosticAction {
     param(
         [string]$Action,
         [string[]]$Names
     )
     if ($Action -eq 'discord-cache') {
-        return @(Clear-ZapretDiscordCache)
+        return @(Clear-ZapmanDiscordCache)
     }
     if ($Action -eq 'remove-services') {
         return @(Remove-ZapretNamedServices -Names @($Names))
@@ -348,17 +344,17 @@ function Invoke-ZapretDiagnosticAction {
     return @()
 }
 
-function Get-ZapretDiagnosticReport {
+function Get-ZapmanDiagnosticReport {
     $items = New-Object System.Collections.ArrayList
     $conflicts = New-Object System.Collections.ArrayList
 
-    [void]$items.Add((New-ZapretDiagItem -Id 'path' -Status 'ok' -Text ("Zapret is installed in: '{0}'" -f $script:ZapretRoot)))
+    [void]$items.Add((New-ZapmanDiagItem -Id 'path' -Status 'ok' -Text ("Zapret Manager is installed in: '{0}'" -f $script:ZapmanRoot)))
 
     $bfe = Get-Service -Name 'BFE' -ErrorAction SilentlyContinue
     if ($bfe -and $bfe.Status -eq 'Running') {
-        [void]$items.Add((New-ZapretDiagItem -Id 'bfe' -Status 'ok' -Text 'Base Filtering Engine is running'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'bfe' -Status 'ok' -Text 'Base Filtering Engine is running'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'bfe' -Status 'fail' -Text 'Base Filtering Engine is not running. This service is required'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'bfe' -Status 'fail' -Text 'Base Filtering Engine is not running. This service is required'))
     }
 
     $proxyOn = $null
@@ -374,77 +370,77 @@ function Get-ZapretDiagnosticReport {
         } catch {
             $server = ''
         }
-        [void]$items.Add((New-ZapretDiagItem -Id 'proxy' -Status 'warn' -Text ("System proxy is enabled: {0}. Disable it if you do not use a proxy" -f $server)))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'proxy' -Status 'warn' -Text ("System proxy is enabled: {0}. Disable it if you do not use a proxy" -f $server)))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'proxy' -Status 'ok' -Text 'System proxy is off'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'proxy' -Status 'ok' -Text 'System proxy is off'))
     }
 
-    Enable-ZapretTcpTimestamps
-    if (Test-ZapretTcpTimestampsEnabled) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'tcp' -Status 'ok' -Text 'TCP timestamps are enabled'))
+    Enable-ZapmanTcpTimestamps
+    if (Test-ZapmanTcpTimestampsEnabled) {
+        [void]$items.Add((New-ZapmanDiagItem -Id 'tcp' -Status 'ok' -Text 'TCP timestamps are enabled'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'tcp' -Status 'fail' -Text 'Failed to enable TCP timestamps'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'tcp' -Status 'fail' -Text 'Failed to enable TCP timestamps'))
     }
 
     if (@(Get-Process -Name 'AdguardSvc' -ErrorAction SilentlyContinue).Count -gt 0) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'adguard' -Status 'fail' -Text 'Adguard process found. Adguard may block Discord'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'adguard' -Status 'fail' -Text 'Adguard process found. Adguard may block Discord'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'adguard' -Status 'ok' -Text 'Adguard is not running'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'adguard' -Status 'ok' -Text 'Adguard is not running'))
     }
 
     $allSvc = @(Get-Service -ErrorAction SilentlyContinue)
     if ($allSvc | Where-Object { $_.DisplayName -match 'Killer' -or $_.Name -match 'Killer' }) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'killer' -Status 'fail' -Text 'Killer services found. Killer conflicts with zapret'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'killer' -Status 'fail' -Text 'Killer services found. Killer conflicts with zapret'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'killer' -Status 'ok' -Text 'No Killer services'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'killer' -Status 'ok' -Text 'No Killer services'))
     }
 
     $intel = $allSvc | Where-Object {
         ($_.DisplayName -match 'Intel') -and ($_.DisplayName -match 'Connectivity') -and ($_.DisplayName -match 'Network')
     }
     if ($intel) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'intel' -Status 'fail' -Text 'Intel Connectivity Network Service found. It conflicts with zapret'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'intel' -Status 'fail' -Text 'Intel Connectivity Network Service found. It conflicts with zapret'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'intel' -Status 'ok' -Text 'No Intel Connectivity Network Service'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'intel' -Status 'ok' -Text 'No Intel Connectivity Network Service'))
     }
 
     $checkpoint = $allSvc | Where-Object { $_.Name -match 'TracSrvWrapper' -or $_.Name -match 'EPWD' }
     if ($checkpoint) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'checkpoint' -Status 'fail' -Text 'Check Point services found. Uninstall Check Point'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'checkpoint' -Status 'fail' -Text 'Check Point services found. Uninstall Check Point'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'checkpoint' -Status 'ok' -Text 'No Check Point services'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'checkpoint' -Status 'ok' -Text 'No Check Point services'))
     }
 
     if ($allSvc | Where-Object { $_.DisplayName -match 'SmartByte' -or $_.Name -match 'SmartByte' }) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'smartbyte' -Status 'fail' -Text 'SmartByte services found. Disable SmartByte in services.msc'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'smartbyte' -Status 'fail' -Text 'SmartByte services found. Disable SmartByte in services.msc'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'smartbyte' -Status 'ok' -Text 'No SmartByte services'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'smartbyte' -Status 'ok' -Text 'No SmartByte services'))
     }
 
-    if ($script:ZapretRoot -match '[\u0400-\u04FF]') {
-        [void]$items.Add((New-ZapretDiagItem -Id 'cyrillic' -Status 'warn' -Text 'The path contains Cyrillic characters. Move Zapret to C:\zapret if bypass fails'))
+    if ($script:ZapmanRoot -match '[\u0400-\u04FF]') {
+        [void]$items.Add((New-ZapmanDiagItem -Id 'cyrillic' -Status 'warn' -Text 'The path contains Cyrillic characters. Move Zapret to C:\zapret if bypass fails'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'cyrillic' -Status 'ok' -Text 'Path has no Cyrillic characters'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'cyrillic' -Status 'ok' -Text 'Path has no Cyrillic characters'))
     }
 
     $oneDrive = [string]$env:OneDrive
-    if ($oneDrive -and ($script:ZapretRoot -like ($oneDrive.TrimEnd('\') + '\*'))) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'onedrive' -Status 'fail' -Text 'Zapret is in a OneDrive folder. Move it to C:\zapret'))
+    if ($oneDrive -and ($script:ZapmanRoot -like ($oneDrive.TrimEnd('\') + '\*'))) {
+        [void]$items.Add((New-ZapmanDiagItem -Id 'onedrive' -Status 'fail' -Text 'Zapret is in a OneDrive folder. Move it to C:\zapret'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'onedrive' -Status 'ok' -Text 'Zapret is not in OneDrive'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'onedrive' -Status 'ok' -Text 'Zapret is not in OneDrive'))
     }
 
-    if (Get-ChildItem -LiteralPath $script:ZapretBinDir -Filter '*.sys' -ErrorAction SilentlyContinue) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'sys' -Status 'ok' -Text 'WinDivert64.sys is present'))
+    if (Get-ChildItem -LiteralPath $script:ZapmanBinDir -Filter '*.sys' -ErrorAction SilentlyContinue) {
+        [void]$items.Add((New-ZapmanDiagItem -Id 'sys' -Status 'ok' -Text 'WinDivert64.sys is present'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'sys' -Status 'fail' -Text 'WinDivert64.sys file NOT found'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'sys' -Status 'fail' -Text 'WinDivert64.sys file NOT found'))
     }
 
     $vpn = @($allSvc | Where-Object { $_.DisplayName -match 'VPN' -or $_.Name -match 'VPN' } | ForEach-Object { $_.Name })
     if ($vpn.Count -gt 0) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'vpn' -Status 'warn' -Text ('VPN services found: {0}. Disable VPN if bypass fails' -f ($vpn -join ', '))))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'vpn' -Status 'warn' -Text ('VPN services found: {0}. Disable VPN if bypass fails' -f ($vpn -join ', '))))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'vpn' -Status 'ok' -Text 'No VPN services'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'vpn' -Status 'ok' -Text 'No VPN services'))
     }
 
     $dohCount = 0
@@ -461,21 +457,21 @@ function Get-ZapretDiagnosticReport {
         $dohCount = 0
     }
     if ($dohCount -gt 0) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'doh' -Status 'ok' -Text 'Secure DNS is configured'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'doh' -Status 'ok' -Text 'Secure DNS is configured'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'doh' -Status 'warn' -Text 'Set Secure DNS in the browser (non-default provider) or Windows 11 Settings'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'doh' -Status 'warn' -Text 'Set Secure DNS in the browser (non-default provider) or Windows 11 Settings'))
     }
 
     $hostsFile = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
     if (Test-Path -LiteralPath $hostsFile) {
         $hostsText = [System.IO.File]::ReadAllText($hostsFile)
         if ($hostsText -match '(?i)youtube\.com' -or $hostsText -match '(?i)youtu\.be') {
-            [void]$items.Add((New-ZapretDiagItem -Id 'hosts' -Status 'warn' -Text 'hosts contains youtube.com or youtu.be. This may break YouTube'))
+            [void]$items.Add((New-ZapmanDiagItem -Id 'hosts' -Status 'warn' -Text 'hosts contains youtube.com or youtu.be. This may break YouTube'))
         } else {
-            [void]$items.Add((New-ZapretDiagItem -Id 'hosts' -Status 'ok' -Text 'hosts has no YouTube overrides'))
+            [void]$items.Add((New-ZapmanDiagItem -Id 'hosts' -Status 'ok' -Text 'hosts has no YouTube overrides'))
         }
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'hosts' -Status 'ok' -Text 'hosts file not found'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'hosts' -Status 'ok' -Text 'hosts file not found'))
     }
 
     $winwsRunning = (Test-ZapretBypassRunning)
@@ -486,12 +482,12 @@ function Get-ZapretDiagnosticReport {
         if ($st -eq 'Running' -or $st -eq 'StopPending') { $wdBusy = $true }
     }
     if ((-not $winwsRunning) -and $wdBusy) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'windivert' -Status 'warn' -Text 'winws.exe is not running but WinDivert is active' -Action 'remove-windivert'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'windivert' -Status 'warn' -Text 'winws.exe is not running but WinDivert is active' -Action 'remove-windivert'))
         if (Get-Service -Name 'GoodbyeDPI' -ErrorAction SilentlyContinue) {
             [void]$conflicts.Add('GoodbyeDPI')
         }
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'windivert' -Status 'ok' -Text 'No leftover WinDivert without winws'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'windivert' -Status 'ok' -Text 'No leftover WinDivert without winws'))
     }
 
     foreach ($svcName in @('GoodbyeDPI', 'discordfix_zapret', 'winws1', 'winws2')) {
@@ -502,17 +498,17 @@ function Get-ZapretDiagnosticReport {
         }
     }
     if ($conflicts.Count -gt 0) {
-        [void]$items.Add((New-ZapretDiagItem -Id 'conflicts' -Status 'fail' -Text ('Conflicting bypass services: {0}' -f ($conflicts -join ', ')) -Action 'remove-services' -ActionNames @($conflicts)))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'conflicts' -Status 'fail' -Text ('Conflicting bypass services: {0}' -f ($conflicts -join ', ')) -Action 'remove-services' -ActionNames @($conflicts)))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'conflicts' -Status 'ok' -Text 'No conflicting bypass services'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'conflicts' -Status 'ok' -Text 'No conflicting bypass services'))
     }
 
-    $discordApps = @(Get-ZapretDiscordCacheApps)
+    $discordApps = @(Get-ZapmanDiscordCacheApps)
     if ($discordApps.Count -gt 0) {
         $labels = @($discordApps | ForEach-Object { $_.Label })
-        [void]$items.Add((New-ZapretDiagItem -Id 'discord' -Status 'warn' -Text ('Discord cache found: {0}' -f ($labels -join ', ')) -Action 'discord-cache'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'discord' -Status 'warn' -Text ('Discord cache found: {0}' -f ($labels -join ', ')) -Action 'discord-cache'))
     } else {
-        [void]$items.Add((New-ZapretDiagItem -Id 'discord' -Status 'ok' -Text 'No Discord cache folders to clear'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'discord' -Status 'ok' -Text 'No Discord cache folders to clear'))
     }
 
     $lines = New-Object System.Collections.Generic.List[string]
