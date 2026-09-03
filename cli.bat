@@ -12,15 +12,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist "%~dp0src\utils\cli.ps1" (
-    echo ERROR: src\utils\cli.ps1 is not found.
+if not exist "%~dp0src\cli\cli.ps1" (
+    echo ERROR: src\cli\cli.ps1 is not found.
     pause
     exit /b 1
 )
 
 set "PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 if not exist "%PS%" set "PS=powershell.exe"
-set "CLI=%~dp0src\utils\cli.ps1"
+set "CLI=%~dp0src\cli\cli.ps1"
 
 if "%~1"=="" goto :noargs
 
@@ -38,4 +38,4 @@ exit 0
 :sameconsole
 :: Already in a console: hand this window to PowerShell. Do not return to cmd.
 endlocal
-"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NoLogo -NoExit -ExecutionPolicy Bypass -File "%~dp0src\utils\cli.ps1"
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NoLogo -NoExit -ExecutionPolicy Bypass -File "%~dp0src\cli\cli.ps1"

@@ -2,7 +2,7 @@
 
 **alpha.** Ломающие изменения — [`AGENTS.md`](AGENTS.md).
 
-Сейчас: [`zapret.bat`](zapret.bat) (GUI, один `powershell.exe -STA`), [`cli.bat`](cli.bat) (после проверки — PowerShell → [`src/utils/cli.ps1`](src/utils/cli.ps1)), операции в [`src/Zapret/`](src/Zapret/), стратегии [`strategies/*.ps1`](strategies/). Третий `.bat` не добавлять.
+Сейчас: [`zapret.bat`](zapret.bat) (GUI, один `powershell.exe -STA` → [`src/gui/`](src/gui/)), [`cli.bat`](cli.bat) (после проверки — PowerShell → [`src/cli/cli.ps1`](src/cli/cli.ps1)), операции в [`src/Zapret/`](src/Zapret/), стратегии [`strategies/*.ps1`](strategies/). Третий `.bat` не добавлять.
 
 ## Движки (контракт)
 
@@ -15,15 +15,15 @@
 
 ## UI (текущее)
 
-Журнал сессии 2026-08-30 (не в git): `.local/ui-ux-session/`. Контракт окна — в [`AGENTS.md`](AGENTS.md) (GUI). Кратко:
+Журнал сессии 2026-08-30 (не в git): `.local/ui-ux-session/`. Контракт окна — в [`AGENTS.md`](AGENTS.md) (GUI, WPF). Кратко:
 
 - RU/EN; коды фильтров и имена стратегий не переводить.
 - GUI и `cli.bat` равноправны. Консоль: `service` / `tests` / `env`.
 - Главное: статус (клик — полный дамп) + Старт / Стоп / Снять / Стратегия….
-- Settings: Game Filter, IPSet, Auto-Update Check, fake. Движок — в «Стратегия…». Tools: ipset, hosts, версия, диагностика.
-- Крестик = выход, свернуть = панель задач. Трей только пока жив GUI.
+- Settings: Game Filter, IPSet, Auto-Update Check, Fake… (оба слота). Движок — в «Стратегия…». Tools: ipset, hosts, версия, диагностика.
+- Крестик = выход, свернуть = панель задач. Трея нет.
 
-Позже: резидентный трей без окна, другие языки, resize / 125%+ DPI.
+Позже: трей (и резидентный без окна), другие языки, resize / 125%+ DPI.
 
 ## Осталось по движкам
 
@@ -38,4 +38,4 @@
 
 ## Вне скоупа
 
-pwsh / WinUI / WPF; совместимость обвязки; свои Lua-атаки без отдельной задачи; компилятор Lua↔флаги без доказанного подмножества.
+pwsh / WinUI; совместимость обвязки; свои Lua-атаки без отдельной задачи; компилятор Lua↔флаги без доказанного подмножества.

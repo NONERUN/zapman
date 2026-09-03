@@ -481,7 +481,7 @@ function Read-ConfigSelection {
 }
 
 
-function Invoke-ZapretStrategyTests {
+function Invoke-ZapretStrategyTestsCore {
     param(
         [string]$TestType,
         [string[]]$Names,
@@ -552,7 +552,7 @@ function Invoke-ZapretStrategyTests {
         if (Test-ZapretServiceConflict) {
             Write-ZapretTestHost "[ERROR] Windows service 'zapret' is installed" -ForegroundColor Red
             Write-ZapretTestHost "         Remove the service before running tests" -ForegroundColor Yellow
-            Write-ZapretTestHost "         Open src\utils\service.ps1 and choose 'Remove Services'" -ForegroundColor Yellow
+            Write-ZapretTestHost "         Open cli.bat service and choose 'Remove Services'" -ForegroundColor Yellow
             $hasErrors = $true
         }
 

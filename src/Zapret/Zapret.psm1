@@ -7,7 +7,24 @@ $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot 'Ui.ps1')
 . (Join-Path $PSScriptRoot 'Bypass.ps1')
 . (Join-Path $PSScriptRoot 'Tools.ps1')
-. (Join-Path $PSScriptRoot 'Tests.ps1')
+# Tests.ps1 loads on the first test run. Do not parse it at GUI start.
+$script:ZapretTestsLoaded = $false
+
+function Invoke-ZapretStrategyTests {
+    param(
+        [string]$TestType,
+        [string[]]$Names,
+        [scriptblock]$OnLine,
+        [scriptblock]$ShouldStop,
+        [switch]$AskType,
+        [switch]$AskNames
+    )
+    if (-not $script:ZapretTestsLoaded) {
+        . (Join-Path $PSScriptRoot 'Tests.ps1')
+        $script:ZapretTestsLoaded = $true
+    }
+    Invoke-ZapretStrategyTestsCore @PSBoundParameters
+}
 
 Export-ModuleMember -Function @(
     'Get-ZapretLayout'
@@ -64,6 +81,7 @@ Export-ModuleMember -Function @(
     'Get-ZapretHostsUpdateInfo'
     'Open-ZapretHostsUpdate'
     'Get-ZapretFakeCatalog'
+    'Get-ZapretFakeCurrentText'
     'Set-ZapretActiveFake'
     'Start-ZapretConfigTests'
     'Invoke-ZapretStrategyTests'

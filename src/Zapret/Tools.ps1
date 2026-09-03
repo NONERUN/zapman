@@ -126,8 +126,12 @@ function Get-ZapretFakeCatalog {
     $files = @(Get-ChildItem -LiteralPath $bin -File -Filter '*.bin' | Where-Object { $_.BaseName -notlike 'ACTIVE_*' })
     # PS 5.1 parses List[object] as New-Object List, then [object]. Use ArrayList.
     $items = New-Object System.Collections.ArrayList
-    $currentDiscord = '(not found)'
-    $currentGame = '(not found)'
+    $currentDiscord = $null
+    $currentGame = $null
+    $discordState = 'missing'
+    $gameState = 'missing'
+    if ($discordHash) { $discordState = 'unlisted' }
+    if ($gameHash) { $gameState = 'unlisted' }
     foreach ($file in $files) {
         $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
         [void]$items.Add((New-Object PSObject -Property @{
@@ -135,16 +139,38 @@ function Get-ZapretFakeCatalog {
             FullName = $file.FullName
             Hash     = $hash
         }))
-        if ($discordHash -and ($hash -eq $discordHash)) { $currentDiscord = $file.BaseName }
-        if ($gameHash -and ($hash -eq $gameHash)) { $currentGame = $file.BaseName }
+        if ($discordHash -and ($hash -eq $discordHash) -and (-not $currentDiscord)) {
+            $currentDiscord = $file.BaseName
+            $discordState = 'matched'
+        }
+        if ($gameHash -and ($hash -eq $gameHash) -and (-not $currentGame)) {
+            $currentGame = $file.BaseName
+            $gameState = 'matched'
+        }
     }
     return New-Object PSObject -Property @{
         Files          = @($items)
         CurrentDiscord = $currentDiscord
         CurrentGame    = $currentGame
+        DiscordState   = $discordState
+        GameState      = $gameState
         DiscordActive  = $discordActive
         GameActive     = $gameActive
     }
+}
+
+function Get-ZapretFakeCurrentText {
+    param(
+        [string]$Name,
+        [string]$State
+    )
+    if ($State -eq 'matched' -and -not [string]::IsNullOrWhiteSpace($Name)) {
+        return $Name
+    }
+    if ($State -eq 'unlisted') {
+        return (Get-ZapretUiString -Key 'FakesUnlisted')
+    }
+    return (Get-ZapretUiString -Key 'FakesMissing')
 }
 
 function Set-ZapretActiveFake {
@@ -167,9 +193,9 @@ function Set-ZapretActiveFake {
 }
 
 function Start-ZapretConfigTests {
-    $test = Join-Path $script:ZapretUtilsDir 'test zapret.ps1'
+    $test = Join-Path $script:ZapretCliDir 'test-zapret.ps1'
     if (-not (Test-Path -LiteralPath $test)) {
-        throw 'src\utils\test zapret.ps1 is not found.'
+        throw 'src\cli\test-zapret.ps1 is not found.'
     }
     Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$test`"" | Out-Null
 }

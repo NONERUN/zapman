@@ -1,0 +1,18 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="656" Height="758"
+        MinWidth="496" MinHeight="518"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        FontFamily="Segoe UI" FontSize="12">
+    <DockPanel Margin="12">
+        <Button x:Name="btnOk" DockPanel.Dock="Bottom"
+                Width="75" Height="28" HorizontalAlignment="Right"
+                Margin="0,12,0,0" IsDefault="True" IsCancel="True"/>
+        <ScrollViewer x:Name="diagScroll" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="diagPanel"/>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

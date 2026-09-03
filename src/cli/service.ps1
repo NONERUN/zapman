@@ -431,6 +431,23 @@ function Invoke-Diagnostics {
     Wait-Pause
 }
 
+function Read-FakeSlotFileIndex {
+    param(
+        [string]$SlotLabel,
+        [int]$FileCount
+    )
+    $raw = Read-Host (Get-ZapretUiString -Key 'FakesPick' -FormatArgs @($SlotLabel))
+    if ([string]::IsNullOrWhiteSpace($raw) -or $raw -eq '0') {
+        return 0
+    }
+    $idx = 0
+    if (-not [int]::TryParse($raw.Trim(), [ref]$idx) -or $idx -lt 1 -or $idx -gt $FileCount) {
+        Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
+        return $null
+    }
+    return $idx
+}
+
 function Invoke-ReplaceFakes {
     try {
         $catalog = Get-ZapretFakeCatalog
@@ -445,51 +462,53 @@ function Invoke-ReplaceFakes {
         Wait-Pause
         return
     }
+    $discordLabel = Get-ZapretUiString -Key 'FakesDiscord'
+    $gameLabel = Get-ZapretUiString -Key 'FakesGame'
     Write-Host (Get-ZapretUiString -Key 'FakesTitle')
-    Write-Host ("  1. Discord UDP     (current: {0})" -f $catalog.CurrentDiscord)
-    Write-Host ("  2. GameFilter UDP  (current: {0})" -f $catalog.CurrentGame)
-    Write-Host (Get-ZapretUiString -Key 'FakesFile')
+    Write-Host ("  {0}: {1}" -f $discordLabel, (Get-ZapretFakeCurrentText -Name ([string]$catalog.CurrentDiscord) -State ([string]$catalog.DiscordState)))
+    Write-Host ("  {0}: {1}" -f $gameLabel, (Get-ZapretFakeCurrentText -Name ([string]$catalog.CurrentGame) -State ([string]$catalog.GameState)))
     for ($i = 0; $i -lt $files.Count; $i++) {
         Write-Host ("  {0}. {1}" -f ($i + 1), $files[$i].Name)
     }
-    $raw = Read-Host 'Enter type and file numbers (example: 1 4). 0 to cancel'
-    if ([string]::IsNullOrWhiteSpace($raw) -or $raw -eq '0') {
-        return
-    }
-    $parts = @($raw.Trim() -split '\s+')
-    if ($parts.Count -lt 2) {
-        Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
+    $discordIdx = Read-FakeSlotFileIndex -SlotLabel $discordLabel -FileCount $files.Count
+    if ($null -eq $discordIdx) {
         Wait-Pause
         return
     }
-    $typeIdx = 0
-    $fileIdx = 0
-    if (-not [int]::TryParse($parts[0], [ref]$typeIdx) -or -not [int]::TryParse($parts[1], [ref]$fileIdx)) {
-        Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
+    $gameIdx = Read-FakeSlotFileIndex -SlotLabel $gameLabel -FileCount $files.Count
+    if ($null -eq $gameIdx) {
         Wait-Pause
         return
     }
-    $slot = ''
-    if ($typeIdx -eq 1) {
-        $slot = 'discord'
-    } elseif ($typeIdx -eq 2) {
-        $slot = 'game'
-    } else {
-        Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
-        Wait-Pause
-        return
+    $picks = New-Object System.Collections.ArrayList
+    if ($discordIdx -gt 0) {
+        $picked = $files[$discordIdx - 1]
+        if ($catalog.DiscordState -ne 'matched' -or $picked.Name -ne [string]$catalog.CurrentDiscord) {
+            [void]$picks.Add((New-Object PSObject -Property @{ Slot = 'discord'; File = $picked }))
+        }
     }
-    if ($fileIdx -lt 1 -or $fileIdx -gt $files.Count) {
-        Write-Bad (Get-ZapretUiString -Key 'InvalidChoice')
-        Wait-Pause
-        return
+    if ($gameIdx -gt 0) {
+        $picked = $files[$gameIdx - 1]
+        if ($catalog.GameState -ne 'matched' -or $picked.Name -ne [string]$catalog.CurrentGame) {
+            [void]$picks.Add((New-Object PSObject -Property @{ Slot = 'game'; File = $picked }))
+        }
     }
-    $picked = $files[$fileIdx - 1]
-    try {
-        Set-ZapretActiveFake -Slot $slot -SourcePath $picked.FullName
-        Write-Ok (Get-ZapretUiString -Key 'FakeDone' -FormatArgs @($slot, $picked.Name))
-    } catch {
-        Write-Bad $_.Exception.Message
+    $applied = 0
+    foreach ($item in @($picks)) {
+        try {
+            Set-ZapretActiveFake -Slot $item.Slot -SourcePath $item.File.FullName
+            Write-Ok (Get-ZapretUiString -Key 'FakeDone' -FormatArgs @($item.Slot, $item.File.Name))
+            $applied++
+        } catch {
+            Write-Bad $_.Exception.Message
+        }
+    }
+    if ($applied -gt 0) {
+        if (Get-ZapretService) {
+            Write-Warn (Get-ZapretUiString -Key 'FakeNeedRestart')
+        } else {
+            Write-Warn (Get-ZapretUiString -Key 'FakeNeedRerun')
+        }
     }
     Wait-Pause
 }

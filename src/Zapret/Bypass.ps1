@@ -348,6 +348,10 @@ function Start-ZapretWinws {
         }
         throw (Get-ZapretUiString -Key 'EngineNoWinws')
     }
+    $pinErrs = @(Test-ZapretBinVersions)
+    if (@($pinErrs).Count -gt 0) {
+        throw ($pinErrs -join [Environment]::NewLine)
+    }
     $hasLua = $ArgumentList -match '--lua-desync'
     $hasZ1 = $ArgumentList -match '--dpi-desync'
     if ($engine -eq 'winws2' -and $hasZ1 -and -not $hasLua) {
@@ -480,7 +484,7 @@ function Set-ZapretIpsetMode {
             [System.IO.File]::WriteAllText($listFile, "203.0.113.113/32`r`n")
         } elseif ($Mode -eq 'loaded') {
             if (-not (Test-Path -LiteralPath $backupFile)) {
-                throw 'No IPSet backup found. Use service.ps1 -> Update IPSet List first.'
+                throw 'No IPSet backup found. Use cli.bat service -> Update IPSet List first.'
             }
         } else {
             throw "Unknown IPSet mode: $Mode"
@@ -509,7 +513,7 @@ function Set-ZapretIpsetMode {
         }
         'loaded' {
             if (-not (Test-Path -LiteralPath $backupFile)) {
-                throw 'No IPSet backup found. Use service.ps1 -> Update IPSet List first.'
+                throw 'No IPSet backup found. Use cli.bat service -> Update IPSet List first.'
             }
             if (Test-Path -LiteralPath $listFile) {
                 Remove-Item -LiteralPath $listFile -Force

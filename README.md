@@ -27,7 +27,7 @@
 > Добавьте папку с запретом в исключения антивируса, либо отключите детектирование PUA (потенциально нежелательных приложений). Например, в касперском есть галочка "Обнаруживать легальные приложения, которые злоумышленники часто используют для нанесения вреда". При аккуратной и правильной настройке исключений - рекомендуется настроить исключение, но если вы не до конца понимаете что делаете - рекомендуется отключить детект PUA.
 
 > [!IMPORTANT]
-> Движки в [`bin`](./bin) — официальные релизы [bol-van/zapret v72.13](https://github.com/bol-van/zapret/releases/tag/v72.13) (`winws.exe`) и [bol-van/zapret2 v1.0.4](https://github.com/bol-van/zapret2/releases/tag/v1.0.4) (`winws2.exe`, Lua). SHA256 — [`bin/versions.json`](./bin/versions.json). GUI и CLI сверяют хеши при старте. Fake `.bin` в `bin/` — свои, не из этих релизов.
+> Движки в [`bin`](./bin) — официальные релизы [bol-van/zapret v72.13](https://github.com/bol-van/zapret/releases/tag/v72.13) (`winws.exe`) и [bol-van/zapret2 v1.0.4](https://github.com/bol-van/zapret2/releases/tag/v1.0.4) (`winws2.exe`, Lua). SHA256 — [`bin/versions.json`](./bin/versions.json). Сверка при старте движка и в `cli.bat env`. Fake `.bin` в `bin/` — свои, не из этих релизов.
 
 ## ⚙️Использование
 
@@ -49,8 +49,10 @@
 
 ## ℹ️Файлы
 
-- [**`zapret.bat`**](./zapret.bat) — GUI (один `powershell.exe -STA`). Старт службы / Стоп / Снять / **Стратегия…** (запуск, установка, тесты). Settings и Tools в том же окне. Язык RU/EN.
+- [**`zapret.bat`**](./zapret.bat) — GUI (WPF, один `powershell.exe -STA`). Старт службы / Стоп / Снять / **Стратегия…** (запуск, установка, тесты). Settings и Tools в том же окне. Язык RU/EN.
+- [**`src/gui/`**](./src/gui/) — WPF: `gui.ps1` и соседние `.xaml`.
 - [**`cli.bat`**](./cli.bat) — консоль: после проверки — PowerShell. Меню или `cli.bat service` / `tests` / `env`.
+- [**`src/cli/`**](./src/cli/) — консоль: `cli.ps1`, `service.ps1`, `test-zapret.ps1`.
 - [**`strategies/`**](./strategies/) — стратегии (`.ps1`). Пробуйте ALT, FAKE и другие.
 - [**`src/Zapret/`**](./src/Zapret/) — модуль (GUI и консоль вызывают одни функции).
 - [**`dev/`**](./dev/) — линтер (`dev\lint.ps1`) и обновление движков (`dev\update-zapret.ps1` → официальные zapret / zapret2 в `bin/`).
@@ -65,7 +67,7 @@
 ### После запуска стратегии ничего не происходит
 
 - После запуска стратегии из GUI должен открыться winws.exe (обход), который можно увидеть в панели задач.
-- Пока открыт GUI, в трее есть иконка. Свернуть оставляет кнопку на панели задач. Крестик закрывает GUI. Open в трее возвращает окно. Exit закрывает GUI (службу не снимает).  
+- Свернуть оставляет кнопку на панели задач. Крестик закрывает GUI (службу не снимает). Трея нет.  
 Если этого не произошло, то см. [#522](https://github.com/Flowseal/zapret-discord-youtube/issues/522)
 
 ### Ни одна стратегия не подходит

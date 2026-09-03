@@ -22,7 +22,7 @@ Enable-ZapretConsoleUtf8
 [void](Initialize-ZapretUiLanguage)
 
 $servicePath = Join-Path $PSScriptRoot 'service.ps1'
-$testsPath = Join-Path $PSScriptRoot 'test zapret.ps1'
+$testsPath = Join-Path $PSScriptRoot 'test-zapret.ps1'
 
 if (-not (Test-Path -LiteralPath $servicePath)) {
     throw ("File not found: {0}" -f $servicePath)

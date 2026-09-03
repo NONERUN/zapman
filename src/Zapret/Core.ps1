@@ -5,7 +5,8 @@ Set-StrictMode -Version Latest
 $script:ZapretLocalVersion = '1.10.2'
 # This file is in src\Zapret. The package root is two levels up.
 $script:ZapretRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$script:ZapretUtilsDir = Join-Path $script:ZapretRoot 'src\utils'
+$script:ZapretCliDir = Join-Path $script:ZapretRoot 'src\cli'
+$script:ZapretGuiDir = Join-Path $script:ZapretRoot 'src\gui'
 $script:ZapretBinDir = Join-Path $script:ZapretRoot 'bin'
 $script:ZapretListsDir = Join-Path $script:ZapretRoot 'lists'
 $script:ZapretStrategiesDir = Join-Path $script:ZapretRoot 'strategies'
@@ -17,7 +18,8 @@ function Get-ZapretLayout {
         Root       = $script:ZapretRoot
         Bin        = $script:ZapretBinDir
         Lists      = $script:ZapretListsDir
-        Utils      = $script:ZapretUtilsDir
+        Cli        = $script:ZapretCliDir
+        Gui        = $script:ZapretGuiDir
         Strategies = $script:ZapretStrategiesDir
         Config     = $script:ZapretConfigPath
         Results    = $script:ZapretResultsDir
@@ -59,16 +61,30 @@ function New-ZapretConfigDefaults {
     }
 }
 
+$script:ZapretConfigCache = $null
+$script:ZapretConfigCacheMtime = $null
+
 function Get-ZapretConfig {
-    $cfg = New-ZapretConfigDefaults
     $path = $script:ZapretConfigPath
+    $mtime = [int64]0
+    if (Test-Path -LiteralPath $path) {
+        $mtime = (Get-Item -LiteralPath $path).LastWriteTimeUtc.Ticks
+    }
+    if ($script:ZapretConfigCache -and $script:ZapretConfigCacheMtime -eq $mtime) {
+        return $script:ZapretConfigCache
+    }
+    $cfg = New-ZapretConfigDefaults
     if (-not (Test-Path -LiteralPath $path)) {
+        $script:ZapretConfigCache = $cfg
+        $script:ZapretConfigCacheMtime = $mtime
         return $cfg
     }
     try {
         $raw = [System.IO.File]::ReadAllText($path)
         $parsed = $raw | ConvertFrom-Json
     } catch {
+        $script:ZapretConfigCache = $cfg
+        $script:ZapretConfigCacheMtime = $mtime
         return $cfg
     }
     if ($parsed.PSObject.Properties['language']) {
@@ -95,6 +111,8 @@ function Get-ZapretConfig {
             $cfg.testTargets = @($items)
         }
     }
+    $script:ZapretConfigCache = $cfg
+    $script:ZapretConfigCacheMtime = $mtime
     return $cfg
 }
 
@@ -110,6 +128,10 @@ function Save-ZapretConfig {
     $json = $payload | ConvertTo-Json -Depth 6
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($script:ZapretConfigPath, $json, $utf8)
+    $script:ZapretConfigCache = $Config
+    if (Test-Path -LiteralPath $script:ZapretConfigPath) {
+        $script:ZapretConfigCacheMtime = (Get-Item -LiteralPath $script:ZapretConfigPath).LastWriteTimeUtc.Ticks
+    }
 }
 
 function Update-ZapretConfig {
@@ -232,9 +254,9 @@ function Get-ZapretNet45Release {
     }
 }
 
-function Test-ZapretWinForms {
+function Test-ZapretWpf {
     try {
-        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
         return $true
     } catch {
         return $false
@@ -288,7 +310,7 @@ function Test-ZapretBinVersions {
     return @($errors)
 }
 
-# Registry, Add-Type, and SHA256 of pinned bin files. Do not call CIM/WMI here: that delays the GUI.
+# Console probe only (cli.bat env). The GUI does not call this at start.
 function Test-ZapretHostReady {
     $errors = New-Object System.Collections.ArrayList
     if (-not (Test-Zapret64BitOs)) {
@@ -302,8 +324,8 @@ function Test-ZapretHostReady {
     if ($netRelease -lt 378389) {
         [void]$errors.Add('.NET Framework 4.5 or newer is not installed. On Windows 7 install .NET 4.5+ and WMF 5.1.')
     }
-    if (-not (Test-ZapretWinForms)) {
-        [void]$errors.Add('System.Windows.Forms is not available. Install a full .NET Framework desktop runtime.')
+    if (-not (Test-ZapretWpf)) {
+        [void]$errors.Add('WPF (PresentationFramework) is not available. Install a full .NET Framework desktop runtime.')
     }
     $installType = ''
     try {

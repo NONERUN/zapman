@@ -1,0 +1,16 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="436" Height="156"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        FontFamily="Segoe UI" FontSize="12">
+    <Canvas Width="420" Height="118">
+        <TextBlock x:Name="lblStatus" Canvas.Left="12" Canvas.Top="12"
+                   Width="396" Height="20"/>
+        <ProgressBar x:Name="barProgress" Canvas.Left="12" Canvas.Top="40"
+                     Width="396" Height="22" IsIndeterminate="True"/>
+        <Button x:Name="btnCancel" Canvas.Left="325" Canvas.Top="78"
+                Width="83" Height="28" IsCancel="True"/>
+    </Canvas>
+</Window>

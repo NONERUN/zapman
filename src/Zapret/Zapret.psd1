@@ -60,6 +60,7 @@
         'Get-ZapretHostsUpdateInfo'
         'Open-ZapretHostsUpdate'
         'Get-ZapretFakeCatalog'
+        'Get-ZapretFakeCurrentText'
         'Set-ZapretActiveFake'
         'Start-ZapretConfigTests'
         'Invoke-ZapretStrategyTests'

@@ -1,0 +1,19 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="536" Height="458"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        FontFamily="Consolas" FontSize="12">
+    <Canvas Width="520" Height="420">
+        <TextBox x:Name="txtStatus" Canvas.Left="12" Canvas.Top="12"
+                 Width="496" Height="360"
+                 IsReadOnly="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Disabled"
+                 AcceptsReturn="True"/>
+        <Button x:Name="btnCopy" Canvas.Left="344" Canvas.Top="380" Width="86" Height="28"/>
+        <Button x:Name="btnClose" Canvas.Left="434" Canvas.Top="380"
+                Width="75" Height="28" IsDefault="True" IsCancel="True"/>
+    </Canvas>
+</Window>

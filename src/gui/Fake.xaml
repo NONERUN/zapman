@@ -1,0 +1,20 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="480" Height="234"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        FontFamily="Segoe UI" FontSize="12">
+    <Canvas Width="464" Height="196">
+        <TextBlock x:Name="lblDiscord" Canvas.Left="12" Canvas.Top="12"/>
+        <ComboBox x:Name="cmbDiscord" Canvas.Left="12" Canvas.Top="32"
+                  Width="440" Height="24" IsEditable="False"/>
+        <TextBlock x:Name="lblGame" Canvas.Left="12" Canvas.Top="68"/>
+        <ComboBox x:Name="cmbGameFake" Canvas.Left="12" Canvas.Top="88"
+                  Width="440" Height="24" IsEditable="False"/>
+        <Button x:Name="btnOk" Canvas.Left="276" Canvas.Top="156"
+                Width="86" Height="28" IsDefault="True"/>
+        <Button x:Name="btnCancel" Canvas.Left="366" Canvas.Top="156"
+                Width="86" Height="28" IsCancel="True"/>
+    </Canvas>
+</Window>

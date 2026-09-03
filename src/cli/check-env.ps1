@@ -1,4 +1,4 @@
-# Console probe for the host. The GUI and CLI call Test-ZapretHostReady in the same process.
+# Console probe for the host. cli.bat env calls Test-ZapretHostReady. The GUI does not.
 # Usage: cli.bat env
 
 Set-StrictMode -Version Latest
