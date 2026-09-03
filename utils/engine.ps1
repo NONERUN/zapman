@@ -1,5 +1,4 @@
 # Shared Zapret helpers for strategies and the console manager.
-# Do not use PowerShell 7 syntax.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
@@ -101,7 +100,13 @@ function Start-ZapretWinws {
     if (-not (Test-Path -LiteralPath $exe)) {
         throw 'winws.exe is not found in the bin folder.'
     }
-    Start-Process -FilePath $exe -ArgumentList $ArgumentList -WorkingDirectory $script:ZapretBinDir -WindowStyle Minimized | Out-Null
+    # Join wrapped lines the same way cmd joins a caret continuation.
+    $flat = @(
+        $ArgumentList -split '\r?\n' |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ }
+    ) -join ' '
+    Start-Process -FilePath $exe -ArgumentList $flat -WorkingDirectory $script:ZapretBinDir -WindowStyle Minimized | Out-Null
 }
 
 function Start-ZapretStrategyFile {

@@ -48,6 +48,7 @@ public static class GuiConsole {
             [void][GuiConsole]::ShowWindow($hwnd, 0)
         }
     } catch {
+        $null = $_
     }
 }
 
@@ -291,6 +292,7 @@ function Stop-Bypass {
         try {
             Stop-Service -Name 'zapret' -Force -ErrorAction SilentlyContinue
         } catch {
+            $null = $_
         }
         & net.exe stop zapret 2>$null | Out-Null
         [void](Wait-UntilServiceStopped -Name 'zapret' -TimeoutSeconds 8)
@@ -382,6 +384,7 @@ function Get-WinwsCommandLine {
         }
         return ConvertTo-ServiceImagePath -CommandLine ([string]$proc.CommandLine) -ExecutablePath ([string]$proc.ExecutablePath)
     } catch {
+        $null = $_
     }
     return ''
 }
@@ -974,6 +977,7 @@ $timer.Add_Tick({
         try {
             Update-Status
         } catch {
+            $null = $_
         }
     }
 })

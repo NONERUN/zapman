@@ -8,11 +8,14 @@
 
 - WinForms GUI (`zapret.bat`, `utils/gui.ps1`): стратегии, Start/Stop, служба, Game Filter, IPSet.
 - [`AGENTS.md`](AGENTS.md) и [`PLAN.md`](PLAN.md) для агентов и целей alpha.
+- PSScriptAnalyzer: [`utils/lint.ps1`](utils/lint.ps1), [`PSScriptAnalyzerSettings.psd1`](PSScriptAnalyzerSettings.psd1), CI [`.github/workflows/lint.yml`](.github/workflows/lint.yml).
 
 ### Changed
 
 - Вход GUI: `zapret.bat` (проверка Windows PowerShell 3.0+, цель 5.1). `gui.bat` удалён.
 - `zapret.bat` проверяет x64, папку `bin/`, WinForms и .NET 4.5+ (на Windows 7 без WMF/.NET — список недостающего).
+- Аргументы стратегий снова с переносом перед каждым `--filter-*` (как в старых `.bat`).
+- Один профиль PSScriptAnalyzer (все правила кроме явно выключенных в [`PSScriptAnalyzerSettings.psd1`](PSScriptAnalyzerSettings.psd1)).
 
 ### Breaking
 

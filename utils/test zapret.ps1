@@ -275,11 +275,11 @@ function Invoke-DpiSuite {
                 $completed = $handle.AsyncWaitHandle.WaitOne($waitMs)
                 if (-not $completed) {
                     Write-Host "[WARN] Runspace for [$($rs.TargetId)] timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
-                    try { $rs.Powershell.Stop() } catch {}
+                    try { $rs.Powershell.Stop() } catch { $null = $_ }
                 }
             }
         } catch {
-            # ignore wait errors and attempt to EndInvoke
+            $null = $_
         }
 
         try {
@@ -432,7 +432,7 @@ function Read-ConfigSelection {
     param([array]$allFiles)
 
     while ($true) {
-        Write-Host "" 
+        Write-Host ""
         Write-Host "Available configs:" -ForegroundColor Cyan
         for ($i = 0; $i -lt $allFiles.Count; $i++) {
             $idx = $i + 1
@@ -441,7 +441,7 @@ function Read-ConfigSelection {
 
         $selectionInput = Read-Host "Enter numbers (e.g. 1,3,5) , ranges (e.g. 2-7), or mixed (e.g. 1,5-10,12). '0' for all"
         $trimmed = $selectionInput.Trim()
-        
+
         if ($trimmed -eq '0') {
             return $allFiles
         }
@@ -454,25 +454,25 @@ function Read-ConfigSelection {
         }
         $selectedIndices = @()
         $hasErrors = $false
-        
+
         foreach ($part in $parts) {
             if ($part -match '^(\d+)-(\d+)$') {
                 $start = [int]$matches[1]
                 $end = [int]$matches[2]
-                
+
                 if ($start -gt $end) {
                     Write-Host "  [WARN] Invalid range '$part' (start > end). Skipping." -ForegroundColor Yellow
                     $hasErrors = $true
                     continue
                 }
-                
+
                 if ($start -lt 1 -or $end -gt $allFiles.Count) {
                     Write-Host "  [WARN] Range '$part' out of bounds (valid: 1-$($allFiles.Count)). Skipping invalid parts." -ForegroundColor Yellow
                     $hasErrors = $true
                     $start = [Math]::Max($start, 1)
                     $end = [Math]::Min($end, $allFiles.Count)
                 }
-                
+
                 for ($i = $start; $i -le $end; $i++) {
                     $selectedIndices += $i
                 }
@@ -498,7 +498,7 @@ function Read-ConfigSelection {
         if ($hasErrors) {
             Write-Host "Some entries were skipped due to errors (see warnings above)." -ForegroundColor Yellow
         }
-        
+
         return $valid | ForEach-Object { $allFiles[$_ - 1] }
     }
 }
@@ -532,23 +532,23 @@ if ($testType -eq 'standard') {
 
     if ($rawTargets.Count -eq 0) {
         Write-Host "[INFO] targets.txt missing or empty. Using defaults." -ForegroundColor Gray
-        Add-OrSet $rawTargets "Discord Main"           "https://discord.com"
-        Add-OrSet $rawTargets "Discord Gateway"        "https://gateway.discord.gg"
-        Add-OrSet $rawTargets "Discord CDN"            "https://cdn.discordapp.com"
-        Add-OrSet $rawTargets "Discord Updates"        "https://updates.discord.com"
-        Add-OrSet $rawTargets "YouTube Web"            "https://www.youtube.com"
-        Add-OrSet $rawTargets "YouTube Short"          "https://youtu.be"
-        Add-OrSet $rawTargets "YouTube Image"          "https://i.ytimg.com"
-        Add-OrSet $rawTargets "YouTube Video Redirect" "https://redirector.googlevideo.com"
-        Add-OrSet $rawTargets "Google Main"            "https://www.google.com"
-        Add-OrSet $rawTargets "Google Gstatic"         "https://www.gstatic.com"
-        Add-OrSet $rawTargets "Cloudflare Web"         "https://www.cloudflare.com"
-        Add-OrSet $rawTargets "Cloudflare CDN"         "https://cdnjs.cloudflare.com"
-        Add-OrSet $rawTargets "Cloudflare DNS 1.1.1.1" "PING:1.1.1.1"
-        Add-OrSet $rawTargets "Cloudflare DNS 1.0.0.1" "PING:1.0.0.1"
-        Add-OrSet $rawTargets "Google DNS 8.8.8.8"     "PING:8.8.8.8"
-        Add-OrSet $rawTargets "Google DNS 8.8.4.4"     "PING:8.8.4.4"
-        Add-OrSet $rawTargets "Quad9 DNS 9.9.9.9"      "PING:9.9.9.9"
+        Add-OrSet -dict $rawTargets -key "Discord Main"           -val "https://discord.com"
+        Add-OrSet -dict $rawTargets -key "Discord Gateway"        -val "https://gateway.discord.gg"
+        Add-OrSet -dict $rawTargets -key "Discord CDN"            -val "https://cdn.discordapp.com"
+        Add-OrSet -dict $rawTargets -key "Discord Updates"        -val "https://updates.discord.com"
+        Add-OrSet -dict $rawTargets -key "YouTube Web"            -val "https://www.youtube.com"
+        Add-OrSet -dict $rawTargets -key "YouTube Short"          -val "https://youtu.be"
+        Add-OrSet -dict $rawTargets -key "YouTube Image"          -val "https://i.ytimg.com"
+        Add-OrSet -dict $rawTargets -key "YouTube Video Redirect" -val "https://redirector.googlevideo.com"
+        Add-OrSet -dict $rawTargets -key "Google Main"            -val "https://www.google.com"
+        Add-OrSet -dict $rawTargets -key "Google Gstatic"         -val "https://www.gstatic.com"
+        Add-OrSet -dict $rawTargets -key "Cloudflare Web"         -val "https://www.cloudflare.com"
+        Add-OrSet -dict $rawTargets -key "Cloudflare CDN"         -val "https://cdnjs.cloudflare.com"
+        Add-OrSet -dict $rawTargets -key "Cloudflare DNS 1.1.1.1" -val "PING:1.1.1.1"
+        Add-OrSet -dict $rawTargets -key "Cloudflare DNS 1.0.0.1" -val "PING:1.0.0.1"
+        Add-OrSet -dict $rawTargets -key "Google DNS 8.8.8.8"     -val "PING:8.8.8.8"
+        Add-OrSet -dict $rawTargets -key "Google DNS 8.8.4.4"     -val "PING:8.8.4.4"
+        Add-OrSet -dict $rawTargets -key "Quad9 DNS 9.9.9.9"      -val "PING:9.9.9.9"
     } else {
         Write-Host ""
         Write-Host "[INFO] Loaded targets from targets.txt" -ForegroundColor Gray
@@ -643,21 +643,21 @@ try {
     Write-Host "------------------------------------------------------------" -ForegroundColor DarkCyan
     Write-Host "  [$configNum/$($batFiles.Count)] $($file.Name)" -ForegroundColor Yellow
     Write-Host "------------------------------------------------------------" -ForegroundColor DarkCyan
-    
+
     # Cleanup
     Stop-Zapret
-    
+
     # Start config
     Write-Host "  > Starting config..." -ForegroundColor Cyan
     $proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($file.FullName)`"" -WorkingDirectory $rootDir -PassThru -WindowStyle Minimized
-    
+
     # Wait init
     if (-not (Wait-WinwsReady)) {
         Write-Host "  > Strategy failed to start (winws process not found). Skipping..." -ForegroundColor Red
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
         continue
     }
-    
+
     if ($testType -eq 'standard') {
         $curlTimeoutSeconds = $standardCurlTimeout
 
@@ -691,20 +691,20 @@ try {
                             }
                         }
                         $httpCode = ($output | Out-String).Trim()
-                        
-                        $dnsHijack = ($stderr -match "Could not resolve host|certificate|SSL certificate problem|self[- ]?signed|certificate verify failed|unable to get local issuer certificate")                        
+
+                        $dnsHijack = ($stderr -match "Could not resolve host|certificate|SSL certificate problem|self[- ]?signed|certificate verify failed|unable to get local issuer certificate")
                         if ($dnsHijack) {
                             $httpPieces += "$($test.Label):SSL  "
                             continue
                         }
-                        
+
                         $unsupported = (($LASTEXITCODE -eq 35) -or ($stderr -match "does not support|not supported|protocol\s+'?.+'?\s+not\s+supported|unsupported protocol|TLS.*not supported|Unrecognized option|Unknown option|unsupported option|unsupported feature|schannel"))
                         if ($unsupported) {
                             $httpPieces += "$($test.Label):UNSUP"
                             continue
                         }
 
-                        $ok = ($LASTEXITCODE -eq 0)
+                        $ok = ($LASTEXITCODE -eq 0) -and ($httpCode -match '^[1-5]\d{2}$')
                         if ($ok) {
                             $httpPieces += "$($test.Label):OK   "
                         } else {
@@ -767,11 +767,11 @@ try {
                     $completed = $handle.AsyncWaitHandle.WaitOne($waitMs)
                     if (-not $completed) {
                         Write-Host "[WARN] Runspace for target timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
-                        try { $rs.Powershell.Stop() } catch {}
+                        try { $rs.Powershell.Stop() } catch { $null = $_ }
                     }
                 }
             } catch {
-                # ignore
+                $null = $_
             }
 
             try {
@@ -830,7 +830,7 @@ try {
         $dpiResults = Invoke-DpiSuite -Targets $dpiTargets -TimeoutSeconds $dpiTimeoutSeconds -RangeBytes $dpiRangeBytes -MaxParallel $dpiMaxParallel
         $globalResults += @{ Config = $file.Name; Type = 'dpi'; Results = $dpiResults }
     }
-    
+
     # Stop
     Stop-Zapret
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }

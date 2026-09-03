@@ -1,6 +1,5 @@
 @echo off
 :: Validate Windows PowerShell and start the GUI.
-:: Do not call pwsh. This script needs powershell.exe 3.0 or newer.
 
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"

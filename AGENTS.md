@@ -33,7 +33,7 @@
 - `Get-Item HKLM:\...` открывает ключ только на чтение. Для записи — `OpenSubKey(..., $true)`.
 - `$PSScriptRoot`, `Get-CimInstance`, `-LiteralPath` требуют минимум PowerShell **3.0**.
 - WinForms нужен **STA**: `powershell.exe -STA`. Вход — `zapret.bat`.
-- Комментарии в коде — [ASD-STE100](https://www.asd-ste100.org/) Simplified Technical English.
+- Комментарии в коде — [ASD-STE100](https://www.asd-ste100.org/) Simplified Technical English. Политику (PS 5.1, не `pwsh`, совместимость стратегий) пишите в этом файле, не копируйте её в каждый `.ps1`.
 
 ## Раскладка
 
@@ -46,10 +46,11 @@
 | `utils/engine.ps1` | Общие функции и версия |
 | `utils/service.ps1` | Консольное меню: диагностика, тесты, hosts |
 | `utils/check-env.ps1` | Проверки ОС/.NET после версии PowerShell |
+| `utils/test zapret.ps1` | Прогон стратегий из `strategies/` |
+| `utils/lint.ps1` | PSScriptAnalyzer (`PSScriptAnalyzerSettings.psd1`) |
 | `strategies/*.ps1` | Стратегии, запускают `bin\winws.exe` |
 | `lists/` | Хостлисты и ipset (`*-user.txt` создаются на лету) |
 | `bin/` | Сейчас: `winws.exe` (zapret1). Цель: `winws2.exe` + Lua zapret2 одной поставки |
-| `utils/test zapret.ps1` | Прогон стратегий из `strategies/` |
 
 Не добавляйте новые `.bat`. Новая логика — только `.ps1`.
 
