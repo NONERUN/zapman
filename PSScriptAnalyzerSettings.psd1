@@ -11,9 +11,9 @@
         'PSDSCStandardDSCFunctionsInResource'          # Not a DSC resource module.
         'PSDSCUseIdenticalMandatoryParametersForDSC'   # Not a DSC resource module.
         'PSDSCUseIdenticalParametersForDSC'            # Not a DSC resource module.
-        'PSMissingModuleManifestField'                 # Not a PowerShell module; no .psd1 manifest.
-        'PSUseToExportFieldsInManifest'                # Not a PowerShell module; no export list.
-        'PSAvoidUsingDeprecatedManifestFields'         # Not a PowerShell module; no manifest fields.
+        'PSMissingModuleManifestField'                 # Optional Gallery fields (CompanyName, Copyright) are not used.
+        'PSUseToExportFieldsInManifest'                # FunctionsToExport is set; unused cmdlet/alias lists stay empty on purpose.
+        'PSAvoidUsingDeprecatedManifestFields'         # Manifest uses current fields only; this rule is kept off for older Analyzer.
         'PSUseUTF8EncodingForHelpFile'                 # No module help files in this repository.
         'PSProvideCommentHelp'                         # Not exported cmdlets; comment-based help is not the interface.
         'PSUseShouldProcessForStateChangingFunctions'  # Not shipped cmdlets; no -WhatIf contract.

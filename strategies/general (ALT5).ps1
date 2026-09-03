@@ -1,7 +1,8 @@
-. (Join-Path (Split-Path -Parent $PSScriptRoot) 'utils\engine.ps1')
+Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'src\Zapret\Zapret.psd1')
 Invoke-ZapretStrategyPrep
-$bin = $script:ZapretBinDir
-$lists = $script:ZapretListsDir
+$layout = Get-ZapretLayout
+$bin = $layout.Bin
+$lists = $layout.Lists
 $gf = Get-ZapretGameFilter
 $argList = @"
 --wf-tcp=80,443,2053,2083,2087,2096,8443,$($gf.Tcp) --wf-udp=443,19294-19344,50000-50100,$($gf.Udp)

@@ -1,8 +1,14 @@
+/test-results
 /utils/test results
-/utils/game_filter.enabled
+/utils/test-results
+
+/config.json
+/lists/ipset-all.txt
 /lists/ipset-exclude-user.txt
 /lists/list-general-user.txt
 /lists/list-exclude-user.txt
+/lists/*.backup
+/lists/*test-backup*
 
 .vscode/
 /build/

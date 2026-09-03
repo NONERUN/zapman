@@ -1,9 +1,11 @@
-. (Join-Path (Split-Path -Parent $PSScriptRoot) 'utils\engine.ps1')
+Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'src\Zapret\Zapret.psd1')
 Invoke-ZapretStrategyPrep
-$bin = $script:ZapretBinDir
-$lists = $script:ZapretListsDir
+$layout = Get-ZapretLayout
+$bin = $layout.Bin
+$lists = $layout.Lists
 $gf = Get-ZapretGameFilter
-$argList = @"
+$engine = Get-ZapretEngine
+$argListWinws = @"
 --wf-tcp=80,443,2053,2083,2087,2096,8443,$($gf.Tcp) --wf-udp=443,19294-19344,50000-50100,$($gf.Udp)
 --filter-udp=443 --hostlist="$lists\list-general.txt" --hostlist="$lists\list-general-user.txt" --hostlist-exclude="$lists\list-exclude.txt" --hostlist-exclude="$lists\list-exclude-user.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --dpi-desync=fake --dpi-desync-repeats=11 --dpi-desync-fake-quic="$bin\quic_initial_www_google_com.bin" --new
 --filter-udp=19294-19344,50000-50100 --filter-l7=discord,stun --dpi-desync=fake --dpi-desync-fake-discord="$bin\ACTIVE_DISCORD_UDP.bin" --dpi-desync-fake-stun="$bin\ACTIVE_DISCORD_UDP.bin" --dpi-desync-repeats=6 --new
@@ -15,4 +17,22 @@ $argList = @"
 --filter-tcp=$($gf.Tcp) --ipset="$lists\ipset-all.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --dpi-desync=fake,multisplit --dpi-desync-any-protocol=1 --dpi-desync-cutoff=n4 --dpi-desync-split-seqovl=664 --dpi-desync-split-pos=1 --dpi-desync-fooling=ts --dpi-desync-repeats=8 --dpi-desync-split-seqovl-pattern="$bin\tls_clienthello_max_ru.bin" --dpi-desync-fake-tls="$bin\stun2.bin" --dpi-desync-fake-tls="$bin\tls_clienthello_max_ru.bin" --dpi-desync-fake-http="$bin\tls_clienthello_max_ru.bin" --dpi-desync-fake-unknown="$bin\stun2.bin" --dpi-desync-fake-unknown="$bin\tls_clienthello_max_ru.bin" --new
 --filter-udp=$($gf.Udp) --ipset="$lists\ipset-all.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --dpi-desync=fake --dpi-desync-repeats=10 --dpi-desync-any-protocol=1 --dpi-desync-fake-unknown-udp="$bin\ACTIVE_GAME_UDP.bin" --dpi-desync-cutoff=n4
 "@
-Start-ZapretWinws -ArgumentList $argList
+$argListWinws2 = @"
+--wf-tcp-out=80,443,2053,2083,2087,2096,8443,$($gf.Tcp) --wf-udp-out=443,19294-19344,50000-50100,$($gf.Udp)
+--lua-init=@"$bin\lua\zapret-lib.lua" --lua-init=@"$bin\lua\zapret-antidpi.lua"
+--blob=quic_google:@"$bin\quic_initial_www_google_com.bin" --blob=tls_google:@"$bin\tls_clienthello_www_google_com.bin" --blob=tls_max:@"$bin\tls_clienthello_max_ru.bin" --blob=stun2:@"$bin\stun2.bin" --blob=discord_udp:@"$bin\ACTIVE_DISCORD_UDP.bin" --blob=game_udp:@"$bin\ACTIVE_GAME_UDP.bin"
+--filter-udp=443 --filter-l7=quic --hostlist="$lists\list-general.txt" --hostlist="$lists\list-general-user.txt" --hostlist-exclude="$lists\list-exclude.txt" --hostlist-exclude="$lists\list-exclude-user.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --out-range=-d10 --payload=quic_initial --lua-desync=fake:blob=quic_google:repeats=11 --new
+--filter-udp=19294-19344,50000-50100 --filter-l7=discord,stun --payload=discord_ip_discovery,stun --lua-desync=fake:blob=discord_udp:repeats=6 --new
+--filter-tcp=2053,2083,2087,2096,8443 --filter-l7=tls --hostlist-domains=discord.media --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=tls_google:repeats=8:tcp_ts=-600000 --lua-desync=multisplit:pos=1:seqovl=681:seqovl_pattern=tls_google --new
+--filter-tcp=443 --filter-l7=tls --hostlist="$lists\list-google.txt" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=tls_google:repeats=8:tcp_ts=-600000:ip_id=zero --lua-desync=multisplit:pos=1:seqovl=681:seqovl_pattern=tls_google:ip_id=zero --new
+--filter-tcp=80,443 --filter-l7=tls,http --hostlist="$lists\list-general.txt" --hostlist="$lists\list-general-user.txt" --hostlist-exclude="$lists\list-exclude.txt" --hostlist-exclude="$lists\list-exclude-user.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=stun2:repeats=8:tcp_ts=-600000 --lua-desync=fake:blob=tls_max:repeats=8:tcp_ts=-600000 --lua-desync=multisplit:pos=1:seqovl=664:seqovl_pattern=tls_max --payload=http_req --lua-desync=fake:blob=tls_max:repeats=8:tcp_ts=-600000 --lua-desync=multisplit:pos=1:seqovl=664:seqovl_pattern=tls_max --new
+--filter-udp=443 --filter-l7=quic --ipset="$lists\ipset-all.txt" --hostlist-exclude="$lists\list-exclude.txt" --hostlist-exclude="$lists\list-exclude-user.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --out-range=-d10 --payload=quic_initial --lua-desync=fake:blob=quic_google:repeats=11 --new
+--filter-tcp=80,443,8443 --filter-l7=tls,http --ipset="$lists\ipset-all.txt" --hostlist-exclude="$lists\list-exclude.txt" --hostlist-exclude="$lists\list-exclude-user.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --out-range=-d10 --payload=tls_client_hello --lua-desync=fake:blob=stun2:repeats=8:tcp_ts=-600000 --lua-desync=fake:blob=tls_max:repeats=8:tcp_ts=-600000 --lua-desync=multisplit:pos=1:seqovl=664:seqovl_pattern=tls_max --payload=http_req --lua-desync=fake:blob=tls_max:repeats=8:tcp_ts=-600000 --lua-desync=multisplit:pos=1:seqovl=664:seqovl_pattern=tls_max --new
+--filter-tcp=$($gf.Tcp) --ipset="$lists\ipset-all.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --out-range=-d4 --payload=all --lua-desync=fake:blob=stun2:repeats=8:tcp_ts=-600000 --lua-desync=fake:blob=tls_max:repeats=8:tcp_ts=-600000 --lua-desync=multisplit:pos=1:seqovl=664:seqovl_pattern=tls_max --new
+--filter-udp=$($gf.Udp) --ipset="$lists\ipset-all.txt" --ipset-exclude="$lists\ipset-exclude.txt" --ipset-exclude="$lists\ipset-exclude-user.txt" --out-range=-d4 --payload=all --lua-desync=fake:blob=game_udp:repeats=10
+"@
+if ($engine -eq 'winws2') {
+    Start-ZapretWinws -ArgumentList $argListWinws2
+} else {
+    Start-ZapretWinws -ArgumentList $argListWinws
+}
