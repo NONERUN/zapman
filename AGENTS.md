@@ -65,6 +65,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 | `src/utils/test zapret.ps1` | Консоль тестов → `Invoke-ZapretStrategyTests` (ненулевой exit, если прогон не удался) |
 | `dev/lint.ps1` | 5.1/WinForms + PSSA + Blinter |
 | `dev/update-zapret.ps1` | Официальные zip zapret / zapret2 → `bin/` + [`bin/versions.json`](bin/versions.json). Fake `.bin` не трогает. |
+| `.githooks/commit-msg` | Меняет `Co-authored-by: Cursor` на `Assisted-by`. Включение: `git config core.hooksPath .githooks` |
 | `strategies/*.ps1` | Стратегии: argv для выбранного `engine` (`winws` / `winws2`) |
 | `lists/` | Хостлисты и ipset. Рабочий `ipset-all.txt` локальный; в git — `ipset-all.default.txt`. Нет файла — копия с default. Есть — его и берём. `*-user.txt` создаются на лету |
 | `bin/` | `winws.exe` (zapret v72.13), `winws2.exe` + `lua/` (zapret2 v1.0.4), общий WinDivert. Хеши — [`bin/versions.json`](bin/versions.json), сверка при старте |

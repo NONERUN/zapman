@@ -1,0 +1,13 @@
+#!/bin/sh
+# Replace the Cursor Co-authored-by trailer with Assisted-by.
+# Enable: git config core.hooksPath .githooks
+
+msgfile=$1
+if [ ! -f "$msgfile" ]; then
+  exit 0
+fi
+
+tmp=${msgfile}.githook.tmp
+sed 's/Co-authored-by: Cursor <cursoragent@cursor.com>/Assisted-by: Cursor <cursoragent@cursor.com>/' \
+  "$msgfile" > "$tmp" || exit 1
+mv "$tmp" "$msgfile"

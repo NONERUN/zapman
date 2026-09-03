@@ -12,6 +12,7 @@
 - Линтер: [`dev/lint.ps1`](dev/lint.ps1) (ловушки 5.1/WinForms + PSScriptAnalyzer + [Blinter](https://pypi.org/project/Blinter/) через `pipx`, [`blinter.ini`](blinter.ini)).
 - [`dev/update-zapret.ps1`](dev/update-zapret.ps1): скачать официальные релизы bol-van/zapret и bol-van/zapret2 в `bin/` и переписать [`bin/versions.json`](bin/versions.json).
 - [`AGENTS.md`](AGENTS.md), [`PLAN.md`](PLAN.md).
+- [`.githooks/commit-msg`](.githooks/commit-msg): `Co-authored-by: Cursor` → `Assisted-by`. Включение: `git config core.hooksPath .githooks`.
 
 ### Changed
 
