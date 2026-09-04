@@ -341,6 +341,12 @@ foreach ($item in @(Test-ZapmanBatRequiresSta -RepoRoot $root)) {
     [void]$issues.Add($item)
 }
 
+try {
+    & (Join-Path $root 'dev\export-gui-docs.ps1') -Check
+} catch {
+    [void]$issues.Add((New-ZapretLintIssue -ScriptName 'docs\ui' -Line 1 -RuleName 'ZapmanGuiDocsStale' -Message $_.Exception.Message))
+}
+
 function Get-ZapretBlinterPath {
     $cmd = Get-Command -Name 'blinter' -ErrorAction SilentlyContinue
     if ($cmd) {

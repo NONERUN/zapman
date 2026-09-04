@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="436" height="156" viewBox="0 0 436 156" font-family="Segoe UI, Arial, sans-serif">
+  <rect x="0" y="0" width="436" height="156" fill="#f0f0f0" stroke="#6d6d6d"/>
+  <rect x="0" y="0" width="436" height="28" fill="#fff" stroke="#c8c8c8"/>
+  <text x="10" y="18" font-size="12" text-anchor="start" font-weight="normal" fill="#222">Скачать ipset</text>
+  <text x="20" y="56" font-size="12" text-anchor="start" font-weight="normal" fill="#222">Подключение...</text>
+  <rect x="20" y="72" width="396" height="22" fill="#e6e6e6" stroke="#a0a0a0"/>
+  <rect x="20" y="72" width="139" height="22" fill="#cce4f7" stroke="none"/>
+  <g>
+  <rect x="333" y="110" width="83" height="28" fill="#e1e1e1" stroke="#adadad"/>
+  <text x="374" y="128" font-size="11" text-anchor="middle" font-weight="normal" fill="#222">Отмена</text>
+  </g>
+</svg>

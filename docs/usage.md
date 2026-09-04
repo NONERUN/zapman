@@ -1,0 +1,65 @@
+# Использование
+
+Zapret Manager (`zapman`) — Windows-обвязка над [zapret](https://github.com/bol-van/zapret) / zapret2. GUI: [`zapman.bat`](../zapman.bat). Консоль: [`cli.bat`](../cli.bat). Макеты окон: [Окна GUI](ui/index.md).
+
+На **Windows 10 LTSC** и новее с рабочим столом ничего ставить не нужно (inbox PowerShell 5.1, .NET 4.x, WPF). На **Windows 7 SP1 x64** сначала WMF 5.1 и .NET Framework 4.5 или новее. PowerShell 7 (`pwsh`) не цель.
+
+## Secure DNS
+
+Без безопасного DNS часть сайтов может не открываться даже при рабочей стратегии.
+
+- **Chrome:** «Использовать безопасный DNS», поставщик **не** «по умолчанию».
+- **Firefox:** DNS через HTTPS, режим «Персональный», URL вручную, например `https://dns.google/dns-query` (Cloudflare иногда недоступен).
+- **Windows 11:** Secure DNS в настройках ОС — [инструкция](https://remontka.pro/dns-over-https-windows-11/).
+- **Keenetic:** в роутере включите «Транзит запросов», иначе DNS на компьютере может не заработать.
+
+## Установка
+
+1. Скачайте zip/rar со [страницы релизов](https://github.com/NONERUN/zapman/releases/latest) **этого** репозитория.
+2. Свойства архива → «Разблокировать» (7-Zip и PeaZip часто не требуют этого).
+3. Распакуйте в путь **без** кириллицы, пробелов и спецсимволов.
+4. Обновление: скопируйте старую папку `user/` в новую распаковку. `config.json` — в корень, если меняли настройки.
+5. Запустите `zapman.bat` (нужны права администратора).
+
+## Окна
+
+- **Старт службы** — только уже установленная служба `zapret`.
+- **Стоп** — остановить winws / winws2 и службу, если она запущена.
+- **Снять службы** — удалить `zapret` и WinDivert.
+- **Стратегия…** — список `strategies/*.ps1`, выбор `winws` / `winws2`. **Установить службу** (автозапуск) или **Запустить без установки**. **Прогнать тесты**. **Ни одна не подходит** — сброс сети, затем перезагрузка.
+- **Settings:** Game Filter, IPSet, Auto-Update Check, **Fake…** (оба слота).
+- **Tools:** скачать ipset, сверить hosts (шаблон в буфер или открыть системный hosts), проверить версию, диагностика. Клик по блоку Status — полный дамп и журнал.
+
+Консоль те же действия: `cli.bat` или `cli.bat service` / `tests` / `env`.
+
+## Файлы
+
+| Путь | Роль |
+|---|---|
+| `zapman.bat` | GUI (один `powershell.exe -STA`) |
+| `cli.bat` | Консоль |
+| `strategies/*.ps1` | Стратегии обхода (оба движка в одном файле) |
+| `bin/` | `winws.exe`, `winws2.exe`, Lua, WinDivert. Хеши — `bin/versions.json` |
+| `lists/` | Сток-хостлисты и `ipset-all.default.txt` |
+| `user/` | Свои списки и рабочий `ipset-all.txt` (gitignore). При обновлении скопируйте эту папку в новую распаковку |
+| `config.json` | Язык, `engine`, фильтры, Auto-Update Check, цели тестов. В корне пакета (не в `user/`). Появляется при смене настроек |
+| `src/Zapman/` | Модуль обвязки. Версия — `ModuleVersion` в `Zapman.psd1` (в окне как `v0.1.0`) |
+| `src/Zapret/` | Движок: winws, служба, стратегии, фильтры |
+| `test-results/` | Логи тестов |
+
+Движки в `bin/` — официальные релизы [zapret v72.13](https://github.com/bol-van/zapret/releases/tag/v72.13) и [zapret2 v1.0.4](https://github.com/bol-van/zapret2/releases/tag/v1.0.4). Сверка SHA256 при старте движка и в `cli.bat env`.
+
+Набор стратегий поддерживается **в согласовании** с [оригинальным репозиторием](https://github.com/Flowseal/zapret-discord-youtube): тот же смысл обхода трафика. Имена файлов и подписи в GUI могут отличаться.
+
+## Свои адреса
+
+Файлы в `user/` создаются при первом запуске `zapman.bat`. Папка в gitignore. `config.json` остаётся в корне.
+
+- `user/list-general-user.txt` — домены (поддомены учитываются).
+- `user/list-exclude-user.txt` — исключить домен (если сеть уже в ipset).
+- `user/ipset-all.txt` — IP и подсети. Нет файла — копия с `lists/ipset-all.default.txt`.
+- `user/ipset-exclude-user.txt` — исключить IP и подсети.
+
+Обновление: скопируйте папку `user/` в новую распаковку. Файлы из старого `lists/` (`*-user.txt`, рабочий `ipset-all.txt`) сами не подхватываются.
+
+Game Filter и движок зашиты в ImagePath службы: после смены нужен снова **Установить службу**, не только Стоп/Старт. IPSet и Fake читаются при старте winws: достаточно Стоп/Старт.

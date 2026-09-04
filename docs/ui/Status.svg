@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="536" height="458" viewBox="0 0 536 458" font-family="Segoe UI, Arial, sans-serif">
+  <rect x="0" y="0" width="536" height="458" fill="#f0f0f0" stroke="#6d6d6d"/>
+  <rect x="0" y="0" width="536" height="28" fill="#fff" stroke="#c8c8c8"/>
+  <text x="10" y="18" font-size="12" text-anchor="start" font-weight="normal" fill="#222">Статус и журнал</text>
+  <rect x="20" y="44" width="496" height="360" fill="#fff" stroke="#7a7a7a"/>
+  <g>
+  <rect x="352" y="412" width="86" height="28" fill="#e1e1e1" stroke="#adadad"/>
+  <text x="395" y="430" font-size="11" text-anchor="middle" font-weight="normal" fill="#222">Копировать</text>
+  </g>
+  <g>
+  <rect x="442" y="412" width="75" height="28" fill="#e1e1e1" stroke="#adadad"/>
+  <text x="480" y="430" font-size="11" text-anchor="middle" font-weight="normal" fill="#222">Закрыть</text>
+  </g>
+</svg>

@@ -10,11 +10,11 @@
 
 Пока пользователь явно не отменит эту политику:
 
-1. **Обратная совместимость только у стратегий.** Сохраняйте набор стратегий обхода (что они делают с трафиком), в том числе при переносе на zapret2 / Lua / `.ps1`. Имена файлов и подписи в GUI **можно менять**. Алиасы старых имён не нужны (`general (ALT5).bat` → то же имя навсегда).
+1. **Обратная совместимость только у стратегий.** Сохраняйте набор стратегий обхода (что они делают с трафиком), в том числе при переносе на zapret2 / Lua / `.ps1`. Набор **согласуйте** с [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube): не уходите своим набором без явного решения. Имена файлов и подписи в GUI **можно менять**. Алиасы старых имён не нужны (`general (ALT5).bat` → то же имя навсегда).
 2. **Во всём остальном совместимости нет.** Не сохраняйте старые флаги CLI, поля API, ключи пресетов, переменные окружения, имена служб и раскладку файлов «ради существующих пользователей».
 3. **Удаляйте, не делайте прокладки.** Старый путь обвязки убирайте. Без алиасов, тихих fallback, двойного чтения и предупреждений об устаревании, которые оставляют оба поведения. Не держите `foo.bat` рядом с `foo.ps1`.
 4. **Ломающие изменения** — в [`CHANGELOG.md`](CHANGELOG.md), датированная секция или `Unreleased` (Added / Changed / Removed / Breaking). Смена имени стратегии — Changed (старое → новое). Потеря стратегии без преемника — Breaking, и только осознанно.
-5. **Документацию обновляйте в том же изменении** — `README.md`, этот файл, [`PLAN.md`](PLAN.md), примеры в `lists/` и файлы стратегий. В них только текущий интерфейс.
+5. **Документацию обновляйте в том же изменении** — `README.md`, этот файл, [`PLAN.md`](PLAN.md), [`docs/`](docs/), примеры в `lists/` и файлы стратегий. В них только текущий интерфейс.
 
 **Стратегия** — сценарий обхода в `strategies/*.ps1` (оба движка). **Обвязка** — всё остальное; её старую форму выбрасывайте.
 
@@ -56,6 +56,12 @@
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ```
 
+После правки XAML или строк UI ещё:
+
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
+```
+
 `dev/lint.ps1` всегда ловит:
 
 - PS 5.1 / WPF: `List[object]`; у главного окна нет `$window.IsEnabled = $false` / `Hide()` / `ShowDialog()` / `ShowInTaskbar = $false`
@@ -64,6 +70,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 - BOM у кириллицы / `Ui.ps1`
 - синтаксис `pwsh`
 - `-STA` в `zapman.bat`
+- `docs/ui` совпадает с генератором (`dev\export-gui-docs.ps1 -Check`)
 
 Опционально: PSScriptAnalyzer; Blinter для `.bat` (`pipx install Blinter`, [`blinter.ini`](blinter.ini)).
 
@@ -97,19 +104,22 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 
 | Путь | Роль |
 |---|---|
-| `src/Zapman/` | Модуль обвязки (`Zapman.psd1`): config, UI, тесты, диагностика. GUI и консоль импортируют его. В `src` только исходники |
+| `src/Zapman/` | Модуль обвязки (`Zapman.psd1`): config, UI, тесты, диагностика. GUI и консоль импортируют его. В `src` только исходники. Тег продукта — `v` + `ModuleVersion` (`0.1.0` → `v0.1.0`). Auto-Update Check сравнивает с GitHub tags |
 | `src/Zapret/` | Движок: `Bypass.ps1` (winws, служба `zapret`, стратегии, фильтры, ipset, fake). Dotsource из Zapman, не отдельный модуль |
-| `config.json` | Язык, `engine` (`winws` / `winws2`, окно стратегий), фильтры, Auto-Update Check, цели тестов |
+| `config.json` | Язык, `engine` (`winws` / `winws2`, окно стратегий), фильтры, Auto-Update Check, цели тестов. Корень пакета, не `user/` |
 | `test-results/` | Логи тестов (на лету) |
-| `strategies/*.ps1` | Стратегии: import `Zapman.psd1`, argv для выбранного `engine`. Prep / winws / filter — `*-Zapret*` |
-| `lists/` | Хостлисты и ipset. Рабочий `ipset-all.txt` локальный; в git — `ipset-all.default.txt`. Нет файла — копия с default. Есть — его и берём. `*-user.txt` создаются на лету |
-| `bin/` | `winws.exe` (zapret v72.13), `winws2.exe` + `lua/` (zapret2 v1.0.4), общий WinDivert. Хеши — [`bin/versions.json`](bin/versions.json). GUI не сверяет при открытии окна; сверка при старте движка и в `cli.bat env` |
+| `strategies/*.ps1` | Стратегии: import `Zapman.psd1`, argv для выбранного `engine`. Prep / winws / filter — `*-Zapret*`. Сток — `$lists`, свои файлы — `$user` |
+| `lists/` | Сток: `list-general.txt`, `list-exclude.txt`, `list-google.txt`, `ipset-exclude.txt`, `ipset-all.default.txt` |
+| `user/` | Свои списки и рабочий `ipset-all.txt` (создаются на лету, в gitignore). При обновлении копируют папку в новую распаковку. Старый `lists/*-user.txt` не читается |
+| `docs/` | Использование, troubleshooting, инструкция разработчику. Макеты окон — `docs/ui/` (генератор, не править руками) |
+| `bin/` | `winws.exe` (zapret v72.13), `winws2.exe` + `lua/` (zapret2 v1.0.4), общий WinDivert. Хеши — [`bin/versions.json`](bin/versions.json). GUI не сверяет при открытии окна; сверка при старте движка (файлы выбранного `engine`) и в `cli.bat env`. Lua в хеше как LF |
 
 ### Dev
 
 | Путь | Роль |
 |---|---|
-| `dev/lint.ps1` | 5.1/WPF + PSSA + Blinter |
+| `dev/lint.ps1` | 5.1/WPF + PSSA + Blinter; `-Check` макетов `docs/ui` |
+| `dev/export-gui-docs.ps1` | XAML + `Ui.ps1` → `docs/ui/*.svg` и `index.md` / `index.html` |
 | `dev/update-zapret.ps1` | Официальные zip zapret / zapret2 → `bin/` + [`bin/versions.json`](bin/versions.json). Fake `.bin` не трогает. |
 | `.githooks/commit-msg` | Меняет `Co-authored-by: Cursor` на `Assisted-by`. Включение: `git config core.hooksPath .githooks` |
 
@@ -126,9 +136,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ## GUI
 
 - **Главное окно:** без списка стратегий. **Старт службы** (выключен, если службы нет) / **Стоп** / **Снять службы** / **Стратегия…**. Смена стратегии = Install из окна стратегий.
-- **Стратегия…:** список `strategies/*.ps1` и выбор `winws` / `winws2`. **Установить службу** закрывает диалог. **Запустить без установки** останавливает службу/winws и стартует файл (без автозапуска). **Прогнать тесты** снимает службу zapret на время прогона и ставит её снова; WinDivert не трогает. Список выделяет запущенную или установленную.
+- **Стратегия…:** список `strategies/*.ps1` и выбор `winws` / `winws2`. **Установить службу** закрывает диалог. **Запустить без установки** останавливает службу/winws и стартует файл (без автозапуска). **Прогнать тесты** снимает службу zapret на время прогона и ставит её снова; WinDivert не трогает. **Ни одна не подходит** запускает сброс Winsock / IP / WinHTTP / DNS и просит перезагрузку. Список выделяет запущенную или установленную.
 - **Settings:** Game Filter (диалог с кнопкой применения), IPSet, Auto-Update Check, **Fake…** (оба слота сразу).
-- **Tools:** скачать ipset, сверить hosts, проверить версию, диагностика (список с галочками; **Запуск** у чисток, **ОК** пропуск). Клик по Status — полный статус и журнал.
+- **Tools:** скачать ipset, сверить hosts (шаблон в буфер / открыть системный hosts в Блокноте), проверить версию, диагностика (список с галочками; **Запуск** у чисток, **ОК** пропуск). Клик по Status — полный статус и журнал.
 - **Язык:** RU/EN, `Get-ZapmanUiString` в модуле. Переключатель на главном. Язык, `engine`, Game Filter, Auto-Update Check и цели тестов — [`config.json`](config.json) в корне.
 
 ### Окно (WPF)

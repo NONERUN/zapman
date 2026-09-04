@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="456" height="458" viewBox="0 0 456 458" font-family="Segoe UI, Arial, sans-serif">
+  <rect x="0" y="0" width="456" height="458" fill="#f0f0f0" stroke="#6d6d6d"/>
+  <rect x="0" y="0" width="456" height="28" fill="#fff" stroke="#c8c8c8"/>
+  <text x="10" y="18" font-size="12" text-anchor="start" font-weight="normal" fill="#222">Прогнать тесты</text>
+  <text x="20" y="56" font-size="12" text-anchor="start" font-weight="normal" fill="#222">Тип теста</text>
+  <circle cx="28" cy="76" r="6" fill="#fff" stroke="#666"/>
+  <text x="40" y="80" font-size="12" text-anchor="start" font-weight="normal" fill="#222">Обычный (HTTP / ping)</text>
+  <circle cx="236" cy="76" r="6" fill="#fff" stroke="#666"/>
+  <text x="248" y="80" font-size="12" text-anchor="start" font-weight="normal" fill="#222">DPI-проверки (TCP 16-20)</text>
+  <text x="20" y="106" font-size="12" text-anchor="start" font-weight="normal" fill="#222">Стратегии для теста (winws)</text>
+  <rect x="20" y="114" width="416" height="250" fill="#fff" stroke="#a0a0a0"/>
+  <g>
+  <rect x="20" y="376" width="80" height="28" fill="#e1e1e1" stroke="#adadad"/>
+  <text x="60" y="394" font-size="11" text-anchor="middle" font-weight="normal" fill="#222">Все</text>
+  </g>
+  <g>
+  <rect x="106" y="376" width="80" height="28" fill="#e1e1e1" stroke="#adadad"/>
+  <text x="146" y="394" font-size="11" text-anchor="middle" font-weight="normal" fill="#222">Нет</text>
+  </g>
+  <g>
+  <rect x="256" y="410" width="90" height="28" fill="#e1e1e1" stroke="#adadad"/>
+  <text x="301" y="428" font-size="11" text-anchor="middle" font-weight="normal" fill="#222">Начать тесты</text>
+  </g>
+  <g>
+  <rect x="352" y="410" width="84" height="28" fill="#e1e1e1" stroke="#adadad"/>
+  <text x="394" y="428" font-size="11" text-anchor="middle" font-weight="normal" fill="#222">Отмена</text>
+  </g>
+</svg>

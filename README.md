@@ -1,214 +1,78 @@
 <div align="center">
 
-# <img src="https://cdn-icons-png.flaticon.com/128/5968/5968756.png" height=28 /> <a href="https://github.com/Flowseal/">Flowseal</a><a href="https://github.com/Flowseal/zapret-discord-youtube">/zapret-discord-youtube</a> <img src="https://cdn-icons-png.flaticon.com/128/1384/1384060.png" height=28 />
+# <img src="https://cdn-icons-png.flaticon.com/128/5968/5968756.png" height=28 /> <a href="https://github.com/NONERUN/">NONERUN</a><a href="https://github.com/NONERUN/zapman">/zapman</a> <img src="https://cdn-icons-png.flaticon.com/128/1384/1384060.png" height=28 />
 
-**NEW**: Ускорение Telegram Desktop - https://github.com/Flowseal/tg-ws-proxy  
-Альтернатива https://github.com/bol-van/zapret-win-bundle  
-Также вы можете материально поддержать оригинального разработчика zapret [тут](https://github.com/bol-van/zapret?tab=readme-ov-file#%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%87%D0%B8%D0%BA%D0%B0)
+**NEW**: Ускорение Telegram Desktop — https://github.com/Flowseal/tg-ws-proxy  
+Оригинальный проект: <a href="https://github.com/Flowseal/zapret-discord-youtube">zapret-discord-youtube</a>  
+Альтернатива: https://github.com/bol-van/zapret-win-bundle  
+Поддержать автора zapret: [bol-van/zapret](https://github.com/bol-van/zapret?tab=readme-ov-file#%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%87%D0%B8%D0%BA%D0%B0)
 </div>
 
 > [!CAUTION]
 >
 > ### ФЕЙКИ
-> Я не веду никакие другие страницы/группы в телеграм/ютуб каналы  
-> Если вы наткнулись на что-то вне этой страницы гитхаба, что распространяется от моего лица - **ФЕЙК**.
+> Я не веду другие страницы и каналы в Telegram / YouTube.  
+> Если вы наткнулись на что-то вне этого GitHub от моего лица — **фейк**.
 
 > [!WARNING]
 >
 > ### АНТИВИРУСЫ
-> WinDivert может вызвать реакцию антивируса.
-> WinDivert - это инструмент для перехвата и фильтрации трафика, необходимый для работы zapret.
-> Он может использоваться как хорошими, так и плохими программами, но сам по себе не является вирусом.
->
-> **Выдержка из [`readme.md`](https://github.com/bol-van/zapret-win-bundle/blob/master/readme.md#%D0%B0%D0%BD%D1%82%D0%B8%D0%B2%D0%B8%D1%80%D1%83%D1%81%D1%8B) репозитория [bol-van/zapret-win-bundle](https://github.com/bol-van/zapret-win-bundle)*
->
-> Некоторые антивирусы склонны относить файлы WinDivert к классам повышенного риска или хакерским инструментам. Происходит удаление файла и помещение его в карантин. При этом детект обязательно имеет название `WinDivert` или `Not-a-virus:RiskTool.Multi.WinDivert`
->
-> Добавьте папку с запретом в исключения антивируса, либо отключите детектирование PUA (потенциально нежелательных приложений). Например, в касперском есть галочка "Обнаруживать легальные приложения, которые злоумышленники часто используют для нанесения вреда". При аккуратной и правильной настройке исключений - рекомендуется настроить исключение, но если вы не до конца понимаете что делаете - рекомендуется отключить детект PUA.
+> WinDivert может вызвать реакцию антивируса: это фильтр трафика, не вирус. Добавьте папку в исключения или отключите детект PUA. Подробности — [Проблемы](docs/troubleshooting.md#античит-ругается-на-windivert).
 
 > [!IMPORTANT]
-> Движки в [`bin`](./bin) — официальные релизы [bol-van/zapret v72.13](https://github.com/bol-van/zapret/releases/tag/v72.13) (`winws.exe`) и [bol-van/zapret2 v1.0.4](https://github.com/bol-van/zapret2/releases/tag/v1.0.4) (`winws2.exe`, Lua). SHA256 — [`bin/versions.json`](./bin/versions.json). Сверка при старте движка и в `cli.bat env`. Fake `.bin` в `bin/` — свои, не из этих релизов.
+> Движки в [`bin`](./bin) — официальные [zapret v72.13](https://github.com/bol-van/zapret/releases/tag/v72.13) (`winws.exe`) и [zapret2 v1.0.4](https://github.com/bol-van/zapret2/releases/tag/v1.0.4) (`winws2.exe`). SHA256 — [`bin/versions.json`](./bin/versions.json).
 
-## ⚙️Использование
+## Использование
 
-1. Включите Безопасный DNS (Secure DNS)
-    * В Chrome - "Использовать безопасный DNS", и выбрать поставщика услуг DNS (выбрать вариант, отличный от варианта "Поставщик по умолчанию")
-    * В Firefox - "DNS через HTTPS", выбрать режим "Персональный", затем "Выбрать провайдера/поставщика" и вписать URL поставщика вручную. Например, можно использовать `https://dns.google/dns-query` (т.к. поставщик Cloudflare может быть заблокирован)
-    * В Windows 11 поддерживается включение Secure DNS прямо в настройках ОС - [инструкция тут](https://remontka.pro/dns-over-https-windows-11/). Рекомендуется, если вы пользуетесь Windows 11
-    * Если у вас роутер Keenetic, включите в настройках роутера опцию "Транзит запросов". Отключение этой опции может привести к проблемам при настройке и использовании Secure DNS на компьютере
+1. Включите [Secure DNS](docs/usage.md#secure-dns) (не поставщик «по умолчанию»).
+2. Скачайте архив со [страницы релизов](https://github.com/NONERUN/zapman/releases/latest) **этого** репозитория.
+3. Свойства архива → «Разблокировать» (7-Zip / PeaZip часто не требуют).
+4. Распакуйте в путь без кириллицы, пробелов и спецсимволов. Обновление: скопируйте старую папку `user/` в новую распаковку (`config.json` остаётся в корне).
+5. Запустите [`zapman.bat`](./zapman.bat) (права администратора).
 
-2. Скачайте архив (zip/rar) со [страницы последнего релиза](https://github.com/Flowseal/zapret-discord-youtube/releases/latest)
+На **Windows 10 LTSC** и новее с рабочим столом ничего ставить не нужно. На **Windows 7 SP1 x64** — WMF 5.1 и .NET 4.5+.
 
-3. Зайдите в свойства скачанного архива и поставьте галочку "Разблокировать". Если вы используете архиватор 7-Zip или PeaZip, этот шаг можно пропустить
+**Старт службы** запускает уже установленную службу. Другую стратегию без автозапуска — **Стратегия…**.
 
-4. Распакуйте содержимое архива по пути, который не содержит кириллицу/спец. символы
+## Документация
 
-5. Запустите [`zapman.bat`](./zapman.bat) (нужны права администратора).
+- [Использование](docs/usage.md) — DNS, файлы, списки, служба и фильтры
+- [Проблемы](docs/troubleshooting.md) — FAQ и переустановка
+- [Окна GUI](docs/ui/index.md) — макеты из текущего XAML
+- [Разработка](docs/dev.md) — линтер, генератор окон, раскладка
 
-На **Windows 10 LTSC** и новее с рабочим столом ничего ставить не нужно. На **Windows 7 SP1 x64** сначала установите WMF 5.1 и .NET Framework 4.5 или новее.
+## Разработка
 
-## ℹ️Файлы
+Целевой интерпретатор — `powershell.exe` **5.1**, не `pwsh`.
 
-- [**`zapman.bat`**](./zapman.bat) — GUI Zapret Manager (WPF, один `powershell.exe -STA`). Старт службы / Стоп / Снять / **Стратегия…** (запуск, установка, тесты). Settings и Tools в том же окне. Язык RU/EN.
-- [**`src/gui/`**](./src/gui/) — WPF: `gui.ps1` и соседние `.xaml`.
-- [**`cli.bat`**](./cli.bat) — консоль: после проверки — PowerShell. Меню или `cli.bat service` / `tests` / `env`.
-- [**`src/cli/`**](./src/cli/) — консоль: `cli.ps1`, `service.ps1`, `test-zapret.ps1`.
-- [**`strategies/`**](./strategies/) — стратегии (`.ps1`). Пробуйте ALT, FAKE и другие.
-- [**`src/Zapman/`**](./src/Zapman/) — модуль обвязки (GUI и консоль вызывают одни функции).
-- [**`src/Zapret/`**](./src/Zapret/) — движок: winws, служба `zapret`, стратегии, фильтры.
-- [**`dev/`**](./dev/) — линтер (`dev\lint.ps1`) и обновление движков (`dev\update-zapret.ps1` → официальные zapret / zapret2 в `bin/`).
-- **`config.json`** — язык, движок (`winws` / `winws2`), фильтры, Auto-Update Check, цели тестов. Файл локальный, появляется при смене настроек. Движок выбирается в «Стратегия…».
-- **`test-results/`** — логи тестов (создаётся при прогоне).
+После правок `.ps1` / GUI:
 
-**Старт службы** запускает установленную службу. Другую стратегию без автозапуска — **Стратегия…**.
-
-
-## ☑️Распространенные вопросы и проблемы
-
-### После запуска стратегии ничего не происходит
-
-- После запуска стратегии из GUI должен открыться winws.exe (обход), который можно увидеть в панели задач.
-- Свернуть оставляет кнопку на панели задач. Крестик закрывает GUI (службу не снимает). Трея нет.  
-Если этого не произошло, то см. [#522](https://github.com/Flowseal/zapret-discord-youtube/issues/522)
-
-### Ни одна стратегия не подходит
-- Запустите командную строку от имени администратора
-- Последовательно введите команды в консоль:
-
-    `netsh winsock reset`
-  
-    `netsh int ip reset all`
-  
-    `netsh winhttp reset proxy`
-  
-    `ipconfig /flushdns`
-  
-- Перезагрузите компьютер
-
-### Не работает телеграм (веб версия) или бесконечное "подключение" к голосовому чату Discord
-Запустите **`zapman.bat`** → **Сверить hosts** (или `cli.bat service`). Если hosts устарел, обновите его сами:  
-  - Скопируйте весь текст из открывшегося блокнота
-  - Откройте файл `hosts` в появившейся папке с помощью текстового редактора, открытого от имени администратора
-  - Добавьте в конец файла `hosts` то, что скопировали (или замените, если до этого Вы уже добавляли подобное)
-  - Сохраните и перепроверьте подключение. Если не работает - убедитесь, что файл `hosts` действительно сохранился.
-
-### Обход не работает / перестал работать
-
-> [!IMPORTANT]
-> **Стратегии со временем могут переставать работать.**
-> Определенная стратегия может работать какое-то время, но со временем она может переставать работать из-за обнаружения.
-> В репозитории представлены множество различных стратегий для обхода. Если ни одна из них вам не помогает, то вам необходимо создать новую, взяв за основу одну из представленных здесь и изменив её параметры.
-> Информацию про параметры стратегий вы можете найти [тут](https://github.com/bol-van/zapret/blob/master/docs/readme.md#nfqws).
-
-- Проверьте GUI → **Диагностика** (или `cli.bat service`)
-
-- Убедитесь, что адрес ресурса записан в списках доменов или IP
-
-- Проверьте другие стратегии (**`ALT`**/**`FAKE`** и другие)
-
-- Попробуйте полную переустановку (см. раздел ниже)
-
-- См. [#765](https://github.com/Flowseal/zapret-discord-youtube/issues/765)
-
-### Как переустановить/обновить полностью?
-- Сохраните ресурсы/данные, которые вы сами добавляли
-- Перезапустите устройство
-- `zapman.bat` → **Remove Services** (или `cli.bat service`)
-- GUI → **Диагностика** (ошибки устраните; кэш Discord — по запросу)
-- Удалите папку с запретом
-- Скачайте последнюю версию [со страницы релизов](https://github.com/Flowseal/zapret-discord-youtube/releases) (`zapret-discord-youtube-...`)
-- Нажмите пкм по архиву -> свойства. Если снизу справа есть галочка разблокировать, то нажмите на неё -> применить -> ОК
-- Распакуйте в новую папку в корне диска (без спец. символов и пробелов)
-- Далее в GUI пробуйте разные стратегии. Проверьте доступность интернет ресурсов - если не работают, остановите обход и пробуйте другую стратегию
-- Рабочую стратегию поставьте на автозапуск: **Стратегия…** → **Установить службу**
-
-### Не работает игра/приложение с включённым запретом
-
-- Проверьте, что в GUI `Game Filter` **`disabled`**, а `IPSet Filter` **`none`**. Иначе это может затронуть доступность ресурсов, которых вы не ожидали.
-
-### Античит ругается на WinDivert
-
-- Прочитайте инструкцию тут - https://github.com/bol-van/zapret-win-bundle/tree/master/windivert-hide
-
-### Требуется цифровая подпись драйвера WinDivert (Windows 7)
-
-- Замените файлы `WinDivert.dll` и `WinDivert64.sys` в папке [`bin`](./bin) на одноименные из [zapret-win-bundle/win7](https://github.com/bol-van/zapret-win-bundle/tree/master/win7)
-
-### При удалении через GUI / `cli.bat service` WinDivert остается в службах
-
-1. Узнайте название службы с помощью команды, в командной строке Windows (Win+R, `cmd`):
-
-```cmd
-driverquery | find "Divert"
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ```
 
-2. Остановите и удалите службу командами:
+Макеты окон после смены XAML или подписей:
 
-```cmd
-sc stop название_из_первого_шага
-
-sc delete название_из_первого_шага
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 ```
 
-### Не работает <img src="https://cdn-icons-png.flaticon.com/128/1384/1384060.png" height=18 /> YouTube
+Полный текст — [docs/dev.md](docs/dev.md). Правила для агента — [AGENTS.md](AGENTS.md).
 
-- Убедитесь что вы настроили [Secure DNS](#%EF%B8%8Fиспользование)
-- Отключите блокировщик рекламы, известно что YouTube начал с ними бороться.
-- Пробуйте все другие стратегии (если раньше работало, но перестало).
-- См. также [#251](https://github.com/Flowseal/zapret-discord-youtube/discussions/251)
+## Поддержка проекта
 
-### Не работает <img src="https://cdn-icons-png.flaticon.com/128/5968/5968756.png" height=18 /> Discord
+Поставьте :star: репозиторию (сверху справа).
 
-- Убедитесь что вы настроили [Secure DNS](#%EF%B8%8Fиспользование)
-- Желательно сначала узнать, на какой стратегии открывается сайт YouTube. Запустите эту стратегию.
-- GUI → **Диагностика** → очистка кэша Discord.
-- Проверьте приложение Discord. Помогла ли очистка кэша?
-- Проверьте Discord в браузере: https://discord.com/app. В браузере работает? Если работает, то можете пользоваться в нём.
-- Если Discord и в браузере не работает, то пробуйте ещё раз все стратегии. Бывает такое, что на одной стратегии YouTube работает, а Discord нет.
-- См. также [#252](https://github.com/Flowseal/zapret-discord-youtube/discussions/252)
+Материально — [автору zapret](https://github.com/bol-van/zapret?tab=readme-ov-file#%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%87%D0%B8%D0%BA%D0%B0).
 
-### Не работает <img src="https://cdn-icons-png.flaticon.com/128/5968/5968804.png" height=18 /> Telegram
+## Лицензия
 
-- Используйте программу [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy)
-- Или используйте бесплатные MTProto прокси из интернета
+[MIT](LICENSE.txt)
 
-### Не работают игры
+## Благодарность
 
-Есть много разных игр. Исследовать и чинить каждую из них нет возможности.
+[![Contributors](https://contrib.rocks/image?repo=NONERUN/zapman)](https://github.com/NONERUN/zapman/graphs/contributors)
 
-Наиболее универсальный рецепт такой:
-- через GUI или `cli.bat service` обновите ipset и включите `Game Filter`
-- если это не поможет, то попробуйте также включить настройку `ipset any`
+Оригинальный репозиторий: [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube).
 
-Но помните, что при включении `ipset any` появятся проблемы с открытием многих сайтов. Чтобы этого избежать, не используйте `ipset any` на постоянной основе. Вместо этого нужно выяснить все IP адреса, которые используются игрой, и добавить их в `ipset-all.txt`
-
-Если и это не помогло, создайте ветку обсуждений в разделе [Discussions](https://github.com/Flowseal/zapret-discord-youtube/discussions) (не в issues) и ждите помощи от других игроков.
-
-### Не нашли своей проблемы
-
-- Создайте её [тут](https://github.com/Flowseal/zapret-discord-youtube/issues)
-
-## 🗒️Добавление адресов прочих ресурсов
-
-Список адресов для обхода можно расширить, добавляя их в:
-- **`list-general-user.txt`** для доменов (поддомены автоматически учитываются)
-- **`list-exclude-user.txt`** для исключения доменов (например, если айпи сети указан в `ipset-all.txt`, но конкретный домен из этой сети не надо фильтровать)
-- **`ipset-all.txt`** для IP и подсетей (локальный; если нет — копируется из `ipset-all.default.txt`)
-- **`ipset-exclude-user.txt`** для исключения IP и подсетей
-  - Файлы **`*-user.txt`** и рабочий **`ipset-all.txt`** создаются при первом запуске `zapman.bat`
-
-## ⭐Поддержка проекта
-
-Вы можете поддержать проект, поставив :star: этому репозиторию (сверху справа этой страницы)
-
-Также вы можете материально поддержать оригинального разработчика zapret [тут](https://github.com/bol-van/zapret?tab=readme-ov-file#%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%87%D0%B8%D0%BA%D0%B0)
-
-## ⚖️Лицензирование
-
-Проект распространяется на условиях лицензии [MIT](https://github.com/Flowseal/zapret-discord-youtube/blob/main/LICENSE.txt)
-
-## 🩷Благодарность участникам проекта
-
-[![Contributors](https://contrib.rocks/image?repo=Flowseal/zapret-discord-youtube)](https://github.com/Flowseal/zapret-discord-youtube/graphs/contributors)
-
-💖 Отдельная благодарность разработчику [zapret](https://github.com/bol-van/zapret) - [bol-van](https://github.com/bol-van)
+Отдельная благодарность [bol-van](https://github.com/bol-van) за [zapret](https://github.com/bol-van/zapret).
