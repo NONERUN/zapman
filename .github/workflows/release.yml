@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag'
+        description: 'Git tag with v prefix (must match ModuleVersion in src/Zapman/Zapman.psd1, e.g. v0.1.0)'
         required: true
 
 jobs:
@@ -17,11 +17,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify version matches version.txt
+      - name: Verify tag matches ModuleVersion
         run: |
-          VERSION=$(cat .service/version.txt)
-          if [ "$VERSION" != "${{ github.event.inputs.tag }}" ]; then
-            echo "Error: tag '${{ github.event.inputs.tag }}' does not match .service/version.txt ('$VERSION')"
+          set -euo pipefail
+          TAG='${{ github.event.inputs.tag }}'
+          MODVER=$(sed -n "s/.*ModuleVersion[[:space:]]*=[[:space:]]*'\([^']*\)'.*/\1/p" src/Zapman/Zapman.psd1 | head -n1 | tr -d ' \r\n')
+          VERSION="v${MODVER}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: tag '$TAG' must be vMAJOR.MINOR.PATCH (example: v0.1.0)"
+            exit 1
+          fi
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "Error: tag '$TAG' does not match ModuleVersion in src/Zapman/Zapman.psd1 ('$VERSION')"
             exit 1
           fi
 
@@ -32,28 +39,24 @@ jobs:
 
       - name: Prepare release bundle
         run: |
-          NAME="zapret-discord-youtube-${{ github.event.inputs.tag }}"
-
+          set -euo pipefail
+          NAME="zapman-${{ github.event.inputs.tag }}"
           mkdir "$NAME"
-
-          cp -r bin "$NAME/"
-          cp -r lists "$NAME/"
-          cp -r utils "$NAME/"
-          cp -r strategies "$NAME/"
-          cp *.bat "$NAME/"
+          cp zapman.bat cli.bat README.md LICENSE.txt CHANGELOG.md "$NAME/"
+          cp -r bin lists strategies src docs "$NAME/"
 
       - name: Create archives
         run: |
-          NAME="zapret-discord-youtube-${{ github.event.inputs.tag }}"
-
+          set -euo pipefail
+          NAME="zapman-${{ github.event.inputs.tag }}"
           zip -qr "${NAME}.zip" "$NAME"
           rar a -idq "${NAME}.rar" "$NAME"
           tar --owner=0 --group=0 -czf "${NAME}.tar.gz" "$NAME"
 
       - name: Print SHA256 checksums
         run: |
-          NAME="zapret-discord-youtube-${{ github.event.inputs.tag }}"
-
+          set -euo pipefail
+          NAME="zapman-${{ github.event.inputs.tag }}"
           sha256sum \
             "${NAME}.zip" \
             "${NAME}.rar" \
@@ -65,6 +68,6 @@ jobs:
           tag_name: ${{ github.event.inputs.tag }}
           name: ${{ github.event.inputs.tag }}
           files: |
-            zapret-discord-youtube-${{ github.event.inputs.tag }}.zip
-            zapret-discord-youtube-${{ github.event.inputs.tag }}.rar
-            zapret-discord-youtube-${{ github.event.inputs.tag }}.tar.gz
+            zapman-${{ github.event.inputs.tag }}.zip
+            zapman-${{ github.event.inputs.tag }}.rar
+            zapman-${{ github.event.inputs.tag }}.tar.gz

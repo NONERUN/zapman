@@ -1,47 +1,148 @@
-name: 🐛 Проблема
+name: Проблема
 title: '[Проблема] '
-description: Сообщить о проблеме
+description: Сообщить о проблеме Zapret Manager
 labels: ['type: проблема', 'status: нуждается в сортировке']
 
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Сначала [README](https://github.com/NONERUN/zapman/blob/main/README.md) и [проблемы](https://github.com/NONERUN/zapman/blob/main/docs/troubleshooting.md). Кратко:
+
+        - `zapman.bat` → **Диагностика**. Если не открывается Discord — очистите кэш в конце.
+        - `zapman.bat` → **Сверить hosts** (или `cli.bat service`).
+        - Другие стратегии: **Стратегия…**. Если ни одна не подходит — та же кнопка **Ни одна не подходит**, затем перезагрузка Windows.
+        - Если без zapret всё работает: **Game Filter** = `disabled`, **IPSet Filter** = `none`, затем снова Install или запуск стратегии.
+        - GUI не открывается / нет стратегий: **Снять службы** → **Диагностика** → удалите папку → скачайте [релиз](https://github.com/NONERUN/zapman/releases) → распакуйте в путь без кириллицы, спецсимволов и пробелов.
+        - Игры: не этот Issue. [Discussions](https://github.com/NONERUN/zapman/discussions) или [Discussions оригинального репозитория](https://github.com/Flowseal/zapret-discord-youtube/discussions).
+
   - type: checkboxes
     id: checklist
     attributes:
-      label: ⚠️ Чеклист
-      description: Перед созданием нового Issue, удостоверьтесь что выполнили следующие пункты
+      label: Чеклист
+      description: Перед созданием Issue
       options:
-        - label: Я искал решение проблемы в [README](https://github.com/Flowseal/zapret-discord-youtube/blob/main/README.md) и среди [Issues](https://github.com/Flowseal/zapret-discord-youtube/issues) и [Discussions](https://github.com/Flowseal/zapret-discord-youtube/discussions)
-        - label: Я скачал ``zapret-discord-youtube`` из [релизов официального репозитория](https://github.com/Flowseal/zapret-discord-youtube/releases)
-        - label: Ознакомился с [условиями создания Issue](https://gist.github.com/ControlRe/af8f5ae80816af2ff4ffa9228bbaf626)
+        - label: Я понимаю, что с неконструктивными замечаниями отправлюсь в [пешее эротическое](https://ru.wiktionary.org/wiki/иди_нахуй), а issue будет удален.
+          required: true
+        - label: Я искал решение в [README](https://github.com/NONERUN/zapman/blob/main/README.md), [проблемах](https://github.com/NONERUN/zapman/blob/main/docs/troubleshooting.md), [Issues](https://github.com/NONERUN/zapman/issues) и [Discussions](https://github.com/NONERUN/zapman/discussions)
+          required: true
+        - label: Я скачал Zapret Manager из [релизов этого репозитория](https://github.com/NONERUN/zapman/releases)
+          required: true
+        - label: Я прогнал **Диагностика** в `zapman.bat` (или `cli.bat service`)
+          required: true
+        - label: Я пробовал другие стратегии в **Стратегия…**
+          required: true
+        - label: Это не проблема конкретной игры (игры — в Discussions этого репозитория или [оригинального](https://github.com/Flowseal/zapret-discord-youtube/discussions))
           required: true
 
   - type: textarea
     id: description
     attributes:
-      label: Опишите вашу проблему
-      description: Чётко опишите проблему с которой вы столкнулись
-      placeholder: Описание проблемы
+      label: Что случилось
+      description: Что ожидали и что получили. Если GUI показал ошибку — полный текст.
+      placeholder: (не заполнено)
     validations:
       required: true
-  
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows
+      description: Издание и сборка (Win+R -> `winver`), например Windows 10 LTSC 21N2.
+      placeholder: (не заполнено)
+      value: (не заполнено)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Версия Zapret Manager
+      description: Строка в заголовке окна (`Zapret Manager v0.1.0`). `v0.0.0` значит поле не заполнили.
+      placeholder: v0.0.0
+      value: v0.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Движок
+      options:
+        - (не выбран)
+        - winws
+        - winws2
+        - не знаю
+      default: 0
+    validations:
+      required: true
+
+  - type: input
+    id: strategy
+    attributes:
+      label: Стратегия
+      description: Имя из **Стратегия…** (как в статусе). `(не заполнена)` значит поле не трогали.
+      placeholder: (не заполнена)
+      value: (не заполнена)
+
+  - type: dropdown
+    id: gamefilter
+    attributes:
+      label: Game Filter
+      options:
+        - (не выбран)
+        - disabled
+        - all
+        - tcp
+        - udp
+        - не знаю
+      default: 0
+
+  - type: dropdown
+    id: ipset
+    attributes:
+      label: IPSet Filter
+      options:
+        - (не выбран)
+        - none
+        - loaded
+        - any
+        - не знаю
+      default: 0
+
+  - type: textarea
+    id: tests
+    attributes:
+      label: Тесты
+      description: Результат **Прогнать тесты** или `cli.bat tests`. Можно вставить лог или приложить файл из `test-results/`.
+      placeholder: (не заполнено)
+      value: (не заполнено)
+
+  - type: textarea
+    id: diag
+    attributes:
+      label: Диагностика и фейки
+      description: Текст/скриншот **Диагностика** (клик по Status — полный дамп). Какие fake выбраны (Discord UDP / Game UDP). Приложите скриншоты к Issue.
+      placeholder: (не заполнено)
+      value: (не заполнено)
+
+  - type: checkboxes
+    id: dns
+    attributes:
+      label: Secure DNS
+      options:
+        - label: Безопасный DNS включён в браузере или в Windows 11 (не поставщик по умолчанию), см. [использование](https://github.com/NONERUN/zapman/blob/main/docs/usage.md)
+
   - type: textarea
     id: providerandregion
     attributes:
-      label: Укажите своего провайдера и регион (при желании)
-      description: Провайдер и регион на котором вы словили проблему
-      placeholder: Провайдер и регион
-  
-  - type: textarea
-    id: version
-    attributes:
-      label: Версия zapret-discord-youtube
-      description: Версия zapret-discord-youtube на которой вы словили проблему
-      placeholder: Версия
-    validations:
-      required: true
+      label: Провайдер и регион
+      description: По желанию. `(не заполнено)` значит поле не трогали.
+      placeholder: (не заполнено)
+      value: (не заполнено)
 
   - type: textarea
     id: additions
     attributes:
-      label: Дополнительные детали
-      description: Дополнительные детали о которых нам нужно знать
+      label: Ещё
+      description: Скриншоты, журнал, необычный путь установки

@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Использование
+    url: https://github.com/NONERUN/zapman/blob/main/docs/usage.md
+    about: Secure DNS, установка, файлы, списки, служба и фильтры
+  - name: Проблемы
+    url: https://github.com/NONERUN/zapman/blob/main/docs/troubleshooting.md
+    about: FAQ, переустановка, Discord / YouTube / фильтры
+  - name: Discussions (игры)
+    url: https://github.com/NONERUN/zapman/discussions
+    about: Проблемы с играми — в Discussions, не в Issues
+  - name: Discussions оригинального репозитория (игры)
+    url: https://github.com/Flowseal/zapret-discord-youtube/discussions
+    about: Советы по играм из Flowseal/zapret-discord-youtube
