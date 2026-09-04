@@ -582,6 +582,45 @@ function Show-StatusJournalDialog {
     [void](Show-ZapmanOwnedDialog -Dialog $dlg)
 }
 
+function Show-HostsUpdateDialog {
+    param($Info)
+    $dlg = Import-ZapmanXaml 'Hosts.xaml'
+    $dlg.Title = Get-ZapmanUiString -Key 'HostsTitle'
+    $lblText = Get-XamlChild -Root $dlg -Name 'lblText'
+    $lblText.Text = Get-ZapmanUiString -Key 'HostsNeed'
+    $lblCopied = Get-XamlChild -Root $dlg -Name 'lblCopied'
+    $lblCopied.Tag = Get-ZapmanUiString -Key 'HostsCopied'
+    $btnCopy = Get-XamlChild -Root $dlg -Name 'btnCopy'
+    $btnCopy.Content = Get-ZapmanUiString -Key 'BtnHostsCopy'
+    $btnCopy.ToolTip = Get-ZapmanUiString -Key 'TipHostsCopy'
+    $btnCopy.Tag = $Info
+    $btnCopy.Add_Click({
+        try {
+            Copy-ZapretHostsTemplate -Info $this.Tag
+            $lblCopied.Text = [string]$lblCopied.Tag
+        } catch {
+            Show-ErrorDialog $_.Exception.Message
+        }
+    })
+    $btnOpen = Get-XamlChild -Root $dlg -Name 'btnOpen'
+    $btnOpen.Content = Get-ZapmanUiString -Key 'BtnHostsOpen'
+    $btnOpen.ToolTip = Get-ZapmanUiString -Key 'TipHostsOpen'
+    $btnOpen.Tag = $Info
+    $btnOpen.Add_Click({
+        try {
+            Open-ZapretSystemHosts -Info $this.Tag
+        } catch {
+            Show-ErrorDialog $_.Exception.Message
+        }
+    })
+    $btnClose = Get-XamlChild -Root $dlg -Name 'btnClose'
+    $btnClose.Content = Get-ZapmanUiString -Key 'BtnClose'
+    $btnClose.Add_Click({
+        $dlg.DialogResult = $true
+    })
+    [void](Show-ZapmanOwnedDialog -Dialog $dlg)
+}
+
 function Update-StrategyListMarks {
     param($ListBox)
     $runningName = Get-ZapretRunningStrategyName
@@ -644,6 +683,9 @@ function Show-StrategyDialog {
     $btnInst.Content = Get-ZapmanUiString -Key 'BtnInstall'
     $btnT = Get-XamlChild -Root $dlg -Name 'btnTests'
     $btnT.Content = Get-ZapmanUiString -Key 'BtnTests'
+    $btnNone = Get-XamlChild -Root $dlg -Name 'btnNoneWork'
+    $btnNone.Content = Get-ZapmanUiString -Key 'BtnStratNone'
+    $btnNone.ToolTip = Get-ZapmanUiString -Key 'TipStratNone'
     $syncEngineUi = {
         $eng = 'winws'
         if ($rbWinws2.IsChecked -eq $true) {
@@ -711,6 +753,32 @@ function Show-StrategyDialog {
     $btnT.Add_Click({
         $script:strategyPendingTests = $true
         $dlg.Close()
+    })
+    $btnNone.Add_Click({
+        $ans = Show-QuestionDialog -Message (Get-ZapmanUiString -Key 'StratNoneConfirm') -DefaultYes $false
+        if ($ans -ne [System.Windows.MessageBoxResult]::Yes) {
+            return
+        }
+        $script:netReset = $null
+        Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnStratNone') -FreezeUi -Action {
+            $script:netReset = Invoke-ZapmanNetworkReset
+        }
+        $res = $script:netReset
+        $script:netReset = $null
+        if (-not $res) {
+            return
+        }
+        Write-GuiLog $res.Text
+        if (-not $res.Ok) {
+            Show-ErrorDialog ((Get-ZapmanUiString -Key 'StratNoneFail') + [Environment]::NewLine + [Environment]::NewLine + $res.Text)
+            return
+        }
+        $reboot = Show-QuestionDialog -Message (Get-ZapmanUiString -Key 'StratNoneDoneReboot') -DefaultYes $false
+        if ($reboot -eq [System.Windows.MessageBoxResult]::Yes) {
+            Restart-Computer -Force
+            return
+        }
+        Show-InfoDialog (Get-ZapmanUiString -Key 'StratNoneRebootLater')
     })
     $script:strategyDialogOpen = $true
     $script:strategyPendingTests = $false

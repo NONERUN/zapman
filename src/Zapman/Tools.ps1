@@ -12,24 +12,76 @@ function Set-ZapmanAutoUpdateEnabled {
 }
 
 function Get-ZapretVersionCheckUrl {
-    return 'https://raw.githubusercontent.com/Flowseal/zapret-discord-youtube/main/.service/version.txt'
+    # GitHub tag list. Local stamp is ModuleVersion in Zapman.psd1 (shown as vMAJOR.MINOR.PATCH).
+    return 'https://api.github.com/repos/NONERUN/zapman/tags?per_page=30'
+}
+
+function Get-ZapmanVersionFromRemoteBody {
+    param([string]$Body)
+    $t = ([string]$Body).Trim()
+    if ([string]::IsNullOrWhiteSpace($t)) {
+        return ''
+    }
+    if ($t.StartsWith('{')) {
+        try {
+            $json = ConvertFrom-Json -InputObject $t
+        } catch {
+            return ''
+        }
+        if ($json -and $json.PSObject.Properties['tag_name']) {
+            return (ConvertTo-ZapmanVersion -Text ([string]$json.tag_name))
+        }
+        return ''
+    }
+    if ($t.StartsWith('[')) {
+        # Do not wrap ConvertFrom-Json of a JSON array with @() in a pipeline (PS 5.1 nested array).
+        try {
+            $parsed = ConvertFrom-Json -InputObject $t
+        } catch {
+            return ''
+        }
+        $best = ''
+        $bestNum = $null
+        foreach ($item in $parsed) {
+            $name = ''
+            if ($item -and $item.PSObject.Properties['name']) {
+                $name = [string]$item.name
+            }
+            $v = ConvertTo-ZapmanVersion -Text $name
+            $num = Get-ZapmanVersionNumber -Tag $v
+            if ($null -eq $num) {
+                continue
+            }
+            if (($null -eq $bestNum) -or ($num -gt $bestNum)) {
+                $best = $v
+                $bestNum = $num
+            }
+        }
+        return $best
+    }
+    return (ConvertTo-ZapmanVersion -Text $t)
 }
 
 function Get-ZapretRemoteVersion {
-    $res = Invoke-WebRequest -Uri (Get-ZapretVersionCheckUrl) -UseBasicParsing -TimeoutSec 5 -Headers @{ 'Cache-Control' = 'no-cache' }
-    return ([string]$res.Content).Trim()
+    Enable-ZapmanTls12
+    $res = Invoke-WebRequest -Uri (Get-ZapretVersionCheckUrl) -UseBasicParsing -TimeoutSec 8 -Headers @{
+        'Cache-Control' = 'no-cache'
+        'User-Agent'    = 'zapman'
+        'Accept'        = 'application/vnd.github+json'
+    }
+    return (Get-ZapmanVersionFromRemoteBody -Body ([string]$res.Content))
 }
 
 function Get-ZapretReleasePageUrl {
-    return 'https://github.com/Flowseal/zapret-discord-youtube/releases/latest'
+    return 'https://github.com/NONERUN/zapman/releases/latest'
 }
 
 function Get-ZapretIpsetListUrl {
-    return 'https://raw.githubusercontent.com/Flowseal/zapret-discord-youtube/refs/heads/main/.service/ipset-service.txt'
+    return 'https://raw.githubusercontent.com/NONERUN/zapman/refs/heads/main/.service/ipset-service.txt'
 }
 
 function Get-ZapretHostsSourceUrl {
-    return 'https://raw.githubusercontent.com/Flowseal/zapret-discord-youtube/refs/heads/main/.service/hosts'
+    return 'https://raw.githubusercontent.com/NONERUN/zapman/refs/heads/main/.service/hosts'
 }
 
 function Invoke-ZapmanWebDownload {
@@ -57,7 +109,7 @@ function Invoke-ZapmanWebDownload {
 
 function Update-ZapretIpsetList {
     param([string]$SourceFile = '')
-    $listFile = Join-Path $script:ZapmanListsDir 'ipset-all.txt'
+    $listFile = Join-Path $script:ZapmanUserDir 'ipset-all.txt'
     $dir = Split-Path -Parent $listFile
     if (-not (Test-Path -LiteralPath $dir)) {
         New-Item -ItemType Directory -Path $dir | Out-Null
@@ -102,10 +154,19 @@ function Get-ZapretHostsUpdateInfo {
     }
 }
 
-function Open-ZapretHostsUpdate {
+function Copy-ZapretHostsTemplate {
     param($Info)
-    Start-Process notepad.exe $Info.TempFile
-    Start-Process explorer.exe -ArgumentList "/select,`"$($Info.HostsFile)`""
+    $path = [string]$Info.TempFile
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw 'The hosts template is not found.'
+    }
+    Set-Clipboard -Value ([System.IO.File]::ReadAllText($path))
+}
+
+function Open-ZapretSystemHosts {
+    param($Info)
+    # The GUI and the console menu already run elevated, so Notepad can save hosts.
+    Start-Process -FilePath notepad.exe -ArgumentList ([string]$Info.HostsFile)
 }
 
 function Get-ZapretFakeCatalog {
@@ -232,6 +293,37 @@ function Get-ZapmanStatusLines {
         [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineBypassOff'))
     }
     return @($lines)
+}
+
+function Invoke-ZapmanNetworkReset {
+    # README FAQ: if no strategy works, reset the stack, then restart Windows.
+    $log = New-Object System.Collections.ArrayList
+    $failed = $false
+    $steps = @(
+        (New-Object PSObject -Property @{ Name = 'netsh winsock reset'; File = 'netsh.exe'; Args = @('winsock', 'reset') })
+        (New-Object PSObject -Property @{ Name = 'netsh int ip reset all'; File = 'netsh.exe'; Args = @('int', 'ip', 'reset', 'all') })
+        (New-Object PSObject -Property @{ Name = 'netsh winhttp reset proxy'; File = 'netsh.exe'; Args = @('winhttp', 'reset', 'proxy') })
+        (New-Object PSObject -Property @{ Name = 'ipconfig /flushdns'; File = 'ipconfig.exe'; Args = @('/flushdns') })
+    )
+    foreach ($step in $steps) {
+        [void]$log.Add(('> {0}' -f $step.Name))
+        $output = & $step.File @($step.Args) 2>&1
+        $code = $LASTEXITCODE
+        foreach ($line in @($output)) {
+            [void]$log.Add([string]$line)
+        }
+        if ($null -eq $code) {
+            $code = 0
+        }
+        if ($code -ne 0) {
+            $failed = $true
+            [void]$log.Add(('exit {0}' -f $code))
+        }
+    }
+    return New-Object PSObject -Property @{
+        Ok   = -not $failed
+        Text = (@($log) -join [Environment]::NewLine)
+    }
 }
 
 function Get-ZapmanDiscordCacheApps {

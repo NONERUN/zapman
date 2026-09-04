@@ -168,6 +168,26 @@ function Invoke-StrategyTests {
     Wait-Pause
 }
 
+function Invoke-StrategyNetworkReset {
+    if (-not (Read-YesNo -Prompt (Get-ZapmanUiString -Key 'StratNoneConfirm') -DefaultYes $false)) {
+        return
+    }
+    $res = Invoke-ZapmanNetworkReset
+    Write-Host $res.Text
+    if (-not $res.Ok) {
+        Write-Bad (Get-ZapmanUiString -Key 'StratNoneFail')
+        Wait-Pause
+        return
+    }
+    Write-Ok (Get-ZapmanUiString -Key 'StratNoneDone')
+    if (Read-YesNo -Prompt (Get-ZapmanUiString -Key 'StratNoneDoneReboot') -DefaultYes $false) {
+        Restart-Computer -Force
+        return
+    }
+    Write-Warn (Get-ZapmanUiString -Key 'StratNoneRebootLater')
+    Wait-Pause
+}
+
 function Invoke-StrategyMenu {
     $files = @(Get-ZapretStrategyFiles)
     if ($files.Count -eq 0) {
@@ -184,16 +204,18 @@ function Invoke-StrategyMenu {
         Write-Host ("     1. {0}" -f (Get-ZapmanUiString -Key 'BtnInstall'))
         Write-Host ("     2. {0}" -f (Get-ZapmanUiString -Key 'BtnRunSelected'))
         Write-Host ("     3. {0}" -f (Get-ZapmanUiString -Key 'BtnTests'))
-        Write-Host '     4. winws'
-        Write-Host '     5. winws2'
+        Write-Host ("     4. {0}" -f (Get-ZapmanUiString -Key 'BtnStratNone'))
+        Write-Host '     5. winws'
+        Write-Host '     6. winws2'
         Write-Host ("     0. {0}" -f (Get-ZapmanUiString -Key 'BtnCancel'))
-        $choice = Read-Host '  Select option (0-5)'
+        $choice = Read-Host '  Select option (0-6)'
         switch ($choice) {
             '1' { Invoke-StrategyInstall; return }
             '2' { Invoke-StrategyRun; return }
             '3' { Invoke-StrategyTests; return }
-            '4' { Set-ZapretEngine -Engine 'winws' | Out-Null }
-            '5' { Set-ZapretEngine -Engine 'winws2' | Out-Null }
+            '4' { Invoke-StrategyNetworkReset; return }
+            '5' { Set-ZapretEngine -Engine 'winws' | Out-Null }
+            '6' { Set-ZapretEngine -Engine 'winws2' | Out-Null }
             '0' { return }
             default { }
         }
@@ -347,6 +369,11 @@ function Invoke-CheckVersion {
         return
     }
     $local = Get-ZapmanLocalVersion
+    if ([string]::IsNullOrWhiteSpace($remote)) {
+        Write-Warn (Get-ZapmanUiString -Key 'VersionFail')
+        Wait-Pause
+        return
+    }
     if ($remote -eq $local) {
         Write-Ok (Get-ZapmanUiString -Key 'VersionLatest' -FormatArgs @($local))
     } else {
@@ -379,7 +406,28 @@ function Invoke-CompareHosts {
     }
     if ($info.NeedsUpdate) {
         Write-Warn (Get-ZapmanUiString -Key 'HostsNeed')
-        Open-ZapretHostsUpdate -Info $info
+        while ($true) {
+            Write-MenuItem -Number '1' -Text (Get-ZapmanUiString -Key 'BtnHostsCopy')
+            Write-MenuItem -Number '2' -Text (Get-ZapmanUiString -Key 'BtnHostsOpen')
+            Write-MenuItem -Number '0' -Text (Get-ZapmanUiString -Key 'BtnClose')
+            $pick = Read-Host '  Select option (0-2)'
+            if ($pick -eq '1') {
+                try {
+                    Copy-ZapretHostsTemplate -Info $info
+                    Write-Ok (Get-ZapmanUiString -Key 'HostsCopied')
+                } catch {
+                    Write-Bad $_.Exception.Message
+                }
+            } elseif ($pick -eq '2') {
+                try {
+                    Open-ZapretSystemHosts -Info $info
+                } catch {
+                    Write-Bad $_.Exception.Message
+                }
+            } elseif ($pick -eq '0') {
+                break
+            }
+        }
     } else {
         Write-Ok (Get-ZapmanUiString -Key 'HostsOk')
         Remove-Item -LiteralPath $info.TempFile -Force -ErrorAction SilentlyContinue

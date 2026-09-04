@@ -308,7 +308,7 @@ function Complete-GuiVersionCheck {
         }
         return
     }
-    $remote = ([string]$RemoteText).Trim()
+    $remote = Get-ZapmanVersionFromRemoteBody -Body $RemoteText
     $local = Get-ZapmanLocalVersion
     if ($remote -eq $local) {
         if ($reportUpToDate) {
@@ -342,7 +342,8 @@ function Start-GuiVersionCheck {
     Enable-ZapmanTls12
     $wc = New-Object System.Net.WebClient
     $wc.Headers.Add('Cache-Control', 'no-cache')
-    $wc.Headers.Add('User-Agent', 'zapret')
+    $wc.Headers.Add('User-Agent', 'zapman')
+    $wc.Headers.Add('Accept', 'application/vnd.github+json')
     $script:versionCheckClient = $wc
     $wc.add_DownloadStringCompleted({
         param($source, $e)
@@ -890,8 +891,7 @@ $btnHosts.Add_Click({
             throw (Get-ZapmanUiString -Key 'HostsFail')
         }
         if ($info.NeedsUpdate) {
-            Open-ZapretHostsUpdate -Info $info
-            Show-InfoDialog (Get-ZapmanUiString -Key 'HostsNeed')
+            Show-HostsUpdateDialog -Info $info
             Write-GuiLog (Get-ZapmanUiString -Key 'HostsNeed')
         } else {
             Remove-Item -LiteralPath $info.TempFile -Force -ErrorAction SilentlyContinue
