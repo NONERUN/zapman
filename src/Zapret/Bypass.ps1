@@ -260,6 +260,7 @@ function Expand-ZapretStrategyArgTemplate {
     $t = $t.Replace('$($gf.Tcp)', [string]$gf.Tcp)
     $t = $t.Replace('$($gf.Udp)', [string]$gf.Udp)
     $t = $t.Replace('$bin', $script:ZapmanBinDir)
+    $t = $t.Replace('$user', $script:ZapmanUserDir)
     $t = $t.Replace('$lists', $script:ZapmanListsDir)
     return $t
 }
@@ -349,7 +350,7 @@ function Start-ZapretWinws {
         }
         throw (Get-ZapmanUiString -Key 'EngineNoWinws')
     }
-    $pinErrs = @(Test-ZapretBinVersions)
+    $pinErrs = @(Test-ZapretBinVersions -Engine $engine)
     if (@($pinErrs).Count -gt 0) {
         throw ($pinErrs -join [Environment]::NewLine)
     }
@@ -433,7 +434,7 @@ function Get-ZapretInstalledStrategyName {
 }
 
 function Get-ZapretIpsetStatus {
-    $listFile = Join-Path $script:ZapmanListsDir 'ipset-all.txt'
+    $listFile = Join-Path $script:ZapmanUserDir 'ipset-all.txt'
     if (-not (Test-Path -LiteralPath $listFile)) {
         return 'none'
     }
@@ -463,8 +464,8 @@ function Set-ZapretIpsetMode {
         [switch]$CopyBackup
     )
 
-    $listFile = Join-Path $script:ZapmanListsDir 'ipset-all.txt'
-    $backupFile = Join-Path $script:ZapmanListsDir $BackupName
+    $listFile = Join-Path $script:ZapmanUserDir 'ipset-all.txt'
+    $backupFile = Join-Path $script:ZapmanUserDir $BackupName
 
     if ($Mode -eq 'restore') {
         if (Test-Path -LiteralPath $backupFile) {
@@ -799,7 +800,7 @@ function Install-ZapretService {
         if ($written -ne $commandLine) {
             throw 'Failed to write the service ImagePath.'
         }
-            if ($writtenName -ne $File.BaseName) {
+        if ($writtenName -ne $File.BaseName) {
             throw 'Failed to write the installed strategy name.'
         }
 

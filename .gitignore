@@ -3,13 +3,14 @@
 /utils/test-results
 
 /config.json
+/user/
 /lists/ipset-all.txt
-/lists/ipset-exclude-user.txt
-/lists/list-general-user.txt
-/lists/list-exclude-user.txt
+/lists/*-user.txt
 /lists/*.backup
 /lists/*test-backup*
 
 .vscode/
 /build/
 /.local/
+
+/.agents/

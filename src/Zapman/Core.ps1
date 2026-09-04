@@ -2,22 +2,48 @@
 
 Set-StrictMode -Version Latest
 
-$script:ZapmanLocalVersion = '1.10.2'
 # This file is in src\Zapman. The package root is two levels up.
 $script:ZapmanRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $script:ZapmanCliDir = Join-Path $script:ZapmanRoot 'src\cli'
 $script:ZapmanGuiDir = Join-Path $script:ZapmanRoot 'src\gui'
 $script:ZapmanBinDir = Join-Path $script:ZapmanRoot 'bin'
 $script:ZapmanListsDir = Join-Path $script:ZapmanRoot 'lists'
+$script:ZapmanUserDir = Join-Path $script:ZapmanRoot 'user'
 $script:ZapmanStrategiesDir = Join-Path $script:ZapmanRoot 'strategies'
 $script:ZapmanConfigPath = Join-Path $script:ZapmanRoot 'config.json'
 $script:ZapmanResultsDir = Join-Path $script:ZapmanRoot 'test-results'
+
+function ConvertTo-ZapmanVersion {
+    # Product tag is vMAJOR.MINOR.PATCH. Accept a value with or without the v prefix.
+    param([string]$Text)
+    $t = ([string]$Text).Trim()
+    if ([string]::IsNullOrWhiteSpace($t)) {
+        return ''
+    }
+    $t = ($t -split '\r?\n')[0].Trim()
+    if ($t.Length -ge 1 -and ($t[0] -eq 'v' -or $t[0] -eq 'V')) {
+        $t = 'v' + $t.Substring(1)
+    } else {
+        $t = 'v' + $t
+    }
+    return $t
+}
+
+function Get-ZapmanVersionNumber {
+    param([string]$Tag)
+    $t = ConvertTo-ZapmanVersion -Text $Tag
+    if ($t -match '^v(\d+)\.(\d+)\.(\d+)$') {
+        return New-Object System.Version ([int]$matches[1]), ([int]$matches[2]), ([int]$matches[3])
+    }
+    return $null
+}
 
 function Get-ZapretLayout {
     return New-Object PSObject -Property @{
         Root       = $script:ZapmanRoot
         Bin        = $script:ZapmanBinDir
         Lists      = $script:ZapmanListsDir
+        User       = $script:ZapmanUserDir
         Cli        = $script:ZapmanCliDir
         Gui        = $script:ZapmanGuiDir
         Strategies = $script:ZapmanStrategiesDir
@@ -25,7 +51,7 @@ function Get-ZapretLayout {
         Results    = $script:ZapmanResultsDir
         Versions   = (Join-Path $script:ZapmanBinDir 'versions.json')
         Module     = $PSScriptRoot
-        Version    = $script:ZapmanLocalVersion
+        Version    = (Get-ZapmanLocalVersion)
     }
 }
 
@@ -191,26 +217,35 @@ function Set-ZapretEngine {
 }
 
 function Get-ZapmanLocalVersion {
-    return $script:ZapmanLocalVersion
+    $psd1 = Join-Path $PSScriptRoot 'Zapman.psd1'
+    if (-not (Test-Path -LiteralPath $psd1)) {
+        return 'v0.0.0'
+    }
+    $data = Import-PowerShellDataFile -Path $psd1
+    $v = ConvertTo-ZapmanVersion -Text ([string]$data.ModuleVersion)
+    if ([string]::IsNullOrWhiteSpace($v)) {
+        return 'v0.0.0'
+    }
+    return $v
 }
 
 function Initialize-ZapmanUserLists {
-    if (-not (Test-Path -LiteralPath $script:ZapmanListsDir)) {
-        New-Item -ItemType Directory -Path $script:ZapmanListsDir | Out-Null
+    if (-not (Test-Path -LiteralPath $script:ZapmanUserDir)) {
+        New-Item -ItemType Directory -Path $script:ZapmanUserDir | Out-Null
     }
-    $ipsetExcludeUser = Join-Path $script:ZapmanListsDir 'ipset-exclude-user.txt'
+    $ipsetExcludeUser = Join-Path $script:ZapmanUserDir 'ipset-exclude-user.txt'
     if (-not (Test-Path -LiteralPath $ipsetExcludeUser)) {
         Set-Content -LiteralPath $ipsetExcludeUser -Value '203.0.113.113/32' -Encoding ASCII
     }
-    $listGeneralUser = Join-Path $script:ZapmanListsDir 'list-general-user.txt'
+    $listGeneralUser = Join-Path $script:ZapmanUserDir 'list-general-user.txt'
     if (-not (Test-Path -LiteralPath $listGeneralUser)) {
         Set-Content -LiteralPath $listGeneralUser -Value "# Never leave this file empty`r`ndomain.example.abc" -Encoding ASCII
     }
-    $listExcludeUser = Join-Path $script:ZapmanListsDir 'list-exclude-user.txt'
+    $listExcludeUser = Join-Path $script:ZapmanUserDir 'list-exclude-user.txt'
     if (-not (Test-Path -LiteralPath $listExcludeUser)) {
         Set-Content -LiteralPath $listExcludeUser -Value 'domain.example.abc' -Encoding ASCII
     }
-    $ipsetAll = Join-Path $script:ZapmanListsDir 'ipset-all.txt'
+    $ipsetAll = Join-Path $script:ZapmanUserDir 'ipset-all.txt'
     if (-not (Test-Path -LiteralPath $ipsetAll)) {
         $seed = Join-Path $script:ZapmanListsDir 'ipset-all.default.txt'
         if (Test-Path -LiteralPath $seed) {
@@ -277,7 +312,27 @@ function Get-ZapretBinVersionsPath {
     return (Join-Path $script:ZapmanBinDir 'versions.json')
 }
 
+function Get-ZapretPinnedFileSha256 {
+    param([string]$Path)
+    $name = [System.IO.Path]::GetFileName($Path)
+    if ($name -like '*.lua') {
+        # Git on Windows may store CRLF in the working tree. The pin is the zip (LF).
+        $text = [System.IO.File]::ReadAllText($Path)
+        $norm = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($norm)
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hash = $sha.ComputeHash($bytes)
+        } finally {
+            $sha.Dispose()
+        }
+        return ([System.BitConverter]::ToString($hash) -replace '-', '').ToLowerInvariant()
+    }
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
 function Test-ZapretBinVersions {
+    param([string]$Engine)
     $errors = New-Object System.Collections.ArrayList
     $path = Get-ZapretBinVersionsPath
     if (-not (Test-Path -LiteralPath $path)) {
@@ -307,12 +362,22 @@ function Test-ZapretBinVersions {
             [void]$errors.Add('bin/versions.json has a file entry without path or sha256.')
             continue
         }
+        $relNorm = $rel -replace '\\', '/'
+        if ($Engine -eq 'winws') {
+            if ($relNorm -eq 'winws2.exe' -or $relNorm -like 'lua/*') {
+                continue
+            }
+        } elseif ($Engine -eq 'winws2') {
+            if ($relNorm -eq 'winws.exe') {
+                continue
+            }
+        }
         $full = Join-Path $script:ZapmanBinDir ($rel -replace '/', '\')
         if (-not (Test-Path -LiteralPath $full)) {
             [void]$errors.Add(("Pinned file is missing: {0} ({1})." -f $rel, $src))
             continue
         }
-        $got = (Get-FileHash -LiteralPath $full -Algorithm SHA256).Hash.ToLowerInvariant()
+        $got = Get-ZapretPinnedFileSha256 -Path $full
         if ($got -ne $want) {
             [void]$errors.Add(("SHA256 mismatch: {0} ({1}). File is not the pinned release." -f $rel, $src))
         }
