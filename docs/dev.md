@@ -131,4 +131,4 @@ gh workflow run Release --repo NONERUN/zapman --ref main -f tag=v0.1.1
 
 Всегда `--repo NONERUN/zapman`: `gh` в этой копии может смотреть на Flowseal. Не создавать Release вручную в UI без этого workflow — не будет zip/rar/tar.gz.
 
-Повторный прогон на том же теге снова вешает те же имена файлов на тот же GitHub Release.
+Релизы в этом репозитории **immutable**: повторный прогон не удаляет и не подменяет zip/rar/tar.gz. Нет GitHub Release на тег — создаёт. Уже есть — job зелёный, файлы не трогает.
