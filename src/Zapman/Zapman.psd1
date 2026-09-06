@@ -1,6 +1,6 @@
 @{
     RootModule        = 'Zapman.psm1'
-    ModuleVersion     = '0.1.0'
+    ModuleVersion     = '0.1.1'
     GUID              = 'b7ec8669-6f32-4d4b-8a21-9c8d7e6f5a43'
     Author            = 'Zapret Manager'
     Description       = 'Zapret Manager helpers for the GUI, console, strategies and tests. Load this module by path. Engine helpers stay in src/Zapret.'
