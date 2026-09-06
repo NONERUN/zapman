@@ -255,6 +255,8 @@ function Set-ZapretActiveFake {
 
 function Get-ZapmanStatusLines {
     $lines = New-Object System.Collections.Generic.List[string]
+    [void]$lines.Add(('Zapret Manager {0}' -f (Get-ZapmanLocalVersion)))
+    [void]$lines.Add(('ZapretSpec {0}' -f (Get-ZapmanSpecVersion)))
     $cfgErr = Get-ZapmanConfigError
     if (-not [string]::IsNullOrWhiteSpace($cfgErr)) {
         [void]$lines.Add($cfgErr)
@@ -291,6 +293,14 @@ function Get-ZapmanStatusLines {
     }
     if (($winws.Count + $winws2.Count) -eq 0) {
         [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineBypassOff'))
+    }
+    $lastErr = Get-ZapmanLastError
+    if (-not [string]::IsNullOrWhiteSpace($lastErr)) {
+        [void]$lines.Add('')
+        [void]$lines.Add((Get-ZapmanUiString -Key 'StatusLineLastError'))
+        foreach ($line in @($lastErr -split '\r?\n')) {
+            [void]$lines.Add($line)
+        }
     }
     return @($lines)
 }

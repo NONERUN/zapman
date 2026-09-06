@@ -38,7 +38,13 @@ $script:ZapmanGuiIdleKey = @{
     }
     'Download.xaml'   = @{ lblStatus = 'DownloadConnecting' }
     'Hosts.xaml'      = @{ lblText = 'HostsNeed' }
-    'Tests.xaml'      = @{ lblStatus = 'TestsStarting' }
+    'Tests.xaml'      = @{
+        lblStatus     = 'TestsStarting'
+        lblStratWait  = 'TestsWaitStrat'
+        grpTestHead   = 'TestsGrpHead'
+        grpTestStrats = 'TestsGrpStrats'
+        grpTestSum    = 'TestsGrpSum'
+    }
     'TestsSetup.xaml' = @{ lblPick = 'TestsPick' }
 }
 
@@ -283,6 +289,130 @@ function Add-ZapmanSvgText {
         ([int][math]::Round($X)), ([int][math]::Round($Y)), $Size, $Anchor, $Weight, $Fill, (ConvertTo-ZapmanXmlText $Text)))
 }
 
+function Get-ZapmanGridRowHeights {
+    param($DefNode, [double]$TotalH)
+    $raw = New-Object System.Collections.ArrayList
+    if ($DefNode) {
+        foreach ($rd in @($DefNode.ChildNodes)) {
+            if ($rd.NodeType -ne [System.Xml.XmlNodeType]::Element) {
+                continue
+            }
+            if ($rd.LocalName -ne 'RowDefinition') {
+                continue
+            }
+            [void]$raw.Add((Get-ZapmanXamlAttr -Node $rd -Name 'Height'))
+        }
+    }
+    if ($raw.Count -lt 1) {
+        [void]$raw.Add('*')
+    }
+    $fixed = 0.0
+    $star = 0.0
+    foreach ($h in $raw) {
+        $hs = [string]$h
+        if ($hs -eq '*' -or [string]::IsNullOrWhiteSpace($hs)) {
+            $star += 1
+        } elseif ($hs -eq 'Auto') {
+            $fixed += 28
+        } elseif ($hs -match '^([0-9.]+)\*$') {
+            $star += [double]$matches[1]
+        } else {
+            $fixed += [double]$hs
+        }
+    }
+    $rest = $TotalH - $fixed
+    if ($rest -lt 0) {
+        $rest = 0
+    }
+    $out = New-Object System.Collections.ArrayList
+    foreach ($h in $raw) {
+        $hs = [string]$h
+        $val = 0.0
+        if ($hs -eq '*' -or [string]::IsNullOrWhiteSpace($hs)) {
+            if ($star -gt 0) {
+                $val = $rest / $star
+            }
+        } elseif ($hs -eq 'Auto') {
+            $val = 28
+        } elseif ($hs -match '^([0-9.]+)\*$') {
+            if ($star -gt 0) {
+                $val = $rest * [double]$matches[1] / $star
+            }
+        } else {
+            $val = [double]$hs
+        }
+        [void]$out.Add($val)
+    }
+    return $out
+}
+
+function Add-ZapmanSvgGrid {
+    param(
+        $Parts,
+        $Node,
+        [double]$X,
+        [double]$Y,
+        [double]$W,
+        [double]$H,
+        [string]$FileName,
+        $Binds
+    )
+    $defNode = $null
+    $visuals = New-Object System.Collections.ArrayList
+    foreach ($ch in @($Node.ChildNodes)) {
+        if ($ch.NodeType -ne [System.Xml.XmlNodeType]::Element) {
+            continue
+        }
+        if ($ch.LocalName -eq 'Grid.RowDefinitions') {
+            $defNode = $ch
+            continue
+        }
+        if ($ch.LocalName -eq 'Grid.ColumnDefinitions') {
+            continue
+        }
+        [void]$visuals.Add($ch)
+    }
+    $heights = Get-ZapmanGridRowHeights -DefNode $defNode -TotalH $H
+    if ($null -eq $defNode) {
+        foreach ($ch in $visuals) {
+            Add-ZapmanSvgControl -Parts $Parts -Node $ch -Ox $X -Oy $Y -FileName $FileName -Binds $Binds -BoxW $W -BoxH $H
+        }
+        return
+    }
+    foreach ($ch in $visuals) {
+        $ri = 0
+        $rs = Get-ZapmanXamlAttr -Node $ch -Name 'Grid.Row'
+        if ($rs -match '^\d+$') {
+            $ri = [int]$rs
+        }
+        if ($ri -ge $heights.Count) {
+            $ri = $heights.Count - 1
+        }
+        if ($ri -lt 0) {
+            $ri = 0
+        }
+        $cellY = $Y
+        $k = 0
+        while ($k -lt $ri) {
+            $cellY += [double]$heights[$k]
+            $k++
+        }
+        $cellH = [double]$heights[$ri]
+        $mg = Get-ZapmanXamlAttr -Node $ch -Name 'Margin'
+        if ($mg -match ',') {
+            $mp = $mg -split ','
+            if ($mp.Count -eq 4) {
+                $cellY += [double]$mp[1]
+                $cellH = $cellH - [double]$mp[1] - [double]$mp[3]
+            }
+        }
+        if ($cellH -lt 16) {
+            $cellH = 16
+        }
+        Add-ZapmanSvgControl -Parts $Parts -Node $ch -Ox $X -Oy $cellY -FileName $FileName -Binds $Binds -BoxW $W -BoxH $cellH
+    }
+}
+
 function Add-ZapmanSvgControl {
     param(
         $Parts,
@@ -290,7 +420,9 @@ function Add-ZapmanSvgControl {
         [double]$Ox,
         [double]$Oy,
         [string]$FileName,
-        $Binds
+        $Binds,
+        [double]$BoxW = 0,
+        [double]$BoxH = 0
     )
     if ($Node.NodeType -ne [System.Xml.XmlNodeType]::Element) {
         return
@@ -304,15 +436,34 @@ function Add-ZapmanSvgControl {
     $y = $Oy + (Get-ZapmanXamlNumber -Node $Node -Name 'Canvas.Top' -Default 0)
     $w = Get-ZapmanXamlNumber -Node $Node -Name 'Width' -Default 0
     $h = Get-ZapmanXamlNumber -Node $Node -Name 'Height' -Default 0
+    if ($BoxW -gt 0) {
+        $w = $BoxW
+    }
+    if ($BoxH -gt 0) {
+        $h = $BoxH
+    }
     $label = Get-ZapmanControlLabel -FileName $FileName -Name $name -Binds $Binds
     $tip = Get-ZapmanControlTip -FileName $FileName -Name $name -Binds $Binds
+    if ($kind -eq 'Grid') {
+        if ($w -lt 1) { $w = 200 }
+        if ($h -lt 1) { $h = 80 }
+        Add-ZapmanSvgGrid -Parts $Parts -Node $Node -X $x -Y $y -W $w -H $h -FileName $FileName -Binds $Binds
+        return
+    }
     if ($kind -eq 'GroupBox') {
         if ($w -lt 1) { $w = 200 }
         if ($h -lt 1) { $h = 80 }
         Add-ZapmanSvgRect -Parts $Parts -X $x -Y $y -W $w -H $h -Fill '#f7f7f7' -Stroke '#b5b5b5'
         Add-ZapmanSvgText -Parts $Parts -X ($x + 10) -Y ($y + 14) -Text $label -Size 11 -Weight 'bold'
+        $innerW = $w - 8
+        $innerH = $h - 22
+        if ($innerW -lt 20) { $innerW = 20 }
+        if ($innerH -lt 20) { $innerH = 20 }
         foreach ($ch in @($Node.ChildNodes)) {
-            Add-ZapmanSvgControl -Parts $Parts -Node $ch -Ox ($x + 4) -Oy ($y + 18) -FileName $FileName -Binds $Binds
+            if ($ch.NodeType -ne [System.Xml.XmlNodeType]::Element) {
+                continue
+            }
+            Add-ZapmanSvgControl -Parts $Parts -Node $ch -Ox ($x + 4) -Oy ($y + 18) -FileName $FileName -Binds $Binds -BoxW $innerW -BoxH $innerH
         }
         return
     }
@@ -322,7 +473,69 @@ function Add-ZapmanSvgControl {
         }
         return
     }
-    if ($kind -eq 'ScrollViewer' -or $kind -eq 'ListBox' -or $kind -eq 'ItemsControl' -or $kind -eq 'StackPanel') {
+    if ($kind -eq 'TabControl') {
+        if ($w -lt 1) { $w = 200 }
+        if ($h -lt 1) { $h = 80 }
+        Add-ZapmanSvgRect -Parts $Parts -X $x -Y $y -W $w -H $h -Fill '#fff' -Stroke '#a0a0a0'
+        $strip = 96
+        if ($strip -gt ($w * 0.4)) {
+            $strip = [Math]::Max(40, $w * 0.28)
+        }
+        Add-ZapmanSvgRect -Parts $Parts -X $x -Y $y -W $strip -H $h -Fill '#ececec' -Stroke '#a0a0a0'
+        return
+    }
+    if ($kind -eq 'Border') {
+        if ($w -lt 1) { $w = 200 }
+        if ($h -lt 1) { $h = 40 }
+        Add-ZapmanSvgRect -Parts $Parts -X $x -Y $y -W $w -H $h -Fill '#fff' -Stroke '#c8c8c8'
+        foreach ($ch in @($Node.ChildNodes)) {
+            if ($ch.NodeType -ne [System.Xml.XmlNodeType]::Element) {
+                continue
+            }
+            Add-ZapmanSvgControl -Parts $Parts -Node $ch -Ox ($x + 2) -Oy ($y + 2) -FileName $FileName -Binds $Binds -BoxW ($w - 4) -BoxH ($h - 4)
+        }
+        return
+    }
+    if ($kind -eq 'ScrollViewer') {
+        if ($w -lt 1) { $w = 200 }
+        if ($h -lt 1) { $h = 80 }
+        Add-ZapmanSvgRect -Parts $Parts -X $x -Y $y -W $w -H $h -Fill '#fff' -Stroke '#a0a0a0'
+        foreach ($ch in @($Node.ChildNodes)) {
+            if ($ch.NodeType -ne [System.Xml.XmlNodeType]::Element) {
+                continue
+            }
+            Add-ZapmanSvgControl -Parts $Parts -Node $ch -Ox ($x + 2) -Oy ($y + 2) -FileName $FileName -Binds $Binds -BoxW ($w - 4) -BoxH ($h - 4)
+        }
+        return
+    }
+    if ($kind -eq 'StackPanel') {
+        if ($w -lt 1) { $w = 200 }
+        if ($h -lt 1) { $h = 80 }
+        $kids = New-Object System.Collections.ArrayList
+        foreach ($ch in @($Node.ChildNodes)) {
+            if ($ch.NodeType -ne [System.Xml.XmlNodeType]::Element) {
+                continue
+            }
+            [void]$kids.Add($ch)
+        }
+        $cy = $y
+        $i = 0
+        foreach ($ch in $kids) {
+            $i++
+            $left = ($y + $h) - $cy
+            if ($left -lt 12) {
+                $left = 12
+            }
+            $chh = 22
+            if ($i -eq $kids.Count) {
+                $chh = $left
+            }
+            Add-ZapmanSvgControl -Parts $Parts -Node $ch -Ox $x -Oy $cy -FileName $FileName -Binds $Binds -BoxW $w -BoxH $chh
+            $cy += $chh + 4
+        }
+        return
+    }
+    if ($kind -eq 'ListBox' -or $kind -eq 'ItemsControl') {
         if ($w -lt 1) { $w = 200 }
         if ($h -lt 1) { $h = 80 }
         Add-ZapmanSvgRect -Parts $Parts -X $x -Y $y -W $w -H $h -Fill '#fff' -Stroke '#a0a0a0'
@@ -392,7 +605,19 @@ function Add-ZapmanSvgControl {
         if (-not [string]::IsNullOrWhiteSpace($fs)) {
             $size = [double]$fs
         }
-        Add-ZapmanSvgText -Parts $Parts -X $x -Y ($y + $size) -Text $label -Size $size -Weight $weight
+        $tx = $x
+        $ty = $y + $size
+        $anchor = 'start'
+        $ha = Get-ZapmanXamlAttr -Node $Node -Name 'HorizontalAlignment'
+        $va = Get-ZapmanXamlAttr -Node $Node -Name 'VerticalAlignment'
+        if ($ha -eq 'Center' -and $w -gt 0) {
+            $tx = $x + ($w / 2)
+            $anchor = 'middle'
+        }
+        if ($va -eq 'Center' -and $h -gt 0) {
+            $ty = $y + ($h / 2) + ($size / 3)
+        }
+        Add-ZapmanSvgText -Parts $Parts -X $tx -Y $ty -Text $label -Size $size -Weight $weight -Anchor $anchor
         return
     }
 }
@@ -421,6 +646,10 @@ function Add-ZapmanSvgDockChild {
         return
     }
     $kind = $Node.LocalName
+    if ($kind -eq 'Grid') {
+        Add-ZapmanSvgControl -Parts $Parts -Node $Node -Ox $X -Oy $Y -FileName $FileName -Binds $Binds -BoxW $W -BoxH $H
+        return
+    }
     $cw = Get-ZapmanXamlNumber -Node $Node -Name 'Width' -Default $W
     $ch = Get-ZapmanXamlNumber -Node $Node -Name 'Height' -Default $H
     $align = Get-ZapmanXamlAttr -Node $Node -Name 'HorizontalAlignment'

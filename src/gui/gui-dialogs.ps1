@@ -409,20 +409,420 @@ function Show-GuiTestsSetup {
     return $choice
 }
 
+# Read a note property. Return $null if the property is missing.
+function Get-GuiTestInfoProp {
+    param($Info, [string]$Name)
+    if ($null -eq $Info) {
+        return $null
+    }
+    $prop = $Info.PSObject.Properties[$Name]
+    if ($null -eq $prop) {
+        return $null
+    }
+    return $prop.Value
+}
+
+# Map a result token to a color kind: err, warn, ok, or info.
+function Get-GuiTestCellKind {
+    param([string]$Text)
+    $t = ([string]$Text).Trim()
+    if ([string]::IsNullOrWhiteSpace($t) -or $t -eq '-' -or $t -eq 'n/a') {
+        return 'info'
+    }
+    $u = $t.ToUpperInvariant()
+    if ($u -match 'ERROR|FAIL|SSL') {
+        return 'err'
+    }
+    if ($u -match 'UNSUP|TIMEOUT|BLOCK|NA') {
+        return 'warn'
+    }
+    if ($u -match 'OK' -or $u -match '^\d') {
+        return 'ok'
+    }
+    return 'info'
+}
+
+# Return a fill or text brush for a result kind.
+function Get-GuiTestKindBrush {
+    param([string]$Kind, [switch]$Foreground)
+    if ($Kind -eq 'err') {
+        if ($Foreground) {
+            return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(180, 35, 24))
+        }
+        return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(253, 232, 230))
+    }
+    if ($Kind -eq 'ok') {
+        if ($Foreground) {
+            return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(30, 100, 40))
+        }
+        return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(220, 237, 200))
+    }
+    if ($Kind -eq 'warn') {
+        if ($Foreground) {
+            return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(154, 103, 0))
+        }
+        return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(255, 244, 214))
+    }
+    if ($Kind -eq 'head') {
+        if ($Foreground) {
+            return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(24, 95, 165))
+        }
+        return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(230, 240, 250))
+    }
+    if ($Foreground) {
+        return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(80, 80, 80))
+    }
+    return New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(245, 245, 245))
+}
+
+# Add one table cell to a result grid.
+function Add-GuiTestGridCell {
+    param(
+        $Grid,
+        [int]$Row,
+        [int]$Col,
+        [string]$Text,
+        [string]$Kind,
+        [switch]$Left
+    )
+    $border = New-Object System.Windows.Controls.Border
+    $border.BorderBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(200, 200, 200))
+    $border.BorderThickness = New-Object System.Windows.Thickness(0.5)
+    $border.Background = Get-GuiTestKindBrush -Kind $Kind
+    $border.Padding = New-Object System.Windows.Thickness(6, 2, 6, 2)
+    $tb = New-Object System.Windows.Controls.TextBlock
+    $tb.Text = $Text
+    $tb.Foreground = Get-GuiTestKindBrush -Kind $Kind -Foreground
+    if ($Left) {
+        $tb.TextAlignment = [System.Windows.TextAlignment]::Left
+        $tb.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
+    } else {
+        $tb.TextAlignment = [System.Windows.TextAlignment]::Center
+        $tb.FontWeight = [System.Windows.FontWeights]::SemiBold
+    }
+    $tb.TextWrapping = [System.Windows.TextWrapping]::NoWrap
+    $border.Child = $tb
+    [System.Windows.Controls.Grid]::SetRow($border, $Row)
+    [System.Windows.Controls.Grid]::SetColumn($border, $Col)
+    [void]$Grid.Children.Add($border)
+}
+
+# Build a result table. Color error cells red.
+function New-GuiTestResultGrid {
+    param(
+        [string[]]$Headers,
+        $Rows
+    )
+    $grid = New-Object System.Windows.Controls.Grid
+    $colCount = @($Headers).Count
+    $i = 0
+    while ($i -lt $colCount) {
+        $col = New-Object System.Windows.Controls.ColumnDefinition
+        if ($i -eq 0) {
+            $col.Width = New-Object System.Windows.GridLength(1.4, [System.Windows.GridUnitType]::Star)
+        } else {
+            $col.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+        }
+        [void]$grid.ColumnDefinitions.Add($col)
+        $i++
+    }
+    $rowDef0 = New-Object System.Windows.Controls.RowDefinition
+    $rowDef0.Height = [System.Windows.GridLength]::Auto
+    [void]$grid.RowDefinitions.Add($rowDef0)
+    $c = 0
+    foreach ($h in @($Headers)) {
+        Add-GuiTestGridCell -Grid $grid -Row 0 -Col $c -Text $h -Kind 'head'
+        $c++
+    }
+    $r = 1
+    if ($null -eq $Rows) {
+        return $grid
+    }
+    foreach ($row in $Rows) {
+        $rd = New-Object System.Windows.Controls.RowDefinition
+        $rd.Height = [System.Windows.GridLength]::Auto
+        [void]$grid.RowDefinitions.Add($rd)
+        $c = 0
+        $cells = $row
+        if ($null -eq $cells) {
+            $r++
+            continue
+        }
+        foreach ($cell in $cells) {
+            $text = [string](Get-GuiTestInfoProp -Info $cell -Name 'Text')
+            $kind = [string](Get-GuiTestInfoProp -Info $cell -Name 'Kind')
+            $left = $false
+            if ($c -eq 0) {
+                $left = $true
+                if ([string]::IsNullOrWhiteSpace($kind)) {
+                    $kind = 'info'
+                }
+            } elseif ([string]::IsNullOrWhiteSpace($kind)) {
+                $kind = Get-GuiTestCellKind -Text $text
+            }
+            if ($left) {
+                Add-GuiTestGridCell -Grid $grid -Row $r -Col $c -Text $text -Kind $kind -Left
+            } else {
+                Add-GuiTestGridCell -Grid $grid -Row $r -Col $c -Text $text -Kind $kind
+            }
+            $c++
+        }
+        $r++
+    }
+    return $grid
+}
+
+# Convert text to an integer. Return 0 if the text is not a number.
+function ConvertTo-GuiTestInt {
+    param($Value)
+    $s = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($s)) {
+        return 0
+    }
+    $n = 0
+    if ([int]::TryParse($s, [ref]$n)) {
+        return $n
+    }
+    return 0
+}
+
+# Build the table or error banner for one strategy tab.
+function New-GuiTestStrategyTable {
+    param($Info)
+    $kind = [string](Get-GuiTestInfoProp -Info $Info -Name 'Kind')
+    $err = [string](Get-GuiTestInfoProp -Info $Info -Name 'Error')
+    if ($kind -eq 'fail' -or -not [string]::IsNullOrWhiteSpace($err)) {
+        $tb = New-Object System.Windows.Controls.TextBox
+        $tb.Text = $err
+        $tb.IsReadOnly = $true
+        $tb.AcceptsReturn = $true
+        $tb.TextWrapping = [System.Windows.TextWrapping]::Wrap
+        $tb.BorderThickness = New-Object System.Windows.Thickness(0)
+        $tb.Background = Get-GuiTestKindBrush -Kind 'err'
+        $tb.Foreground = Get-GuiTestKindBrush -Kind 'err' -Foreground
+        $tb.FontFamily = New-Object System.Windows.Media.FontFamily('Consolas')
+        $tb.FontSize = 12
+        $tb.Padding = New-Object System.Windows.Thickness(8)
+        $tb.VerticalScrollBarVisibility = [System.Windows.Controls.ScrollBarVisibility]::Auto
+        $tb.HorizontalScrollBarVisibility = [System.Windows.Controls.ScrollBarVisibility]::Auto
+        $tb.IsReadOnlyCaretVisible = $true
+        return @{ Control = $tb; HasError = $true }
+    }
+    $rows = New-Object System.Collections.ArrayList
+    $hasError = $false
+    if ($kind -eq 'dpi') {
+        $headers = @(
+            (Get-ZapmanUiString -Key 'TestsColTarget')
+            'HTTP'
+            'TLS1.2'
+            'TLS1.3'
+        )
+        foreach ($target in @(Get-GuiTestInfoProp -Info $Info -Name 'Results')) {
+            $name = [string](Get-GuiTestInfoProp -Info $target -Name 'TargetId')
+            $cells = New-Object System.Collections.ArrayList
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $name; Kind = 'info' }))
+            $byLabel = @{}
+            foreach ($line in @(Get-GuiTestInfoProp -Info $target -Name 'Lines')) {
+                $lab = [string](Get-GuiTestInfoProp -Info $line -Name 'TestLabel')
+                $st = [string](Get-GuiTestInfoProp -Info $line -Name 'Status')
+                $byLabel[$lab] = $st
+            }
+            foreach ($lab in @('HTTP', 'TLS1.2', 'TLS1.3')) {
+                $st = '-'
+                if ($byLabel.ContainsKey($lab)) {
+                    $st = [string]$byLabel[$lab]
+                }
+                $ck = Get-GuiTestCellKind -Text $st
+                if ($ck -eq 'err') {
+                    $hasError = $true
+                }
+                [void]$cells.Add((New-Object PSObject -Property @{ Text = $st; Kind = $ck }))
+            }
+            [void]$rows.Add($cells.ToArray())
+        }
+    } else {
+        $headers = @(
+            (Get-ZapmanUiString -Key 'TestsColTarget')
+            'HTTP'
+            'TLS1.2'
+            'TLS1.3'
+            (Get-ZapmanUiString -Key 'TestsColPing')
+        )
+        foreach ($target in @(Get-GuiTestInfoProp -Info $Info -Name 'Results')) {
+            $name = [string](Get-GuiTestInfoProp -Info $target -Name 'Name')
+            $cells = New-Object System.Collections.ArrayList
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $name; Kind = 'info' }))
+            $byLabel = @{}
+            foreach ($tok in @(Get-GuiTestInfoProp -Info $target -Name 'HttpTokens')) {
+                $raw = [string]$tok
+                $lab = $raw
+                $st = $raw
+                if ($raw -match '^(HTTP|TLS1\.2|TLS1\.3):(\S+)') {
+                    $lab = $matches[1]
+                    $st = $matches[2]
+                }
+                $byLabel[$lab] = $st
+            }
+            foreach ($lab in @('HTTP', 'TLS1.2', 'TLS1.3')) {
+                $st = '-'
+                if ($byLabel.ContainsKey($lab)) {
+                    $st = [string]$byLabel[$lab]
+                }
+                $ck = Get-GuiTestCellKind -Text $st
+                if ($ck -eq 'err') {
+                    $hasError = $true
+                }
+                [void]$cells.Add((New-Object PSObject -Property @{ Text = $st; Kind = $ck }))
+            }
+            $ping = [string](Get-GuiTestInfoProp -Info $target -Name 'PingResult')
+            $pk = Get-GuiTestCellKind -Text $ping
+            if ($pk -eq 'err') {
+                $hasError = $true
+            }
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $ping; Kind = $pk }))
+            [void]$rows.Add($cells.ToArray())
+        }
+    }
+    $grid = New-GuiTestResultGrid -Headers $headers -Rows $rows
+    $sv = New-Object System.Windows.Controls.ScrollViewer
+    $sv.VerticalScrollBarVisibility = [System.Windows.Controls.ScrollBarVisibility]::Auto
+    $sv.HorizontalScrollBarVisibility = [System.Windows.Controls.ScrollBarVisibility]::Auto
+    $sv.Content = $grid
+    return @{ Control = $sv; HasError = $hasError }
+}
+
+# Add a strategy tab after that strategy finishes.
+function Add-GuiTestStrategyTab {
+    param($Info)
+    if (-not $script:testTabs) {
+        return
+    }
+    $name = [string](Get-GuiTestInfoProp -Info $Info -Name 'Name')
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        $name = '?'
+    }
+    $built = New-GuiTestStrategyTable -Info $Info
+    $item = New-Object System.Windows.Controls.TabItem
+    $hdr = New-Object System.Windows.Controls.TextBlock
+    $hdr.Text = $name
+    $hdr.TextWrapping = [System.Windows.TextWrapping]::Wrap
+    $hdr.MaxWidth = 160
+    if ($built.HasError) {
+        $hdr.Foreground = Get-GuiTestKindBrush -Kind 'err' -Foreground
+        $hdr.FontWeight = [System.Windows.FontWeights]::SemiBold
+    }
+    $item.Header = $hdr
+    $item.Content = $built.Control
+    [void]$script:testTabs.Items.Add($item)
+    $script:testTabs.SelectedIndex = $script:testTabs.Items.Count - 1
+    if ($script:testWaitLbl) {
+        $script:testWaitLbl.Visibility = [System.Windows.Visibility]::Collapsed
+    }
+    $script:testUiPhase = 'mid'
+}
+
+# Draw the summary table and the best strategy line.
+function Add-GuiTestSummary {
+    param($Info)
+    $script:testUiPhase = 'sum'
+    if (-not $script:testSumHost) {
+        return
+    }
+    $rowsIn = @(Get-GuiTestInfoProp -Info $Info -Name 'Rows')
+    $kind = [string](Get-GuiTestInfoProp -Info $Info -Name 'Kind')
+    $best = [string](Get-GuiTestInfoProp -Info $Info -Name 'Best')
+    if ($script:testBestLbl) {
+        if (-not [string]::IsNullOrWhiteSpace($best)) {
+            $script:testBestLbl.Text = (Get-ZapmanUiString -Key 'TestsBest' -FormatArgs @($best))
+        } else {
+            $script:testBestLbl.Text = ''
+        }
+    }
+    if (@($rowsIn).Count -lt 1) {
+        $script:testSumHost.Child = $null
+        return
+    }
+    $headers = New-Object System.Collections.ArrayList
+    [void]$headers.Add((Get-ZapmanUiString -Key 'TestsGrpStrats'))
+    $isStd = ($kind -eq 'standard')
+    if ($isStd) {
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumOk'))
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumErr'))
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumUnsup'))
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumPingOk'))
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumPingFail'))
+    } else {
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumOk'))
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumFail'))
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumUnsup'))
+        [void]$headers.Add((Get-ZapmanUiString -Key 'TestsSumBlocked'))
+    }
+    $rows = New-Object System.Collections.ArrayList
+    foreach ($row in $rowsIn) {
+        $name = [string](Get-GuiTestInfoProp -Info $row -Name 'Name')
+        $cells = New-Object System.Collections.ArrayList
+        [void]$cells.Add((New-Object PSObject -Property @{ Text = $name; Kind = 'info' }))
+        if ($isStd) {
+            $ok = [string](Get-GuiTestInfoProp -Info $row -Name 'OK')
+            $er = [string](Get-GuiTestInfoProp -Info $row -Name 'ERROR')
+            $un = [string](Get-GuiTestInfoProp -Info $row -Name 'UNSUP')
+            $po = [string](Get-GuiTestInfoProp -Info $row -Name 'PingOK')
+            $pf = [string](Get-GuiTestInfoProp -Info $row -Name 'PingFail')
+            $ek = 'ok'
+            if ((ConvertTo-GuiTestInt $er) -gt 0) { $ek = 'err' }
+            $uk = 'ok'
+            if ((ConvertTo-GuiTestInt $un) -gt 0) { $uk = 'warn' }
+            $pk = 'ok'
+            if ((ConvertTo-GuiTestInt $pf) -gt 0) { $pk = 'warn' }
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $ok; Kind = 'ok' }))
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $er; Kind = $ek }))
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $un; Kind = $uk }))
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $po; Kind = 'ok' }))
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $pf; Kind = $pk }))
+        } else {
+            $ok = [string](Get-GuiTestInfoProp -Info $row -Name 'OK')
+            $fl = [string](Get-GuiTestInfoProp -Info $row -Name 'FAIL')
+            $un = [string](Get-GuiTestInfoProp -Info $row -Name 'UNSUP')
+            $bl = [string](Get-GuiTestInfoProp -Info $row -Name 'BLOCKED')
+            $fk = 'ok'
+            if ((ConvertTo-GuiTestInt $fl) -gt 0) { $fk = 'err' }
+            $uk = 'ok'
+            if ((ConvertTo-GuiTestInt $un) -gt 0) { $uk = 'warn' }
+            $bk = 'ok'
+            if ((ConvertTo-GuiTestInt $bl) -gt 0) { $bk = 'warn' }
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $ok; Kind = 'ok' }))
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $fl; Kind = $fk }))
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $un; Kind = $uk }))
+            [void]$cells.Add((New-Object PSObject -Property @{ Text = $bl; Kind = $bk }))
+        }
+        [void]$rows.Add($cells.ToArray())
+    }
+    $headerArr = [string[]]($headers.ToArray())
+    $script:testSumHost.Child = (New-GuiTestResultGrid -Headers $headerArr -Rows $rows)
+}
+
+# Append setup log lines. Switch to the strategy phase on [n/m].
 function Add-GuiTestLine {
     param(
         [string]$Text,
         [bool]$NoNewline
     )
-    if (-not $script:testBox) {
-        return
+    if ($Text -match '\[(\d+)/(\d+)\]') {
+        $script:testUiPhase = 'mid'
     }
-    if ($NoNewline) {
-        $script:testBox.AppendText($Text)
-    } else {
-        $script:testBox.AppendText($Text + [Environment]::NewLine)
+    $phase = [string]$script:testUiPhase
+    $box = $null
+    if ($phase -eq 'head') {
+        $box = $script:testHead
     }
-    $script:testBox.ScrollToEnd()
+    if ($box) {
+        if ($NoNewline) {
+            $box.AppendText($Text)
+        } else {
+            $box.AppendText($Text + [Environment]::NewLine)
+        }
+        $box.ScrollToEnd()
+    }
     if ($Text -match '\[(\d+)/(\d+)\]') {
         $total = [int]$matches[2]
         if ($total -lt 1) {
@@ -437,7 +837,9 @@ function Add-GuiTestLine {
             if ($cur -lt 0) { $cur = 0 }
             $script:testBar.Value = $cur
         }
-        $script:testLbl.Text = (Get-ZapmanUiString -Key 'TestsProgress' -FormatArgs @($matches[1], $matches[2]))
+        if ($script:testLbl) {
+            $script:testLbl.Text = (Get-ZapmanUiString -Key 'TestsProgress' -FormatArgs @($matches[1], $matches[2]))
+        }
     }
 }
 
@@ -449,20 +851,41 @@ function Start-GuiTestRun {
 
     $nameList = @($Names)
     $dlg = Import-ZapmanXaml 'Tests.xaml'
+    # Limit the window height to the work area.
+    $workH = [System.Windows.SystemParameters]::WorkArea.Height
+    if ($dlg.Height -gt $workH) {
+        $dlg.Height = $workH
+    }
     $dlg.Title = Get-ZapmanUiString -Key 'TestsTitle'
     $lbl = Get-XamlChild -Root $dlg -Name 'lblStatus'
     $lbl.Text = Get-ZapmanUiString -Key 'TestsStarting'
     $bar = Get-XamlChild -Root $dlg -Name 'barProgress'
-    $box = Get-XamlChild -Root $dlg -Name 'txtLog'
+    $txtHead = Get-XamlChild -Root $dlg -Name 'txtHead'
+    $tabs = Get-XamlChild -Root $dlg -Name 'tabStrategies'
+    $waitLbl = Get-XamlChild -Root $dlg -Name 'lblStratWait'
+    $waitLbl.Text = Get-ZapmanUiString -Key 'TestsWaitStrat'
+    $grpHead = Get-XamlChild -Root $dlg -Name 'grpTestHead'
+    $grpHead.Header = Get-ZapmanUiString -Key 'TestsGrpHead'
+    $grpStrats = Get-XamlChild -Root $dlg -Name 'grpTestStrats'
+    $grpStrats.Header = Get-ZapmanUiString -Key 'TestsGrpStrats'
+    $grpSum = Get-XamlChild -Root $dlg -Name 'grpTestSum'
+    $grpSum.Header = Get-ZapmanUiString -Key 'TestsGrpSum'
+    $sumHost = Get-XamlChild -Root $dlg -Name 'hostSummary'
+    $bestLbl = Get-XamlChild -Root $dlg -Name 'lblBest'
     $btnStop = Get-XamlChild -Root $dlg -Name 'btnStop'
     $btnStop.Content = Get-ZapmanUiString -Key 'BtnCancel'
 
     $script:testExited = $false
     $script:testCancel = $false
     $script:testShown = $false
+    $script:testUiPhase = 'head'
     $script:testDlg = $dlg
     $script:testBar = $bar
-    $script:testBox = $box
+    $script:testHead = $txtHead
+    $script:testTabs = $tabs
+    $script:testWaitLbl = $waitLbl
+    $script:testSumHost = $sumHost
+    $script:testBestLbl = $bestLbl
     $script:testLbl = $lbl
     $script:testBtn = $btnStop
     $script:testType = $TestType
@@ -498,9 +921,20 @@ function Start-GuiTestRun {
                 param($text, $noNewline)
                 Add-GuiTestLine -Text $text -NoNewline ([bool]$noNewline)
                 Invoke-GuiPump
-            } -ShouldStop { [bool]$script:testCancel }
+            } -ShouldStop { [bool]$script:testCancel } -OnWait { Invoke-GuiPump } -OnStrategy {
+                param($info)
+                Add-GuiTestStrategyTab -Info $info
+                Invoke-GuiPump
+            } -OnSummary {
+                param($info)
+                Add-GuiTestSummary -Info $info
+                Invoke-GuiPump
+            }
         } catch {
-            Add-GuiTestLine -Text $_.Exception.Message -NoNewline $false
+            if ($script:testHead) {
+                $script:testHead.AppendText($_.Exception.Message + [Environment]::NewLine)
+                $script:testHead.ScrollToEnd()
+            }
         } finally {
             $script:testExited = $true
             if ($script:testBar) {
@@ -528,10 +962,15 @@ function Start-GuiTestRun {
     } finally {
         $script:testDlg = $null
         $script:testBar = $null
-        $script:testBox = $null
+        $script:testHead = $null
+        $script:testTabs = $null
+        $script:testWaitLbl = $null
+        $script:testSumHost = $null
+        $script:testBestLbl = $null
         $script:testLbl = $null
         $script:testBtn = $null
         $script:testNames = $null
+        $script:testUiPhase = 'head'
     }
 }
 

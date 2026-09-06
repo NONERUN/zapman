@@ -16,7 +16,7 @@
 
 Ломающие изменения — [`CHANGELOG.md`](../CHANGELOG.md). Документацию (`README.md`, этот файл, `AGENTS.md`, `PLAN.md`, `docs/`) обновляйте в том же изменении.
 
-Версия продукта — `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1) (`0.1.0`). В окне и в git-теге: `v` + это число.
+Версия продукта — `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1) (`0.1.0`). В окне и в git-теге: `v` + это число. Схема стратегий — отдельный [`src/ZapretSpec/ZapretSpec.psd1`](../src/ZapretSpec/ZapretSpec.psd1) (`0.1.0`); поле `specVersion` в JSON должно совпадать.
 
 ## Раскладка
 
@@ -25,9 +25,10 @@
 | `zapman.bat` | GUI → `src/gui/gui-boot.ps1` → `gui.ps1` |
 | `cli.bat` | Консоль → `src/cli/cli.ps1` |
 | `src/gui/` | WPF: `*.xaml` (ASCII) + code-behind. Тексты — `Get-ZapmanUiString` |
-| `src/Zapman/` | Модуль обвязки |
+| `src/Zapman/` | Модуль обвязки. Сторож в трее: `Tray.ps1` (отдельный процесс) |
+| `src/ZapretSpec/` | Генератор argv из JSON (своя `ModuleVersion`) |
 | `src/Zapret/Bypass.ps1` | Движок (dotsource, не отдельный модуль) |
-| `strategies/*.ps1` | Два argv в одном файле (`winws` / `winws2`). Сток — `$lists`, свои файлы — `$user` |
+| `strategies/*.json` | Намерение. Сток — `lists:`, свои файлы — `user:` |
 | `lists/` | Сток-хостлисты и `ipset-all.default.txt` |
 | `user/` | Свои списки и рабочий ipset (gitignore). `config.json` в корне |
 | `docs/` | Использование, проблемы, эта страница; `docs/ui` — генератор |
@@ -36,7 +37,7 @@
 
 ## Линтер
 
-После правок `.ps1`, `.bat`, `src/gui/`, `src/cli/`, `src/Zapman/`, `src/Zapret/`, `strategies/` или `dev/`:
+После правок `.ps1`, `.bat`, `src/gui/`, `src/cli/`, `src/Zapman/`, `src/Zapret/`, `src/ZapretSpec/`, `strategies/` или `dev/`:
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1

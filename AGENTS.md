@@ -16,9 +16,9 @@
 4. **Ломающие изменения** — в [`CHANGELOG.md`](CHANGELOG.md), датированная секция или `Unreleased` (Added / Changed / Removed / Breaking). Смена имени стратегии — Changed (старое → новое). Потеря стратегии без преемника — Breaking, и только осознанно.
 5. **Документацию обновляйте в том же изменении** — `README.md`, этот файл, [`PLAN.md`](PLAN.md), [`docs/`](docs/), примеры в `lists/` и файлы стратегий. В них только текущий интерфейс.
 
-**Стратегия** — сценарий обхода в `strategies/*.ps1` (оба движка). **Обвязка** — всё остальное; её старую форму выбрасывайте.
+**Стратегия** — JSON в `strategies/*.json` (намерение; argv собирает ZapretSpec). **Обвязка** — всё остальное; её старую форму выбрасывайте.
 
-**Исключение для `bin/`:** нужны и `winws`, и `winws2` — [`PLAN.md`](PLAN.md). Стратегию не плодите вторым файлом «для другого движка»: два argv в одном `.ps1`.
+**Исключение для `bin/`:** нужны и `winws`, и `winws2` — [`PLAN.md`](PLAN.md). Стратегию не плодите вторым файлом «для другого движка»: один JSON, два argv из генератора.
 
 ## Среда выполнения
 
@@ -50,7 +50,7 @@
 
 ## Линтер
 
-После правок `.ps1`, `.bat`, `src/gui/`, `src/cli/`, `src/Zapman/`, `src/Zapret/`, `strategies/` или `dev/` прогоните линтер и исправьте все FAIL до конца задачи:
+После правок `.ps1`, `.bat`, `src/gui/`, `src/cli/`, `src/Zapman/`, `src/Zapret/`, `src/ZapretSpec/`, `strategies/` или `dev/` прогоните линтер и исправьте все FAIL до конца задачи:
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
@@ -71,12 +71,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 - синтаксис `pwsh`
 - `-STA` в `zapman.bat`
 - `docs/ui` совпадает с генератором (`dev\export-gui-docs.ps1 -Check`)
+- `strategies/*.json`: `specVersion` и argv обоих движков; нет `--dpi-desync` на z2 и `--lua-desync` на z1; z2 `--blob=name:value`; имя blob не `0x…`; winws: `fake-tls` до `fake-tls-mod`
 
 Опционально: PSScriptAnalyzer; Blinter для `.bat` (`pipx install Blinter`, [`blinter.ini`](blinter.ini)).
 
 ## Раскладка
 
-Новая логика — только `.ps1`. GUI не парсит флаги: запускает файл или ставит службу. Exe — из `engine` в [`config.json`](config.json) ([`PLAN.md`](PLAN.md)).
+Новая логика — только `.ps1`. GUI не парсит флаги: запускает JSON-стратегию или ставит службу. Exe — из `engine` в [`config.json`](config.json) ([`PLAN.md`](PLAN.md)).
 
 ### Входы
 
@@ -104,11 +105,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 
 | Путь | Роль |
 |---|---|
-| `src/Zapman/` | Модуль обвязки (`Zapman.psd1`): config, UI, тесты, диагностика. GUI и консоль импортируют его. В `src` только исходники. Тег продукта — `v` + `ModuleVersion` (`0.1.0` → `v0.1.0`). Auto-Update Check сравнивает с GitHub tags |
+| `src/Zapman/` | Модуль обвязки (`Zapman.psd1`): config, UI, тесты, диагностика, сторож в трее. GUI и консоль импортируют его. В `src` только исходники. Тег продукта — `v` + `ModuleVersion` (`0.1.0` → `v0.1.0`). Auto-Update Check сравнивает с GitHub tags. [`Tray.ps1`](src/Zapman/Tray.ps1) — отдельный процесс (`-File`), не dotsource в `Zapman.psm1` |
+| `src/ZapretSpec/` | Генератор argv: JSON → winws / winws2. Своя `ModuleVersion` (`0.1.0`). Zapman грузит по пути. Не стартует winws |
 | `src/Zapret/` | Движок: `Bypass.ps1` (winws, служба `zapret`, стратегии, фильтры, ipset, fake). Dotsource из Zapman, не отдельный модуль |
-| `config.json` | Язык, `engine` (`winws` / `winws2`, окно стратегий), фильтры, Auto-Update Check, цели тестов. Корень пакета, не `user/` |
+| `config.json` | Язык, `engine` (`winws` / `winws2`, окно стратегий), фильтры, Auto-Update Check, `trayWatch`, цели тестов. Корень пакета, не `user/` |
 | `test-results/` | Логи тестов (на лету) |
-| `strategies/*.ps1` | Стратегии: import `Zapman.psd1`, argv для выбранного `engine`. Prep / winws / filter — `*-Zapret*`. Сток — `$lists`, свои файлы — `$user` |
+| `strategies/*.json` | Стратегии: намерение (`specVersion` = ZapretSpec). Сток — `lists:`, свои файлы — `user:`, fake — `bin:` |
 | `lists/` | Сток: `list-general.txt`, `list-exclude.txt`, `list-google.txt`, `ipset-exclude.txt`, `ipset-all.default.txt` |
 | `user/` | Свои списки и рабочий `ipset-all.txt` (создаются на лету, в gitignore). При обновлении копируют папку в новую распаковку. Старый `lists/*-user.txt` не читается |
 | `docs/` | Использование, troubleshooting, инструкция разработчику. Макеты окон — `docs/ui/` (генератор, не править руками) |
@@ -118,7 +120,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 
 | Путь | Роль |
 |---|---|
-| `dev/lint.ps1` | 5.1/WPF + PSSA + Blinter; `-Check` макетов `docs/ui` |
+| `dev/lint.ps1` | 5.1/WPF + PSSA + Blinter; JSON-стратегии через ZapretSpec; `-Check` макетов `docs/ui` |
 | `dev/export-gui-docs.ps1` | XAML + `Ui.ps1` → `docs/ui/*.svg` и `index.md` / `index.html` |
 | `dev/update-zapret.ps1` | Официальные zip zapret / zapret2 → `bin/` + [`bin/versions.json`](bin/versions.json). Fake `.bin` не трогает. |
 | `.githooks/commit-msg` | Меняет `Co-authored-by: Cursor` на `Assisted-by`. Включение: `git config core.hooksPath .githooks` |
@@ -132,18 +134,20 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 - **Game Filter** и **движок** при установленной службе зашиты в ImagePath: нужен повторный Install, не просто Stop/Start.
 - **IPSet** читается из файла при старте: достаточно Stop/Start. Режимы: `none` / `loaded` / `any`. Backup — rename, не «вечная» копия.
 - **Fake…** копирует `ACTIVE_*.bin`; winws читает их при старте. Как IPSet: Stop/Start, не Install.
+- **Снять службы** не трогает задание трея. Opt-out иконки — галка в Settings.
 
 ## GUI
 
 - **Главное окно:** без списка стратегий. **Старт службы** (выключен, если службы нет) / **Стоп** / **Снять службы** / **Стратегия…**. Смена стратегии = Install из окна стратегий.
-- **Стратегия…:** список `strategies/*.ps1` и выбор `winws` / `winws2`. **Установить службу** закрывает диалог. **Запустить без установки** останавливает службу/winws и стартует файл (без автозапуска). **Прогнать тесты** снимает службу zapret на время прогона и ставит её снова; WinDivert не трогает. **Ни одна не подходит** запускает сброс Winsock / IP / WinHTTP / DNS и просит перезагрузку. Список выделяет запущенную или установленную.
-- **Settings:** Game Filter (диалог с кнопкой применения), IPSet, Auto-Update Check, **Fake…** (оба слота сразу).
+- **Стратегия…:** список `strategies/*.json` и выбор `winws` / `winws2`. **Установить службу** закрывает диалог. **Запустить без установки** останавливает службу/winws и стартует JSON (без автозапуска). **Прогнать тесты** снимает службу zapret на время прогона и ставит её снова; WinDivert не трогает. Окно: подготовка, вкладки стратегий с таблицей (ошибка — красная ячейка), итоги. **Ни одна не подходит** запускает сброс Winsock / IP / WinHTTP / DNS и просит перезагрузку. Список выделяет запущенную или установленную.
+- **Settings:** Game Filter (диалог с кнопкой применения), IPSet, Auto-Update Check, **иконка в трее** (`trayWatch`), **Fake…** (оба слота сразу).
 - **Tools:** скачать ipset, сверить hosts (шаблон в буфер / открыть системный hosts в Блокноте), проверить версию, диагностика (список с галочками; **Запуск** у чисток, **ОК** пропуск). Клик по Status — полный статус и журнал.
-- **Язык:** RU/EN, `Get-ZapmanUiString` в модуле. Переключатель на главном. Язык, `engine`, Game Filter, Auto-Update Check и цели тестов — [`config.json`](config.json) в корне.
+- **Язык:** RU/EN, `Get-ZapmanUiString` в модуле. Переключатель на главном. Язык, `engine`, Game Filter, Auto-Update Check, `trayWatch` и цели тестов — [`config.json`](config.json) в корне.
+- **Трей:** отдельный процесс [`src/Zapman/Tray.ps1`](src/Zapman/Tray.ps1), задание планировщика `zapman-tray` (`ONLOGON`, highest). По умолчанию включено. Меню: статус (три строки), открыть GUI, Старт службы, Стоп. Старт и Стоп гасятся, если команда сейчас ничего не делает. Стратегию и настройки меняют только в GUI.
 
 ### Окно (WPF)
 
-- Крестик = выход; свернуть = панель задач. Трея нет.
+- Крестик = выход; свернуть = панель задач. Главное окно в трей не прячется. Сторож — отдельный процесс.
 - Главный цикл — `Application.Run`, не `$window.ShowDialog()` (дочерний `ShowDialog` выключает владельца и роняет UI). Не `Hide()` и не `$window.IsEnabled = $false`. `gui-boot.ps1` делает `$window.Show()` до разбора `gui.ps1`, чтобы каркас был на экране во время импорта модуля.
 - Дочерние — `ShowDialog` с `Owner`.
 - Тесты: без событий `Process` в scriptblock (пул потоков + STA).
@@ -152,4 +156,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 
 - Не добавлять зависимость от `pwsh`, WinUI, .NET SDK или Visual Studio, если **рантайм на LTSC** без них не открывается.
 - Не сохранять обвязку (старые `.bat` лаунчера/службы, ключи реестра, раскладку `lists/`) через shim. Набор стратегий переносите; имена стратегий менять можно.
-- Не писать эксплойты и не изобретать DPI-стратегии. Не писать компилятор Lua→флаги winws1, пока в [`PLAN.md`](PLAN.md) нет доказанного подмножества. Не подменять отсутствующий argv другого движка.
+- Не писать эксплойты и не изобретать DPI-стратегии. Не генерировать argv вне замороженного подмножества в [`PLAN.md`](PLAN.md). Не подменять чужой `specVersion` тихим fallback.

@@ -126,7 +126,9 @@ function Invoke-StrategyRun {
         Start-ZapretSelectedStrategy -File $file
         Write-Ok (Get-ZapmanUiString -Key 'RunDone' -FormatArgs @($file.BaseName))
     } catch {
-        Write-Bad $_.Exception.Message
+        $errText = Get-ZapmanExceptionText $_
+        Set-ZapmanLastError -Text $errText
+        Write-Bad $errText
     }
     Wait-Pause
 }
@@ -140,7 +142,9 @@ function Invoke-StrategyInstall {
         Install-ZapretService -File $file
         Write-Ok (Get-ZapmanUiString -Key 'InstallDone' -FormatArgs @($file.BaseName))
     } catch {
-        Write-Bad $_.Exception.Message
+        $errText = Get-ZapmanExceptionText $_
+        Set-ZapmanLastError -Text $errText
+        Write-Bad $errText
     }
     Wait-Pause
 }
@@ -239,7 +243,9 @@ function Invoke-StartService {
             Write-Ok (Get-ZapmanUiString -Key 'StartDone')
         }
     } catch {
-        Write-Bad $_.Exception.Message
+        $errText = Get-ZapmanExceptionText $_
+        Set-ZapmanLastError -Text $errText
+        Write-Bad $errText
     }
     Wait-Pause
 }
@@ -277,7 +283,7 @@ function Invoke-CheckStatus {
     Wait-Pause
 }
 
-# Settings: Game Filter, IPSet, Auto-Update Check, fakes.
+# Settings: Game Filter, IPSet, Auto-Update Check, tray icon, fakes.
 
 function Invoke-GameFilterMenu {
     Write-Host (Get-ZapmanUiString -Key 'MenuGame')
@@ -354,6 +360,21 @@ function Invoke-AutoUpdateToggle {
         Write-Host (Get-ZapmanUiString -Key 'AutoOn')
     } else {
         Write-Host (Get-ZapmanUiString -Key 'AutoOff')
+    }
+    Wait-Pause
+}
+
+function Invoke-TrayWatchToggle {
+    $on = -not (Test-ZapmanTrayWatchEnabled)
+    try {
+        Set-ZapmanTrayWatchEnabled -Enabled $on
+        if ($on) {
+            Write-Host (Get-ZapmanUiString -Key 'TrayOn')
+        } else {
+            Write-Host (Get-ZapmanUiString -Key 'TrayOff')
+        }
+    } catch {
+        Write-Bad $_.Exception.Message
     }
     Wait-Pause
 }
@@ -571,6 +592,10 @@ function Invoke-ZapmanServiceMenu {
         if (Test-ZapmanAutoUpdateEnabled) {
             $upd = 'on'
         }
+        $tray = 'off'
+        if (Test-ZapmanTrayWatchEnabled) {
+            $tray = 'on'
+        }
         $installed = Get-ZapretInstalledStrategyName
         $runningName = Get-ZapretRunningStrategyName
         $svc = Get-ZapretService
@@ -612,15 +637,16 @@ function Invoke-ZapmanServiceMenu {
         Write-MenuItem -Number '6' -Text (Get-ZapmanUiString -Key 'MenuGame') -Tag $gf.Status
         Write-MenuItem -Number '7' -Text (Get-ZapmanUiString -Key 'MenuIpset') -Tag $ipset
         Write-MenuItem -Number '8' -Text (Get-ZapmanUiString -Key 'MenuAuto') -Tag $upd
-        Write-MenuItem -Number '9' -Text (Get-ZapmanUiString -Key 'MenuFakes')
+        Write-MenuItem -Number '9' -Text (Get-ZapmanUiString -Key 'MenuTray') -Tag $tray
+        Write-MenuItem -Number '10' -Text (Get-ZapmanUiString -Key 'MenuFakes')
         Write-MenuSection -Key 'GrpTools'
-        Write-MenuItem -Number '10' -Text (Get-ZapmanUiString -Key 'MenuIpsetDl')
-        Write-MenuItem -Number '11' -Text (Get-ZapmanUiString -Key 'MenuHosts')
-        Write-MenuItem -Number '12' -Text (Get-ZapmanUiString -Key 'MenuVersion')
-        Write-MenuItem -Number '13' -Text (Get-ZapmanUiString -Key 'MenuDiag')
+        Write-MenuItem -Number '11' -Text (Get-ZapmanUiString -Key 'MenuIpsetDl')
+        Write-MenuItem -Number '12' -Text (Get-ZapmanUiString -Key 'MenuHosts')
+        Write-MenuItem -Number '13' -Text (Get-ZapmanUiString -Key 'MenuVersion')
+        Write-MenuItem -Number '14' -Text (Get-ZapmanUiString -Key 'MenuDiag')
         Write-MenuSep
         Write-MenuItem -Number '0' -Text (Get-ZapmanUiString -Key 'MenuExit')
-        $choice = Read-Host '  Select option (0-13)'
+        $choice = Read-Host '  Select option (0-14)'
         switch ($choice) {
             '1' { Invoke-StrategyMenu }
             '2' { Invoke-StartService }
@@ -630,11 +656,12 @@ function Invoke-ZapmanServiceMenu {
             '6' { Invoke-GameFilterMenu }
             '7' { Invoke-IpsetMenu }
             '8' { Invoke-AutoUpdateToggle }
-            '9' { Invoke-ReplaceFakes }
-            '10' { Invoke-UpdateIpset }
-            '11' { Invoke-CompareHosts }
-            '12' { Invoke-CheckVersion }
-            '13' { Invoke-Diagnostics }
+            '9' { Invoke-TrayWatchToggle }
+            '10' { Invoke-ReplaceFakes }
+            '11' { Invoke-UpdateIpset }
+            '12' { Invoke-CompareHosts }
+            '13' { Invoke-CheckVersion }
+            '14' { Invoke-Diagnostics }
             '0' { return 0 }
             default { }
         }

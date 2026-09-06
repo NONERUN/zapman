@@ -1,13 +1,13 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="416" Height="586"
-        MinWidth="416" MinHeight="586"
+        Width="416" Height="604"
+        MinWidth="416" MinHeight="604"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="True"
         FontFamily="Segoe UI" FontSize="12"
         Background="#FFF0F0F0">
-    <Canvas Width="400" Height="548">
+    <Canvas Width="400" Height="566">
         <TextBlock x:Name="title" Canvas.Left="16" Canvas.Top="10"
                    FontSize="18" FontWeight="Bold"/>
         <RadioButton x:Name="rbRu" Canvas.Left="292" Canvas.Top="14"
@@ -34,7 +34,7 @@
         <Button x:Name="btnStop" Canvas.Left="206" Canvas.Top="198" Width="178" Height="28"/>
         <Button x:Name="btnRemove" Canvas.Left="16" Canvas.Top="230" Width="178" Height="28"/>
         <Button x:Name="btnStrategy" Canvas.Left="206" Canvas.Top="230" Width="178" Height="28"/>
-        <GroupBox x:Name="grpSettings" Canvas.Left="16" Canvas.Top="266" Width="368" Height="122">
+        <GroupBox x:Name="grpSettings" Canvas.Left="16" Canvas.Top="266" Width="368" Height="140">
             <Canvas>
                 <TextBlock x:Name="lblGame" Canvas.Left="12" Canvas.Top="10"/>
                 <ComboBox x:Name="cmbGame" Canvas.Left="92" Canvas.Top="6"
@@ -43,10 +43,11 @@
                 <ComboBox x:Name="cmbIpset" Canvas.Left="276" Canvas.Top="6"
                           Width="80" Height="24" IsEditable="False"/>
                 <CheckBox x:Name="chkAuto" Canvas.Left="12" Canvas.Top="38"/>
-                <Button x:Name="btnFakes" Canvas.Left="12" Canvas.Top="70" Width="344" Height="28"/>
+                <CheckBox x:Name="chkTray" Canvas.Left="12" Canvas.Top="58"/>
+                <Button x:Name="btnFakes" Canvas.Left="12" Canvas.Top="86" Width="344" Height="28"/>
             </Canvas>
         </GroupBox>
-        <GroupBox x:Name="grpTools" Canvas.Left="16" Canvas.Top="396" Width="368" Height="92">
+        <GroupBox x:Name="grpTools" Canvas.Left="16" Canvas.Top="414" Width="368" Height="92">
             <Canvas>
                 <Button x:Name="btnIpsetUpd" Canvas.Left="12" Canvas.Top="8" Width="168" Height="28"/>
                 <Button x:Name="btnHosts" Canvas.Left="188" Canvas.Top="8" Width="168" Height="28"/>

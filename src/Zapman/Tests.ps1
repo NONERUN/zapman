@@ -1,7 +1,25 @@
-# Strategy test runner. GUI calls Invoke-ZapmanStrategyTests and reads each line via -OnLine.
+# Strategy test runner. GUI uses -OnLine for setup, -OnStrategy for each table, -OnSummary for analytics.
 
 $script:ZapmanTestOnLine = $null
 $script:ZapmanTestShouldStop = $null
+$script:ZapmanTestOnWait = $null
+$script:ZapmanTestOnStrategy = $null
+$script:ZapmanTestOnSummary = $null
+
+function Invoke-ZapmanTestNotify {
+    param(
+        $Callback,
+        $Info
+    )
+    if ($null -eq $Callback) {
+        return
+    }
+    try {
+        & $Callback $Info
+    } catch {
+        [void]$_
+    }
+}
 
 function Write-ZapmanTestHost {
     param(
@@ -47,21 +65,149 @@ function Test-ZapmanTestStopRequested {
     }
 }
 
-function Wait-WinwsReady {
-    $name = Get-ZapretEngineProcessName
-    $limitMs = 8000
-    if ((Get-ZapretEngine) -eq 'winws2') {
-        $limitMs = 12000
+function Invoke-ZapmanTestWait {
+    if ($null -eq $script:ZapmanTestOnWait) {
+        return
     }
-    $timer = [Diagnostics.Stopwatch]::StartNew()
-    while ($timer.ElapsedMilliseconds -lt $limitMs) {
-        if (Get-Process -Name $name -ErrorAction SilentlyContinue) {
-            Start-Sleep -Milliseconds 300
+    try {
+        & $script:ZapmanTestOnWait
+    } catch {
+        [void]$_
+    }
+}
+
+# Record a strategy start failure for the GUI tab and the result file.
+function Add-ZapmanTestFailResult {
+    param(
+        $List,
+        [string]$FileName,
+        [string]$BaseName,
+        [string]$ErrorText
+    )
+    [void]$List.Add(@{
+        Config  = $FileName
+        Type    = 'fail'
+        Results = @()
+        Error   = $ErrorText
+    })
+    Invoke-ZapmanTestNotify -Callback $script:ZapmanTestOnStrategy -Info (New-Object PSObject -Property @{
+        Name    = $BaseName
+        Kind    = 'fail'
+        Results = @()
+        Error   = $ErrorText
+    })
+}
+
+# Write the test result file. Include start failures, not only completed tables.
+function Save-ZapmanTestResultLog {
+    param(
+        [string]$Path,
+        $GlobalResults,
+        $Analytics,
+        [string]$BestConfig
+    )
+    $resultLines = New-Object System.Collections.ArrayList
+    foreach ($res in $GlobalResults) {
+        $config = [string]$res.Config
+        $type = [string]$res.Type
+        [void]$resultLines.Add("Config: $config (Type: $type)")
+        if ($type -eq 'fail') {
+            foreach ($line in @(([string]$res.Error) -split "`r?`n")) {
+                [void]$resultLines.Add("  $line")
+            }
+        } elseif ($type -eq 'standard') {
+            foreach ($targetRes in @($res.Results)) {
+                $name = $targetRes.Name
+                $http = $targetRes.HttpTokens -join ' '
+                $ping = $targetRes.PingResult
+                [void]$resultLines.Add("  $name : $http | Ping: $ping")
+            }
+        } elseif ($type -eq 'dpi') {
+            foreach ($targetRes in @($res.Results)) {
+                $id = $targetRes.TargetId
+                $provider = $targetRes.Provider
+                $country = $targetRes.Country
+                if ($country) {
+                    [void]$resultLines.Add("  Target: [$country] $id ($provider)")
+                } else {
+                    [void]$resultLines.Add("  Target: $id ($provider)")
+                }
+                foreach ($line in @($targetRes.Lines)) {
+                    $test = $line.TestLabel
+                    $code = $line.Code
+                    $up = $line.UpKB
+                    $down = $line.DownKB
+                    $time = $line.Time
+                    $status = $line.Status
+                    [void]$resultLines.Add("    ${test}: code=${code}  up=${up} KB  down=${down} KB  time=${time}s  status=${status}")
+                }
+            }
+        }
+        [void]$resultLines.Add('')
+    }
+
+    if ($Analytics -and @($Analytics.Keys).Count -gt 0) {
+        [void]$resultLines.Add('=== ANALYTICS ===')
+        $maxConfigLen = @($Analytics.Keys | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum
+        if (-not $maxConfigLen) {
+            $maxConfigLen = 8
+        }
+        foreach ($config in @($Analytics.Keys)) {
+            $a = $Analytics[$config]
+            $configPadded = $config.PadRight($maxConfigLen)
+            if ($a.ContainsKey('PingOK')) {
+                $line = "{0} : HTTP OK: {1,3}, ERR: {2,3}, UNSUP: {3,3}, Ping OK: {4,3}, Fail: {5,3}" -f `
+                    $configPadded, $a.OK, $a.ERROR, $a.UNSUP, $a.PingOK, $a.PingFail
+            } else {
+                $line = "{0} : OK: {1,3}, FAIL: {2,3}, UNSUP: {3,3}, BLOCKED: {4,3}" -f `
+                    $configPadded, $a.OK, $a.FAIL, $a.UNSUPPORTED, $a.LIKELY_BLOCKED
+            }
+            [void]$resultLines.Add($line)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($BestConfig)) {
+            [void]$resultLines.Add("Best strategy: $BestConfig")
+        }
+    }
+
+    $text = $resultLines.ToArray() -join [Environment]::NewLine
+    Set-Content -LiteralPath $Path -Value $text -Encoding UTF8
+}
+
+function Wait-ZapmanAsyncHandle {
+    param(
+        $Handle,
+        [int]$TimeoutMs
+    )
+    if (-not $Handle -or -not $Handle.AsyncWaitHandle) {
+        return $true
+    }
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    do {
+        Invoke-ZapmanTestWait
+        if (Test-ZapmanTestStopRequested) {
+            return $false
+        }
+        $left = [int]($deadline - (Get-Date)).TotalMilliseconds
+        if ($left -lt 1) {
+            return $false
+        }
+        $slice = 200
+        if ($left -lt $slice) {
+            $slice = $left
+        }
+        if ($Handle.AsyncWaitHandle.WaitOne($slice)) {
             return $true
         }
-        Start-Sleep -Milliseconds 200
-    }
+    } while ((Get-Date) -lt $deadline)
     return $false
+}
+
+function Wait-WinwsReady {
+    $sec = 8
+    if ((Get-ZapretEngine) -eq 'winws2') {
+        $sec = 12
+    }
+    return (Wait-ZapretWinws -TimeoutSeconds $sec -OnWait { Invoke-ZapmanTestWait })
 }
 
 function New-OrderedDict { New-Object System.Collections.Specialized.OrderedDictionary }
@@ -279,7 +425,7 @@ function Invoke-DpiSuite {
             $waitMs = (([int]$TimeoutSeconds * 3) + 5) * 1000
             $handle = $rs.Handle
             if ($handle -and $handle.AsyncWaitHandle) {
-                $completed = $handle.AsyncWaitHandle.WaitOne($waitMs)
+                $completed = Wait-ZapmanAsyncHandle -Handle $handle -TimeoutMs $waitMs
                 if (-not $completed) {
                     Write-ZapmanTestHost "[WARN] Runspace for [$($rs.TargetId)] timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
                     try {
@@ -519,7 +665,17 @@ function Restore-ZapretTestWinwsSnapshot {
             }
         }
 
-        Start-Process -FilePath $exe -ArgumentList $processArgs -WorkingDirectory (Split-Path $exe -Parent) -WindowStyle Minimized | Out-Null
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $exe
+        $psi.Arguments = $processArgs
+        $psi.WorkingDirectory = Split-Path $exe -Parent
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        try {
+            [void][System.Diagnostics.Process]::Start($psi)
+        } catch {
+            Write-ZapmanTestHost ("[WARN] Restore {0} failed: {1}" -f $exe, $_.Exception.Message) -ForegroundColor Yellow
+        }
     }
 }
 
@@ -530,18 +686,23 @@ function Invoke-ZapmanStrategyTestsCore {
         [string[]]$Names,
         [scriptblock]$OnLine,
         [scriptblock]$ShouldStop,
+        [scriptblock]$OnWait,
+        [scriptblock]$OnStrategy,
+        [scriptblock]$OnSummary,
         [switch]$AskType,
         [switch]$AskNames
     )
 
     $script:ZapmanTestOnLine = $OnLine
     $script:ZapmanTestShouldStop = $ShouldStop
+    $script:ZapmanTestOnWait = $OnWait
+    $script:ZapmanTestOnStrategy = $OnStrategy
+    $script:ZapmanTestOnSummary = $OnSummary
     $script:ZapmanTestExitCode = 1
 
     try {
         $hasErrors = $false
         $layout = Get-ZapretLayout
-        $rootDir = $layout.Root
         $resultsDir = $layout.Results
         if (-not (Test-Path $resultsDir)) {
             New-Item -ItemType Directory -Path $resultsDir | Out-Null
@@ -630,7 +791,7 @@ function Invoke-ZapmanStrategyTestsCore {
             Write-ZapmanTestHost ("[ERROR] No strategies have {0} flags." -f $engine) -ForegroundColor Red
             return 1
         }
-        $globalResults = @()
+        $globalResults = New-Object System.Collections.ArrayList
 
         if ($AskType -or [string]::IsNullOrWhiteSpace($TestType)) {
             $TestType = Read-TestType
@@ -735,19 +896,35 @@ try {
 
     # Start config
     if (-not (Test-ZapretStrategySupportsEngine -Path $file.FullName -Engine $engine)) {
+        $skipText = ("No {0} flags. Skipping." -f $engine)
         Write-ZapmanTestHost ("  > No {0} flags. Skipping..." -f $engine) -ForegroundColor DarkGray
+        Add-ZapmanTestFailResult -List $globalResults -FileName $file.Name -BaseName $file.BaseName -ErrorText $skipText
         continue
     }
 
     Write-ZapmanTestHost ("  > Starting config ({0})..." -f $engine) -ForegroundColor Cyan
-    $proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($file.FullName)`"" -WorkingDirectory $rootDir -PassThru -WindowStyle Minimized
-
-    # Wait init
-    if (-not (Wait-WinwsReady)) {
-        Write-ZapmanTestHost ("  > Strategy failed to start ({0} process not found). Skipping..." -f (Get-ZapretEngineExeName -Engine $engine)) -ForegroundColor Red
-        if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+    try {
+        Enable-ZapmanTcpTimestamps
+        Start-ZapretStrategyFile -Path $file.FullName
+    } catch {
+        $errText = Get-ZapmanExceptionText $_
+        Write-ZapmanTestHost ("  > {0}" -f $errText) -ForegroundColor Red
+        Add-ZapmanTestFailResult -List $globalResults -FileName $file.Name -BaseName $file.BaseName -ErrorText $errText
         continue
     }
+
+    if (-not (Wait-WinwsReady)) {
+        if (Test-ZapmanTestStopRequested) {
+            Write-ZapmanTestHost "[INFO] Tests cancelled." -ForegroundColor Yellow
+            break
+        }
+        $errText = New-ZapretEngineFailText -Key 'EngineStartFail'
+        Write-ZapmanTestHost ("  > {0}" -f $errText) -ForegroundColor Red
+        Add-ZapmanTestFailResult -List $globalResults -FileName $file.Name -BaseName $file.BaseName -ErrorText $errText
+        Stop-ZapretTestWinws
+        continue
+    }
+    Set-ZapmanLastError -Text ''
 
     if ($TestType -eq 'standard') {
         $curlTimeoutSeconds = $standardCurlTimeout
@@ -861,7 +1038,7 @@ try {
                 $waitMs = (([int]$curlTimeoutSeconds * 3) + 5) * 1000
                 $handle = $rs.Handle
                 if ($handle -and $handle.AsyncWaitHandle) {
-                    $completed = $handle.AsyncWaitHandle.WaitOne($waitMs)
+                    $completed = Wait-ZapmanAsyncHandle -Handle $handle -TimeoutMs $waitMs
                     if (-not $completed) {
                         Write-ZapmanTestHost "[WARN] Runspace for target timed out after $waitMs ms; stopping runspace..." -ForegroundColor Yellow
                         try {
@@ -948,16 +1125,27 @@ try {
 
         }
 
-        $globalResults += @{ Config = $file.Name; Type = 'standard'; Results = $targetResults }
+        [void]$globalResults.Add(@{ Config = $file.Name; Type = 'standard'; Results = @($targetResults) })
+        Invoke-ZapmanTestNotify -Callback $script:ZapmanTestOnStrategy -Info (New-Object PSObject -Property @{
+            Name    = $file.BaseName
+            Kind    = 'standard'
+            Results = $targetResults
+            Error   = ''
+        })
     } else {
         Write-ZapmanTestHost "  > Running DPI checkers..." -ForegroundColor DarkGray
         $dpiResults = Invoke-DpiSuite -Targets $dpiTargets -TimeoutSeconds $dpiTimeoutSeconds -RangeBytes $dpiRangeBytes -MaxParallel $dpiMaxParallel
-        $globalResults += @{ Config = $file.Name; Type = 'dpi'; Results = $dpiResults }
+        [void]$globalResults.Add(@{ Config = $file.Name; Type = 'dpi'; Results = @($dpiResults) })
+        Invoke-ZapmanTestNotify -Callback $script:ZapmanTestOnStrategy -Info (New-Object PSObject -Property @{
+            Name    = $file.BaseName
+            Kind    = 'dpi'
+            Results = $dpiResults
+            Error   = ''
+        })
     }
 
     # Stop
     Stop-ZapretTestWinws
-    if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
 }
 
     Write-ZapmanTestHost ""
@@ -965,11 +1153,15 @@ try {
 
     # Analytics
     $analytics = @{}
+    $sumOrder = New-Object System.Collections.ArrayList
     foreach ($res in $globalResults) {
         if ($res.Type -eq 'standard') {
             foreach ($targetRes in $res.Results) {
                 $config = $res.Config
-                if (-not $analytics.ContainsKey($config)) { $analytics[$config] = @{ OK = 0; ERROR = 0; UNSUP = 0; PingOK = 0; PingFail = 0 } }
+                if (-not $analytics.ContainsKey($config)) {
+                    $analytics[$config] = @{ OK = 0; ERROR = 0; UNSUP = 0; PingOK = 0; PingFail = 0 }
+                    [void]$sumOrder.Add($config)
+                }
                 if ($targetRes.IsUrl) {
                     foreach ($tok in $targetRes.HttpTokens) {
                         if ($tok -match "OK") { $analytics[$config].OK++ }
@@ -983,7 +1175,10 @@ try {
         } elseif ($res.Type -eq 'dpi') {
             foreach ($targetRes in $res.Results) {
                 $config = $res.Config
-                if (-not $analytics.ContainsKey($config)) { $analytics[$config] = @{ OK = 0; FAIL = 0; UNSUPPORTED = 0; LIKELY_BLOCKED = 0 } }
+                if (-not $analytics.ContainsKey($config)) {
+                    $analytics[$config] = @{ OK = 0; FAIL = 0; UNSUPPORTED = 0; LIKELY_BLOCKED = 0 }
+                    [void]$sumOrder.Add($config)
+                }
                 foreach ($line in $targetRes.Lines) {
                     if ($line.Status -eq "OK") { $analytics[$config].OK++ }
                     elseif ($line.Status -eq "FAIL") { $analytics[$config].FAIL++ }
@@ -996,13 +1191,25 @@ try {
 
     if (@($analytics.Keys).Count -eq 0) {
         Write-ZapmanTestHost "No completed strategy results." -ForegroundColor Yellow
+        Invoke-ZapmanTestNotify -Callback $script:ZapmanTestOnSummary -Info (New-Object PSObject -Property @{
+            Best = ''
+            Kind = $TestType
+            Rows = @()
+        })
+        if ($globalResults.Count -gt 0) {
+            $dateStr = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+            $resultFile = Join-Path $resultsDir "test_results_$dateStr.txt"
+            Save-ZapmanTestResultLog -Path $resultFile -GlobalResults $globalResults -Analytics $analytics -BestConfig ''
+            Write-ZapmanTestHost "Results saved to $resultFile" -ForegroundColor Green
+        }
         return 1
     }
 
     Write-ZapmanTestHost ""
     Write-ZapmanTestHost "=== ANALYTICS ===" -ForegroundColor Cyan
-    $maxConfigLen = ($analytics.Keys | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum
-    foreach ($config in $analytics.Keys) {
+    $nameListForPad = @($sumOrder)
+    $maxConfigLen = ($nameListForPad | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum
+    foreach ($config in @($sumOrder)) {
         $a = $analytics[$config]
         $configPadded = $config.PadRight($maxConfigLen)
         if ($a.ContainsKey('PingOK')) {
@@ -1041,65 +1248,51 @@ try {
     Write-ZapmanTestHost "Best config: $bestConfig" -ForegroundColor Green
     Write-ZapmanTestHost ""
 
+    $sumRows = New-Object System.Collections.ArrayList
+    foreach ($config in @($sumOrder)) {
+        $a = $analytics[$config]
+        $disp = $config
+        if ($disp.EndsWith('.json')) {
+            $disp = [System.IO.Path]::GetFileNameWithoutExtension($disp)
+        }
+        $row = New-Object PSObject -Property @{
+            Name     = $disp
+            OK       = $a.OK
+            ERROR    = 0
+            UNSUP    = 0
+            FAIL     = 0
+            BLOCKED  = 0
+            PingOK   = 0
+            PingFail = 0
+            Kind     = 'dpi'
+        }
+        if ($a.ContainsKey('PingOK')) {
+            $row.Kind = 'standard'
+            $row.ERROR = $a.ERROR
+            $row.UNSUP = $a.UNSUP
+            $row.PingOK = $a.PingOK
+            $row.PingFail = $a.PingFail
+        } else {
+            $row.FAIL = $a.FAIL
+            $row.UNSUP = $a.UNSUPPORTED
+            $row.BLOCKED = $a.LIKELY_BLOCKED
+        }
+        [void]$sumRows.Add($row)
+    }
+    $bestDisp = [string]$bestConfig
+    if ($bestDisp.EndsWith('.json')) {
+        $bestDisp = [System.IO.Path]::GetFileNameWithoutExtension($bestDisp)
+    }
+    Invoke-ZapmanTestNotify -Callback $script:ZapmanTestOnSummary -Info (New-Object PSObject -Property @{
+        Best = $bestDisp
+        Kind = $TestType
+        Rows = @($sumRows)
+    })
+
     # Save to file
     $dateStr = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $resultFile = Join-Path $resultsDir "test_results_$dateStr.txt"
-    $resultLines = New-Object System.Collections.Generic.List[string]
-    foreach ($res in $globalResults) {
-        $config = $res.Config
-        $type = $res.Type
-        $results = $res.Results
-        [void]$resultLines.Add("Config: $config (Type: $type)")
-        if ($type -eq 'standard') {
-            foreach ($targetRes in $results) {
-                $name = $targetRes.Name
-                $http = $targetRes.HttpTokens -join ' '
-                $ping = $targetRes.PingResult
-                [void]$resultLines.Add("  $name : $http | Ping: $ping")
-            }
-        } elseif ($type -eq 'dpi') {
-            foreach ($targetRes in $results) {
-                $id = $targetRes.TargetId
-                $provider = $targetRes.Provider
-                $country = $targetRes.Country
-                if ($country) {
-                    [void]$resultLines.Add("  Target: [$country] $id ($provider)")
-                } else {
-                    [void]$resultLines.Add("  Target: $id ($provider)")
-                }
-                foreach ($line in $targetRes.Lines) {
-                    $test = $line.TestLabel
-                    $code = $line.Code
-                    $up = $line.UpKB
-                    $down = $line.DownKB
-                    $time = $line.Time
-                    $status = $line.Status
-                    [void]$resultLines.Add("    ${test}: code=${code}  up=${up} KB  down=${down} KB  time=${time}s  status=${status}")
-                }
-            }
-        }
-        [void]$resultLines.Add("")
-    }
-
-    # Add analytics
-    [void]$resultLines.Add("=== ANALYTICS ===")
-    $maxConfigLen = ($analytics.Keys | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum
-    foreach ($config in $analytics.Keys) {
-        $a = $analytics[$config]
-        $configPadded = $config.PadRight($maxConfigLen)
-        if ($a.ContainsKey('PingOK')) {
-            $line = "{0} : HTTP OK: {1,3}, ERR: {2,3}, UNSUP: {3,3}, Ping OK: {4,3}, Fail: {5,3}" -f `
-                $configPadded, $a.OK, $a.ERROR, $a.UNSUP, $a.PingOK, $a.PingFail
-        } else {
-            $line = "{0} : OK: {1,3}, FAIL: {2,3}, UNSUP: {3,3}, BLOCKED: {4,3}" -f `
-                $configPadded, $a.OK, $a.FAIL, $a.UNSUPPORTED, $a.LIKELY_BLOCKED
-        }
-        [void]$resultLines.Add($line)
-    }
-
-    [void]$resultLines.Add("Best strategy: $bestConfig")
-    $resultLines | Set-Content $resultFile -Encoding UTF8
-
+    Save-ZapmanTestResultLog -Path $resultFile -GlobalResults $globalResults -Analytics $analytics -BestConfig ([string]$bestConfig)
     Write-ZapmanTestHost "Results saved to $resultFile" -ForegroundColor Green
     $script:ZapmanTestExitCode = 0
 
@@ -1122,6 +1315,9 @@ try {
     } finally {
         $script:ZapmanTestOnLine = $null
         $script:ZapmanTestShouldStop = $null
+        $script:ZapmanTestOnWait = $null
+        $script:ZapmanTestOnStrategy = $null
+        $script:ZapmanTestOnSummary = $null
     }
     return [int]$script:ZapmanTestExitCode
 }

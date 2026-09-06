@@ -6,9 +6,15 @@ $ErrorActionPreference = 'Continue'
 
 . (Join-Path $PSScriptRoot 'Core.ps1')
 . (Join-Path $PSScriptRoot 'Ui.ps1')
+Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'ZapretSpec\ZapretSpec.psd1')
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapret\Bypass.ps1')
 . (Join-Path $PSScriptRoot 'Tools.ps1')
+. (Join-Path $PSScriptRoot 'TrayWatch.ps1')
 . (Join-Path $PSScriptRoot 'Tests.ps1')
+
+function Get-ZapmanSpecVersion {
+    return (Get-ZapretSpecVersion)
+}
 
 function Invoke-ZapmanStrategyTests {
     param(
@@ -16,6 +22,9 @@ function Invoke-ZapmanStrategyTests {
         [string[]]$Names,
         [scriptblock]$OnLine,
         [scriptblock]$ShouldStop,
+        [scriptblock]$OnWait,
+        [scriptblock]$OnStrategy,
+        [scriptblock]$OnSummary,
         [switch]$AskType,
         [switch]$AskNames
     )
@@ -27,6 +36,7 @@ Export-ModuleMember -Function @(
     'Get-ZapmanConfig'
     'Get-ZapmanConfigError'
     'Get-ZapmanLocalVersion'
+    'Get-ZapmanSpecVersion'
     'ConvertTo-ZapmanVersion'
     'Get-ZapmanVersionFromRemoteBody'
     'Initialize-ZapmanUserLists'
@@ -72,6 +82,11 @@ Export-ModuleMember -Function @(
     'Remove-ZapretServices'
     'Test-ZapmanAutoUpdateEnabled'
     'Set-ZapmanAutoUpdateEnabled'
+    'Test-ZapmanTrayWatchEnabled'
+    'Set-ZapmanTrayWatchEnabled'
+    'Sync-ZapmanTrayWatch'
+    'Get-ZapmanTrayMutexName'
+    'Open-ZapmanGui'
     'Get-ZapretVersionCheckUrl'
     'Get-ZapretRemoteVersion'
     'Get-ZapretReleasePageUrl'
@@ -87,6 +102,9 @@ Export-ModuleMember -Function @(
     'Set-ZapretActiveFake'
     'Invoke-ZapmanStrategyTests'
     'Get-ZapmanStatusLines'
+    'Get-ZapmanLastError'
+    'Set-ZapmanLastError'
+    'Get-ZapmanExceptionText'
     'Clear-ZapmanDiscordCache'
     'Remove-ZapretNamedServices'
     'Get-ZapmanDiagnosticReport'

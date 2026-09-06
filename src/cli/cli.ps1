@@ -59,7 +59,7 @@ function Show-ZapmanCliMenu {
         switch ($choice) {
             '1' { [void](Start-ZapmanServiceConsole) }
             '2' { [void](Invoke-ZapmanCliTests) }
-            '3' { [void](Show-ZapmanHostReadyReport) }
+            '3' { [void](Show-ZapmanHostReadyReport -ShowVersions) }
             '0' { return 0 }
             default { Write-Host (Get-ZapmanUiString -Key 'InvalidChoice') }
         }
@@ -82,7 +82,7 @@ if ($command -eq 'help' -or $command -eq '-h' -or $command -eq '--help' -or $com
 }
 
 if ($command -eq 'env' -or $command -eq 'check-env') {
-    exit (Show-ZapmanHostReadyReport)
+    exit (Show-ZapmanHostReadyReport -ShowVersions)
 }
 
 if ((Show-ZapmanHostReadyReport) -ne 0) {

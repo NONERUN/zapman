@@ -57,6 +57,56 @@ function Show-GuiBootConsole {
     }
 }
 
+function Initialize-GuiBootWin32 {
+    $code = @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class GuiBootWin32 {
+    public delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr lp);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder sb, int max);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+}
+'@
+    if (-not ('GuiBootWin32' -as [type])) {
+        Add-Type -TypeDefinition $code -ErrorAction Stop
+    }
+}
+
+function Show-GuiBootExistingWindow {
+    try {
+        Initialize-GuiBootWin32
+    } catch {
+        return
+    }
+    $found = New-Object System.Collections.ArrayList
+    $cb = [GuiBootWin32+EnumProc] {
+        param([IntPtr]$hWnd, [IntPtr]$lp)
+        [void]$lp
+        if (-not [GuiBootWin32]::IsWindowVisible($hWnd)) {
+            return $true
+        }
+        $sb = New-Object System.Text.StringBuilder 256
+        [void][GuiBootWin32]::GetWindowText($hWnd, $sb, $sb.Capacity)
+        $title = $sb.ToString()
+        if ($title.StartsWith('Zapret Manager')) {
+            [void]$found.Add($hWnd)
+            return $false
+        }
+        return $true
+    }
+    [void][GuiBootWin32]::EnumWindows($cb, [IntPtr]::Zero)
+    if ($found.Count -lt 1) {
+        return
+    }
+    $h = [IntPtr]$found[0]
+    [void][GuiBootWin32]::ShowWindow($h, 9)
+    [void][GuiBootWin32]::SetForegroundWindow($h)
+}
+
 function Test-GuiBootAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -98,6 +148,19 @@ if (-not (Test-GuiBootAdministrator)) {
     }
 }
 
+# Same name as Get-ZapmanGuiMutexName in src/Zapman/TrayWatch.ps1.
+$script:guiMutex = New-Object System.Threading.Mutex($false, 'Local\ZapmanGui')
+$script:guiMutexOwned = $false
+try {
+    $script:guiMutexOwned = $script:guiMutex.WaitOne(0)
+} catch [System.Threading.AbandonedMutexException] {
+    $script:guiMutexOwned = $true
+}
+if (-not $script:guiMutexOwned) {
+    Show-GuiBootExistingWindow
+    exit 0
+}
+
 try {
     Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
     Add-Type -AssemblyName PresentationCore -ErrorAction Stop
@@ -132,7 +195,7 @@ try {
     foreach ($name in @(
             'btnStart', 'btnStop', 'btnRemove', 'btnStrategy', 'btnFakes',
             'btnIpsetUpd', 'btnHosts', 'btnUpdates', 'btnDiag',
-            'cmbGame', 'cmbIpset', 'chkAuto'
+            'cmbGame', 'cmbIpset', 'chkAuto', 'chkTray'
         )) {
         $el = $window.FindName($name)
         if ($null -ne $el) {

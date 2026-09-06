@@ -446,6 +446,7 @@ $cmbGame = Get-XamlChild -Root $window -Name 'cmbGame'
 $lblIpset = Get-XamlChild -Root $window -Name 'lblIpset'
 $cmbIpset = Get-XamlChild -Root $window -Name 'cmbIpset'
 $chkAuto = Get-XamlChild -Root $window -Name 'chkAuto'
+$chkTray = Get-XamlChild -Root $window -Name 'chkTray'
 $btnFakes = Get-XamlChild -Root $window -Name 'btnFakes'
 $grpTools = Get-XamlChild -Root $window -Name 'grpTools'
 $btnIpsetUpd = Get-XamlChild -Root $window -Name 'btnIpsetUpd'
@@ -487,6 +488,7 @@ function Update-GuiLanguage {
     $btnUpdates.Content = Get-ZapmanUiString -Key 'BtnVersion'
     $btnDiag.Content = Get-ZapmanUiString -Key 'BtnDiag'
     $chkAuto.Content = Get-ZapmanUiString -Key 'ChkAuto'
+    $chkTray.Content = Get-ZapmanUiString -Key 'ChkTray'
     $lblGame.Text = Get-ZapmanUiString -Key 'LblGame'
     $lblIpset.Text = Get-ZapmanUiString -Key 'LblIpset'
     $rbRu.Content = Get-ZapmanUiString -Key 'LangRu'
@@ -501,6 +503,7 @@ function Update-GuiLanguage {
     $btnUpdates.ToolTip = Get-ZapmanUiString -Key 'TipVersion'
     $btnDiag.ToolTip = Get-ZapmanUiString -Key 'TipDiag'
     $chkAuto.ToolTip = Get-ZapmanUiString -Key 'TipAuto'
+    $chkTray.ToolTip = Get-ZapmanUiString -Key 'TipTray'
     $grpStatus.ToolTip = Get-ZapmanUiString -Key 'TipStatusClick'
 }
 
@@ -541,6 +544,7 @@ function Set-ActionButtonsEnabled {
     $btnUpdates.IsEnabled = $Enabled
     $btnDiag.IsEnabled = $Enabled
     $chkAuto.IsEnabled = $Enabled
+    $chkTray.IsEnabled = $Enabled
     $cmbGame.IsEnabled = $Enabled
     $cmbIpset.IsEnabled = $Enabled
 }
@@ -606,6 +610,10 @@ function Update-Status {
         $bannerKey = 'BannerStopPending'
         $bannerBg = [System.Windows.Media.Color]::FromRgb(253, 232, 230)
         $bannerFg = [System.Windows.Media.Color]::FromRgb(180, 35, 24)
+    } elseif (-not [string]::IsNullOrWhiteSpace((Get-ZapmanLastError))) {
+        $bannerKey = 'BannerLastError'
+        $bannerBg = [System.Windows.Media.Color]::FromRgb(253, 232, 230)
+        $bannerFg = [System.Windows.Media.Color]::FromRgb(180, 35, 24)
     } elseif (-not $hasStrategies) {
         $bannerKey = 'BannerNoStrategies'
         $bannerBg = [System.Windows.Media.Color]::FromRgb(255, 244, 214)
@@ -639,6 +647,7 @@ function Update-Status {
     if ($ipsetIndex -lt 0) { $ipsetIndex = 0 }
 
     $autoOn = Test-ZapmanAutoUpdateEnabled
+    $trayOn = Test-ZapmanTrayWatchEnabled
     $script:updatingSettings = $true
     try {
         if ($cmbGame.SelectedIndex -ne $gameIndex) {
@@ -649,6 +658,9 @@ function Update-Status {
         }
         if (($chkAuto.IsChecked -eq $true) -ne $autoOn) {
             $chkAuto.IsChecked = $autoOn
+        }
+        if (($chkTray.IsChecked -eq $true) -ne $trayOn) {
+            $chkTray.IsChecked = $trayOn
         }
     } finally {
         $script:updatingSettings = $false
@@ -710,8 +722,10 @@ function Invoke-GuiAction {
         & $Action
         Update-Status
     } catch {
-        Show-ErrorDialog $_.Exception.Message
-        Write-GuiLog $_.Exception.Message
+        $errText = Get-ZapmanExceptionText $_
+        Set-ZapmanLastError -Text $errText
+        Show-ErrorDialog $errText
+        Write-GuiLog $errText
         Update-Status
     } finally {
         if ($FreezeUi) {
@@ -822,6 +836,24 @@ $autoChanged = {
 }
 $chkAuto.Add_Checked($autoChanged)
 $chkAuto.Add_Unchecked($autoChanged)
+
+$trayChanged = {
+    if ($script:updatingSettings) { return }
+    try {
+        $on = $chkTray.IsChecked -eq $true
+        Set-ZapmanTrayWatchEnabled -Enabled $on
+        if ($on) {
+            Write-GuiLog (Get-ZapmanUiString -Key 'TrayOn')
+        } else {
+            Write-GuiLog (Get-ZapmanUiString -Key 'TrayOff')
+        }
+    } catch {
+        Show-ErrorDialog $_.Exception.Message
+        Update-Status
+    }
+}
+$chkTray.Add_Checked($trayChanged)
+$chkTray.Add_Unchecked($trayChanged)
 
 $btnFakes.Add_Click({
     try {
@@ -980,6 +1012,11 @@ function Start-GuiFirstPaint {
                     Write-GuiLog $cfgErr
                 }
                 $timer.Start()
+                try {
+                    Sync-ZapmanTrayWatch
+                } catch {
+                    Write-GuiLog (Get-ZapmanExceptionText $_)
+                }
                 if (Test-ZapmanAutoUpdateEnabled) {
                     Start-GuiVersionCheck
                 }

@@ -3,6 +3,11 @@
 
 Set-StrictMode -Version Latest
 
+$script:ZapretArgvCache = @{}
+$script:ZapmanEngineProcess = $null
+$script:ZapmanEngineErrTask = $null
+$script:ZapmanEngineOutTask = $null
+
 function Invoke-ZapretOnWait {
     param([scriptblock]$OnWait)
     if ($null -ne $OnWait) {
@@ -80,7 +85,7 @@ function Get-ZapretStrategyFiles {
         return @()
     }
     return @(
-        Get-ChildItem -LiteralPath $script:ZapmanStrategiesDir -Filter '*.ps1' |
+        Get-ChildItem -LiteralPath $script:ZapmanStrategiesDir -Filter '*.json' |
             Sort-Object { [Regex]::Replace($_.Name, '(\d+)', { $args[0].Value.PadLeft(8, '0') }) }
     )
 }
@@ -226,22 +231,17 @@ function Get-ZapretStrategyArgTemplate {
     if ([string]::IsNullOrWhiteSpace($Engine)) {
         $Engine = Get-ZapretEngine
     }
-    $raw = [System.IO.File]::ReadAllText($Path)
-    if ($Engine -eq 'winws2') {
-        $m = [regex]::Match($raw, '(?s)\$argListWinws2\s*=\s*@"\r?\n(.+?)\r?\n"@')
-        if ($m.Success) {
-            return $m.Groups[1].Value
-        }
-        return ''
+    $item = Get-Item -LiteralPath $Path
+    $gf = Get-ZapretGameFilter
+    $key = '{0}|{1}|{2}|{3}|{4}' -f $Path.ToLowerInvariant(), $Engine, [string]$gf.Tcp, [string]$gf.Udp, $item.LastWriteTimeUtc.Ticks
+    if ($script:ZapretArgvCache.ContainsKey($key)) {
+        return [string]$script:ZapretArgvCache[$key]
     }
-    $m = [regex]::Match($raw, '(?s)\$argListWinws\s*=\s*@"\r?\n(.+?)\r?\n"@')
-    if (-not $m.Success) {
-        $m = [regex]::Match($raw, '(?s)\$argList\s*=\s*@"\r?\n(.+?)\r?\n"@')
-    }
-    if (-not $m.Success) {
-        return ''
-    }
-    return $m.Groups[1].Value
+    $layout = Get-ZapretLayout
+    $spec = Get-ZapretStrategySpec -Path $Path
+    $argv = ConvertTo-ZapretStrategyArgList -Spec $spec -Engine $Engine -Bin $layout.Bin -Lists $layout.Lists -User $layout.User -GameFilterTcp $gf.Tcp -GameFilterUdp $gf.Udp
+    $script:ZapretArgvCache[$key] = $argv
+    return $argv
 }
 
 function Test-ZapretStrategySupportsEngine {
@@ -249,8 +249,19 @@ function Test-ZapretStrategySupportsEngine {
         [string]$Path,
         [string]$Engine
     )
-    $tmpl = Get-ZapretStrategyArgTemplate -Path $Path -Engine $Engine
-    return -not [string]::IsNullOrWhiteSpace($tmpl)
+    if ([string]::IsNullOrWhiteSpace($Engine)) {
+        $Engine = Get-ZapretEngine
+    }
+    if ($Engine -ne 'winws' -and $Engine -ne 'winws2') {
+        return $false
+    }
+    # List UI only needs a valid spec. Do not generate argv here.
+    try {
+        [void](Get-ZapretStrategySpec -Path $Path)
+    } catch {
+        return $false
+    }
+    return $true
 }
 
 function Expand-ZapretStrategyArgTemplate {
@@ -303,10 +314,24 @@ function Get-ZapretStrategyNameFromWinws {
     if ([string]::IsNullOrWhiteSpace($live)) {
         return ''
     }
+    $engines = New-Object System.Collections.ArrayList
+    $running = Get-ZapretRunningBypassName
+    if ($running -eq 'winws2') {
+        [void]$engines.Add('winws2')
+    } elseif ($running -eq 'winws') {
+        [void]$engines.Add('winws')
+    } else {
+        [void]$engines.Add('winws')
+        [void]$engines.Add('winws2')
+    }
     $hits = New-Object System.Collections.ArrayList
     foreach ($file in @(Get-ZapretStrategyFiles)) {
-        foreach ($eng in @('winws', 'winws2')) {
-            $tmpl = Get-ZapretStrategyArgTemplate -Path $file.FullName -Engine $eng
+        foreach ($eng in @($engines)) {
+            try {
+                $tmpl = Get-ZapretStrategyArgTemplate -Path $file.FullName -Engine $eng
+            } catch {
+                continue
+            }
             if ([string]::IsNullOrWhiteSpace($tmpl)) {
                 continue
             }
@@ -339,6 +364,77 @@ function Get-ZapretRunningStrategyName {
     return (Get-ZapretStrategyNameFromWinws)
 }
 
+function Close-ZapretEngineCapture {
+    $script:ZapmanEngineErrTask = $null
+    $script:ZapmanEngineOutTask = $null
+    $proc = $script:ZapmanEngineProcess
+    $script:ZapmanEngineProcess = $null
+    if ($null -ne $proc) {
+        try {
+            $proc.Dispose()
+        } catch {
+            [void]$_
+        }
+    }
+}
+
+function Get-ZapretTaskText {
+    param(
+        $Task,
+        [int]$TimeoutMs = 2000
+    )
+    if ($null -eq $Task) {
+        return ''
+    }
+    try {
+        if (-not $Task.Wait($TimeoutMs)) {
+            return ''
+        }
+        return [string]$Task.Result
+    } catch {
+        return ''
+    }
+}
+
+function Get-ZapretCapturedEngineOutput {
+    $chunks = New-Object System.Collections.ArrayList
+    $proc = $script:ZapmanEngineProcess
+    if ($null -ne $proc) {
+        try {
+            if ($proc.HasExited) {
+                $proc.WaitForExit()
+                [void]$chunks.Add(('exit {0}' -f $proc.ExitCode))
+            }
+        } catch {
+            [void]$_
+        }
+    }
+    $err = (Get-ZapretTaskText -Task $script:ZapmanEngineErrTask).Trim()
+    $out = (Get-ZapretTaskText -Task $script:ZapmanEngineOutTask).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($err)) {
+        [void]$chunks.Add($err)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($out)) {
+        [void]$chunks.Add($out)
+    }
+    if ($chunks.Count -eq 0) {
+        return ''
+    }
+    return (@($chunks) -join [Environment]::NewLine)
+}
+
+function New-ZapretEngineFailText {
+    param([string]$Key)
+    $head = Get-ZapmanUiString -Key $Key -FormatArgs @(Get-ZapretEngineExeName)
+    $detail = Get-ZapretCapturedEngineOutput
+    $full = $head
+    if (-not [string]::IsNullOrWhiteSpace($detail)) {
+        $full = $head + [Environment]::NewLine + $detail
+    }
+    Set-ZapmanLastError -Text $full
+    return $full
+}
+
 function Start-ZapretWinws {
     param([string]$ArgumentList)
     $engine = Get-ZapretEngine
@@ -363,13 +459,42 @@ function Start-ZapretWinws {
         throw (Get-ZapmanUiString -Key 'EngineNoFlags' -FormatArgs @('winws'))
     }
     $flat = Complete-ZapretEngineArgumentList -ArgumentList $ArgumentList -Engine $engine
-    Start-Process -FilePath $exe -ArgumentList $flat -WorkingDirectory $script:ZapmanBinDir -WindowStyle Minimized | Out-Null
+    Close-ZapretEngineCapture
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $exe
+    $psi.Arguments = $flat
+    $psi.WorkingDirectory = $script:ZapmanBinDir
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardError = $true
+    $psi.RedirectStandardOutput = $true
+    $proc = New-Object System.Diagnostics.Process
+    $proc.StartInfo = $psi
+    try {
+        [void]$proc.Start()
+    } catch {
+        Close-ZapretEngineCapture
+        throw
+    }
+    $script:ZapmanEngineProcess = $proc
+    try {
+        $script:ZapmanEngineErrTask = $proc.StandardError.ReadToEndAsync()
+        $script:ZapmanEngineOutTask = $proc.StandardOutput.ReadToEndAsync()
+    } catch {
+        $script:ZapmanEngineErrTask = $null
+        $script:ZapmanEngineOutTask = $null
+    }
 }
 
 function Start-ZapretStrategyFile {
     param([string]$Path)
-    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$Path`""
-    Start-Process -FilePath 'powershell.exe' -ArgumentList $argList -WorkingDirectory $script:ZapmanRoot -WindowStyle Minimized | Out-Null
+    Invoke-ZapretStrategyPrep
+    $engine = Get-ZapretEngine
+    $tmpl = Get-ZapretStrategyArgTemplate -Path $Path -Engine $engine
+    if ([string]::IsNullOrWhiteSpace($tmpl)) {
+        throw (Get-ZapmanUiString -Key 'EngineNoFlags' -FormatArgs @($engine))
+    }
+    Start-ZapretWinws -ArgumentList $tmpl
 }
 
 function ConvertTo-ZapretServiceImagePath {
@@ -532,11 +657,11 @@ function Stop-ZapretWinwsProcess {
     $procs = @(Get-Process -Name 'winws' -ErrorAction SilentlyContinue)
     $procs2 = @(Get-Process -Name 'winws2' -ErrorAction SilentlyContinue)
     $all = @($procs) + @($procs2)
-    if ($all.Count -eq 0) {
-        return
+    if ($all.Count -gt 0) {
+        $all | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 400
     }
-    $all | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 400
+    Close-ZapretEngineCapture
 }
 
 function Wait-ZapretServiceStopped {
@@ -600,6 +725,16 @@ function Wait-ZapretWinws {
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
         Invoke-ZapretOnWait -OnWait $OnWait
+        $owned = $script:ZapmanEngineProcess
+        if ($null -ne $owned) {
+            try {
+                if ($owned.HasExited) {
+                    return $false
+                }
+            } catch {
+                return $false
+            }
+        }
         Start-Sleep -Milliseconds 250
         if (-not (Test-ZapretBypassRunning)) {
             continue
@@ -691,8 +826,9 @@ function Start-ZapretSelectedStrategy {
     Start-ZapretStrategyFile -Path $File.FullName
 
     if (-not (Wait-ZapretWinws -TimeoutSeconds 12 -OnWait $OnWait)) {
-        throw (Get-ZapmanUiString -Key 'EngineStartFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
+        throw (New-ZapretEngineFailText -Key 'EngineStartFail')
     }
+    Set-ZapmanLastError -Text ''
 }
 
 function Start-ZapretServiceIfInstalled {
@@ -707,8 +843,9 @@ function Start-ZapretServiceIfInstalled {
     Enable-ZapmanTcpTimestamps
     Start-Service -Name 'zapret' -ErrorAction Stop
     if (-not (Wait-ZapretWinws -TimeoutSeconds 12 -OnWait $OnWait)) {
-        throw (Get-ZapmanUiString -Key 'EngineServiceFail' -FormatArgs @(Get-ZapretEngineExeName))
+        throw (New-ZapretEngineFailText -Key 'EngineServiceFail')
     }
+    Set-ZapmanLastError -Text ''
 }
 
 function Install-ZapretService {
@@ -745,7 +882,7 @@ function Install-ZapretService {
     Start-ZapretStrategyFile -Path $File.FullName
 
     if (-not (Wait-ZapretWinws -TimeoutSeconds 15 -RequireCommandLine -OnWait $OnWait)) {
-        throw (Get-ZapmanUiString -Key 'EngineInstallFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
+        throw (New-ZapretEngineFailText -Key 'EngineInstallFail')
     }
 
     Stop-ZapretBypass -OnWait $OnWait
@@ -812,8 +949,9 @@ function Install-ZapretService {
             $waitSec = 15
         }
         if (-not (Wait-ZapretWinws -TimeoutSeconds $waitSec -RequireCommandLine -OnWait $OnWait)) {
-            throw (Get-ZapmanUiString -Key 'EngineServiceFail' -FormatArgs @(Get-ZapretEngineExeName -Engine $engine))
+            throw (New-ZapretEngineFailText -Key 'EngineServiceFail')
         }
+        Set-ZapmanLastError -Text ''
     } catch {
         if ($created -or (Test-ZapretNamedService -Name 'zapret')) {
             & net.exe stop zapret 2>$null | Out-Null

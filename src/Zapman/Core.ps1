@@ -70,6 +70,7 @@ function New-ZapmanConfigDefaults {
         engine           = 'winws'
         gameFilter       = 'disabled'
         autoUpdateCheck  = $true
+        trayWatch        = $true
         testTargets      = @(
             (New-Object PSObject -Property @{ name = 'DiscordMain'; value = 'https://discord.com' })
             (New-Object PSObject -Property @{ name = 'DiscordGateway'; value = 'https://gateway.discord.gg' })
@@ -140,6 +141,9 @@ function Get-ZapmanConfig {
     if ($parsed.PSObject.Properties['autoUpdateCheck']) {
         $cfg.autoUpdateCheck = [bool]$parsed.autoUpdateCheck
     }
+    if ($parsed.PSObject.Properties['trayWatch']) {
+        $cfg.trayWatch = [bool]$parsed.trayWatch
+    }
     if ($parsed.PSObject.Properties['testTargets']) {
         $items = @($parsed.testTargets)
         if ($items.Count -gt 0) {
@@ -158,6 +162,7 @@ function Save-ZapmanConfig {
         engine          = [string]$Config.engine
         gameFilter      = [string]$Config.gameFilter
         autoUpdateCheck = [bool]$Config.autoUpdateCheck
+        trayWatch       = [bool]$Config.trayWatch
         testTargets     = @($Config.testTargets)
     }
     $json = $payload | ConvertTo-Json -Depth 6
@@ -175,7 +180,8 @@ function Update-ZapmanConfig {
         [string]$Language,
         [string]$Engine,
         [string]$GameFilter,
-        [object]$AutoUpdateCheck
+        [object]$AutoUpdateCheck,
+        [object]$TrayWatch
     )
     $cfg = Get-ZapmanConfig
     if ($PSBoundParameters.ContainsKey('Language')) {
@@ -193,6 +199,9 @@ function Update-ZapmanConfig {
     }
     if ($PSBoundParameters.ContainsKey('AutoUpdateCheck')) {
         $cfg.autoUpdateCheck = [bool]$AutoUpdateCheck
+    }
+    if ($PSBoundParameters.ContainsKey('TrayWatch')) {
+        $cfg.trayWatch = [bool]$TrayWatch
     }
     Save-ZapmanConfig -Config $cfg
     return $cfg
@@ -420,6 +429,11 @@ function Test-ZapmanHostReady {
 }
 
 function Show-ZapmanHostReadyReport {
+    param([switch]$ShowVersions)
+    if ($ShowVersions) {
+        Write-Host ("Zapret Manager {0}" -f (Get-ZapmanLocalVersion))
+        Write-Host ("ZapretSpec {0}" -f (Get-ZapmanSpecVersion))
+    }
     $cfgErr = Get-ZapmanConfigError
     if (-not [string]::IsNullOrWhiteSpace($cfgErr)) {
         Write-Host $cfgErr -ForegroundColor Yellow
@@ -455,4 +469,48 @@ function Show-ZapmanHostReadyReport {
     Write-Host 'Windows 10 LTSC and newer desktop editions need no extra setup.'
     Write-Host 'Windows 7 SP1 x64 needs WMF 5.1 and .NET Framework 4.5 or newer.'
     return 1
+}
+
+$script:ZapmanLastError = ''
+
+function Get-ZapmanLastError {
+    return [string]$script:ZapmanLastError
+}
+
+function Set-ZapmanLastError {
+    param([string]$Text)
+    if ($null -eq $Text) {
+        $script:ZapmanLastError = ''
+        return
+    }
+    $script:ZapmanLastError = [string]$Text
+}
+
+function Get-ZapmanExceptionText {
+    param($InputObject)
+    if ($null -eq $InputObject) {
+        return ''
+    }
+    $parts = New-Object System.Collections.ArrayList
+    $ex = $null
+    if ($InputObject -is [System.Management.Automation.ErrorRecord]) {
+        $ex = $InputObject.Exception
+    } elseif ($InputObject -is [System.Exception]) {
+        $ex = $InputObject
+    } else {
+        return [string]$InputObject
+    }
+    while ($null -ne $ex) {
+        $msg = [string]$ex.Message
+        if (-not [string]::IsNullOrWhiteSpace($msg)) {
+            if ($parts -notcontains $msg) {
+                [void]$parts.Add($msg)
+            }
+        }
+        $ex = $ex.InnerException
+    }
+    if ($parts.Count -eq 0) {
+        return [string]$InputObject
+    }
+    return (@($parts) -join [Environment]::NewLine)
 }

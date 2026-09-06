@@ -13,9 +13,9 @@
                      Width="90" Height="24" GroupName="engine"/>
         <ListBox x:Name="listStrategies" Canvas.Left="12" Canvas.Top="42"
                  Width="396" Height="180"/>
-        <Button x:Name="btnInst" Canvas.Left="12" Canvas.Top="260" Width="196" Height="28"/>
-        <Button x:Name="btnRun" Canvas.Left="212" Canvas.Top="260" Width="196" Height="28"/>
-        <Button x:Name="btnTests" Canvas.Left="12" Canvas.Top="296" Width="196" Height="28"/>
-        <Button x:Name="btnNoneWork" Canvas.Left="212" Canvas.Top="296" Width="196" Height="28"/>
+        <Button x:Name="btnInst" Canvas.Left="12" Canvas.Top="238" Width="196" Height="28"/>
+        <Button x:Name="btnRun" Canvas.Left="212" Canvas.Top="238" Width="196" Height="28"/>
+        <Button x:Name="btnTests" Canvas.Left="12" Canvas.Top="274" Width="396" Height="28"/>
+        <Button x:Name="btnNoneWork" Canvas.Left="12" Canvas.Top="310" Width="396" Height="28"/>
     </Canvas>
 </Window>

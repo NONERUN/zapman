@@ -1,0 +1,130 @@
+{
+  "specVersion": "0.1.0",
+  "wf": { "tcp": ["80", "443", "2053", "2083", "2087", "2096", "8443", "$gf.Tcp"], "udp": ["443", "19294-19344", "50000-50100", "$gf.Udp"] },
+  "profiles": [
+    {
+      "udp": "443",
+      "l7": "quic",
+      "payload": "quic_initial",
+      "hostlist": ["lists:list-general.txt", "user:list-general-user.txt"],
+      "hostlistExclude": ["lists:list-exclude.txt", "user:list-exclude-user.txt"],
+      "ipsetExclude": ["lists:ipset-exclude.txt", "user:ipset-exclude-user.txt"],
+      "desync": ["fake"],
+      "repeats": 6,
+      "fake": {
+        "quic": ["bin:quic_initial_www_google_com.bin"]
+      }
+    },
+    {
+      "udp": "19294-19344,50000-50100",
+      "l7": "discord,stun",
+      "payload": "discord_ip_discovery,stun",
+      "desync": ["fake"],
+      "repeats": 6,
+      "fake": {
+        "discord": ["bin:ACTIVE_DISCORD_UDP.bin"],
+        "stun": ["bin:ACTIVE_DISCORD_UDP.bin"]
+      }
+    },
+    {
+      "tcp": "2053,2083,2087,2096,8443",
+      "l7": "tls",
+      "payload": "tls_client_hello",
+      "hostlistDomains": ["discord.media"],
+      "desync": ["fake"],
+      "repeats": 6,
+      "fooling": ["badseq"],
+      "badseqIncrement": 2,
+      "fake": {
+        "tls": ["bin:tls_clienthello_www_google_com.bin"]
+      }
+    },
+    {
+      "tcp": "443",
+      "l7": "tls",
+      "payload": "tls_client_hello",
+      "hostlist": ["lists:list-google.txt"],
+      "desync": ["fake"],
+      "repeats": 6,
+      "fooling": ["badseq"],
+      "badseqIncrement": 2,
+      "ipId": "zero",
+      "fake": {
+        "tls": ["bin:tls_clienthello_www_google_com.bin"]
+      }
+    },
+    {
+      "tcp": "80,443",
+      "l7": "tls,http",
+      "hostlist": ["lists:list-general.txt", "user:list-general-user.txt"],
+      "hostlistExclude": ["lists:list-exclude.txt", "user:list-exclude-user.txt"],
+      "ipsetExclude": ["lists:ipset-exclude.txt", "user:ipset-exclude-user.txt"],
+      "desync": ["fake"],
+      "repeats": 6,
+      "fooling": ["badseq"],
+      "badseqIncrement": 2,
+      "fake": {
+        "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"],
+        "http": ["bin:tls_clienthello_max_ru.bin"]
+      }
+    },
+    {
+      "udp": "443",
+      "l7": "quic",
+      "payload": "quic_initial",
+      "hostlistExclude": ["lists:list-exclude.txt", "user:list-exclude-user.txt"],
+      "ipset": ["user:ipset-all.txt"],
+      "ipsetExclude": ["lists:ipset-exclude.txt", "user:ipset-exclude-user.txt"],
+      "desync": ["fake"],
+      "repeats": 6,
+      "fake": {
+        "quic": ["bin:quic_initial_www_google_com.bin"]
+      }
+    },
+    {
+      "tcp": "80,443,8443",
+      "l7": "tls,http",
+      "hostlistExclude": ["lists:list-exclude.txt", "user:list-exclude-user.txt"],
+      "ipset": ["user:ipset-all.txt"],
+      "ipsetExclude": ["lists:ipset-exclude.txt", "user:ipset-exclude-user.txt"],
+      "desync": ["fake"],
+      "repeats": 6,
+      "fooling": ["badseq"],
+      "badseqIncrement": 2,
+      "fake": {
+        "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"],
+        "http": ["bin:tls_clienthello_max_ru.bin"]
+      }
+    },
+    {
+      "tcp": "$gf.Tcp",
+      "payload": "all",
+      "ipset": ["user:ipset-all.txt"],
+      "ipsetExclude": ["lists:ipset-exclude.txt", "user:ipset-exclude-user.txt"],
+      "desync": ["fake"],
+      "repeats": 6,
+      "fooling": ["badseq"],
+      "badseqIncrement": 2,
+      "anyProtocol": true,
+      "cutoff": "n3",
+      "fake": {
+        "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"],
+        "http": ["bin:tls_clienthello_max_ru.bin"],
+        "unknown": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"]
+      }
+    },
+    {
+      "udp": "$gf.Udp",
+      "payload": "all",
+      "ipset": ["user:ipset-all.txt"],
+      "ipsetExclude": ["lists:ipset-exclude.txt", "user:ipset-exclude-user.txt"],
+      "desync": ["fake"],
+      "repeats": 10,
+      "anyProtocol": true,
+      "cutoff": "n2",
+      "fake": {
+        "unknownUdp": ["bin:ACTIVE_GAME_UDP.bin"]
+      }
+    }
+  ]
+}

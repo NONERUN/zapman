@@ -37,7 +37,7 @@ function Get-ZapretLintFiles {
             [void]$found.Add($item)
         }
     }
-    foreach ($modDir in @('src\Zapman', 'src\Zapret')) {
+    foreach ($modDir in @('src\Zapman', 'src\Zapret', 'src\ZapretSpec')) {
         $full = Join-Path $RepoRoot $modDir
         if (-not (Test-Path -LiteralPath $full)) {
             continue
@@ -48,10 +48,68 @@ function Get-ZapretLintFiles {
             [void]$found.Add($item)
         }
     }
-    foreach ($item in @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'strategies') -Filter '*.ps1' -File)) {
-        [void]$found.Add($item)
-    }
     return @($found)
+}
+
+function Test-ZapretStrategyJsonRules {
+    param([string]$RepoRoot)
+    $issues = New-Object System.Collections.ArrayList
+    $specPsd1 = Join-Path $RepoRoot 'src\ZapretSpec\ZapretSpec.psd1'
+    if (-not (Test-Path -LiteralPath $specPsd1)) {
+        [void]$issues.Add((New-ZapretLintIssue -ScriptName 'src\ZapretSpec\ZapretSpec.psd1' -Line 1 -RuleName 'ZapretSpecMissing' -Message 'ZapretSpec module is missing.'))
+        return @($issues)
+    }
+    Import-Module -Force -DisableNameChecking $specPsd1
+    $dir = Join-Path $RepoRoot 'strategies'
+    if (-not (Test-Path -LiteralPath $dir)) {
+        [void]$issues.Add((New-ZapretLintIssue -ScriptName 'strategies' -Line 1 -RuleName 'ZapretStrategyJson' -Message 'The strategies folder is missing.'))
+        return @($issues)
+    }
+    $files = @(Get-ChildItem -LiteralPath $dir -Filter '*.json' -File)
+    if ($files.Count -lt 1) {
+        [void]$issues.Add((New-ZapretLintIssue -ScriptName 'strategies' -Line 1 -RuleName 'ZapretStrategyJson' -Message 'No strategy JSON files.'))
+        return @($issues)
+    }
+    $bin = Join-Path $RepoRoot 'bin'
+    $lists = Join-Path $RepoRoot 'lists'
+    $user = Join-Path $RepoRoot 'user'
+    foreach ($file in $files) {
+        $rel = Get-ZapretRelPath -FullName $file.FullName
+        try {
+            $spec = Get-ZapretStrategySpec -Path $file.FullName
+        } catch {
+            [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyJson' -Message $_.Exception.Message))
+            continue
+        }
+        foreach ($eng in @('winws', 'winws2')) {
+            try {
+                $argv = ConvertTo-ZapretStrategyArgList -Spec $spec -Engine $eng -Bin $bin -Lists $lists -User $user -GameFilterTcp '12' -GameFilterUdp '12'
+            } catch {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message ('{0}: {1}' -f $eng, $_.Exception.Message)))
+                continue
+            }
+            if ([string]::IsNullOrWhiteSpace($argv)) {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message ('{0}: argv is empty.' -f $eng)))
+                continue
+            }
+            if ($eng -eq 'winws2' -and $argv -match '--dpi-desync') {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws2 argv contains --dpi-desync.'))
+            }
+            if ($eng -eq 'winws2' -and $argv -match '--blob=[^\s:]+=') {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws2 --blob must use name:value (colon).'))
+            }
+            if ($eng -eq 'winws2' -and $argv -match '--blob=0x') {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws2 --blob name cannot start with 0x.'))
+            }
+            if ($eng -eq 'winws' -and $argv -match '--dpi-desync-fake-tls-mod=\S+.*--dpi-desync-fake-tls=') {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws: emit fake-tls before fake-tls-mod.'))
+            }
+            if ($eng -eq 'winws' -and $argv -match '--lua-desync') {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws argv contains --lua-desync.'))
+            }
+        }
+    }
+    return @($issues)
 }
 
 function Get-ZapretXamlFiles {
@@ -146,10 +204,6 @@ function Test-ZapretProjectRules {
         'System\.Windows\.Forms',
         [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
     )
-    $reNotifyIcon = New-Object System.Text.RegularExpressions.Regex (
-        'NotifyIcon',
-        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
-    )
     $reDoEvents = New-Object System.Text.RegularExpressions.Regex (
         'Application\]::DoEvents|Forms\.Application',
         [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
@@ -207,22 +261,19 @@ function Test-ZapretProjectRules {
                 [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidMainWindowShowDialog' -Message 'The main window must use Application.Run, not $window.ShowDialog. A child dialog disables the owner and ends the UI.'))
             }
             if ($isGui -and $reWindowHide.IsMatch($line)) {
-                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidMainWindowHide' -Message 'Do not call $window.Hide() on the main window. There is no tray; hide loses the window.'))
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidMainWindowHide' -Message 'Do not call $window.Hide() on the main window. The tray watcher is a separate process; hide loses the window.'))
             }
             if ($isGui -and $reWindowVisibility.IsMatch($line)) {
-                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidMainWindowHide' -Message 'Do not set $window.Visibility to Hidden or Collapsed. There is no tray; hide loses the window.'))
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidMainWindowHide' -Message 'Do not set $window.Visibility to Hidden or Collapsed. The tray watcher is a separate process; hide loses the window.'))
             }
             if ($isGui -and $reWindowEnabled.IsMatch($line)) {
                 [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidMainWindowEnabledFalse' -Message 'Do not set $window.IsEnabled = $false. That ends the main window message loop.'))
             }
             if ($isGui -and $reWindowNoTaskbar.IsMatch($line)) {
-                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidMainWindowNoTaskbar' -Message 'The main window must stay on the taskbar. There is no tray.'))
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidMainWindowNoTaskbar' -Message 'The main window must stay on the taskbar. Do not move it to the tray.'))
             }
             if ($inGuiDir -and $reWinForms.IsMatch($line)) {
                 [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidWinFormsInGui' -Message 'The GUI is WPF. Do not use System.Windows.Forms in src/gui/.'))
-            }
-            if ($inGuiDir -and $reNotifyIcon.IsMatch($line)) {
-                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidNotifyIcon' -Message 'Do not use NotifyIcon. Tray support is not in this release.'))
             }
             if ($inGuiDir -and $reDoEvents.IsMatch($line)) {
                 [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line $n -RuleName 'ZapretAvoidFormsDoEvents' -Message 'Do not call Forms Application.DoEvents. Use Dispatcher.Invoke with Background priority.'))
@@ -335,6 +386,9 @@ foreach ($item in @(Test-ZapretProjectRules -Files $files)) {
 
 $xamlFiles = @(Get-ZapretXamlFiles -RepoRoot $root)
 foreach ($item in @(Test-ZapretXamlRules -Files $xamlFiles)) {
+    [void]$issues.Add($item)
+}
+foreach ($item in @(Test-ZapretStrategyJsonRules -RepoRoot $root)) {
     [void]$issues.Add($item)
 }
 foreach ($item in @(Test-ZapmanBatRequiresSta -RepoRoot $root)) {
