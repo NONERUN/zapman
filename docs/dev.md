@@ -1,6 +1,6 @@
 # Разработка
 
-Ловушки PowerShell 5.1 / WPF, два `.bat`, что не делать в коде — [`AGENTS.md`](../AGENTS.md). Этот файл — поля JSON и команды обновления `bin/`. Правка генератора и этого файла — в одном изменении.
+Ловушки PowerShell 5.1 / WPF, два `.bat`, что не делать в коде — [`AGENTS.md`](../AGENTS.md). Этот файл — поля JSON, обновление `bin/` и GitHub Release. Правка генератора и этого файла — в одном изменении.
 
 Версия продукта — `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1). В окне и в git-теге: `v` + это число. Схема JSON — `ModuleVersion` в [`src/ZapretSpec/ZapretSpec.psd1`](../src/ZapretSpec/ZapretSpec.psd1). Поле `specVersion` в каждом `strategies/*.json` должно совпадать. `cli.bat env` печатает обе.
 
@@ -110,3 +110,25 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ```
 
 Файлы в [`docs/ui/`](ui/index.md) руками не править. Кириллица в `src/Zapman/Ui.ps1` — UTF-8 с BOM.
+
+## Релиз
+
+Push тега **не** собирает архив и **не** создаёт GitHub Release. Сначала тег уже на `origin`, потом workflow [Release](../.github/workflows/release.yml). Job checkout **этого** тега (не ветки из формы). Нет тега — checkout падает; новый тег job не ставит.
+
+1. `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1). Если менялась схема JSON — ZapretSpec и `specVersion` в `strategies/*.json`.
+2. Секция в [`CHANGELOG.md`](../CHANGELOG.md) на этот тег, коммит.
+3. Аннотированный тег `v` + ModuleVersion **на этом коммите**:
+   `git tag -a v0.1.1 -m v0.1.1`
+4. `git push origin main` и `git push origin v0.1.1`. Не `git push --tags`: в клоне могут быть чужие теги вроде `1.10.2` без `v`.
+5. Дождаться Lint на `main`.
+6. Actions → **Release** → Run workflow:
+   - **Use workflow from:** `main` (YAML job; может быть новее тега)
+   - **tag:** уже существующий тег (`v0.1.1`)
+
+```text
+gh workflow run Release --repo NONERUN/zapman --ref main -f tag=v0.1.1
+```
+
+Всегда `--repo NONERUN/zapman`: `gh` в этой копии может смотреть на Flowseal. Не создавать Release вручную в UI без этого workflow — не будет zip/rar/tar.gz.
+
+Повторный прогон на том же теге снова вешает те же имена файлов на тот же GitHub Release.

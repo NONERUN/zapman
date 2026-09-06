@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Git tag with v prefix (must match ModuleVersion in src/Zapman/Zapman.psd1, e.g. v0.1.0)'
+        description: 'Existing git tag vMAJOR.MINOR.PATCH (already on the remote). Example: v0.1.1'
         required: true
 
 jobs:
@@ -14,22 +14,41 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout
+      # Pack the tagged tree. The workflow YAML comes from the branch
+      # selected in "Use workflow from" (use main). That branch may be newer.
+      - name: Checkout tag
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag }}
 
       - name: Verify tag matches ModuleVersion
         run: |
           set -euo pipefail
           TAG='${{ github.event.inputs.tag }}'
-          MODVER=$(sed -n "s/.*ModuleVersion[[:space:]]*=[[:space:]]*'\([^']*\)'.*/\1/p" src/Zapman/Zapman.psd1 | head -n1 | tr -d ' \r\n')
-          VERSION="v${MODVER}"
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: tag '$TAG' must be vMAJOR.MINOR.PATCH (example: v0.1.0)"
+            echo "Error: tag '$TAG' must be vMAJOR.MINOR.PATCH (example: v0.1.1)"
             exit 1
           fi
+          HEAD_SHA="$(git rev-parse HEAD)"
+          echo "Packing tag $TAG at $HEAD_SHA"
+          MODVER=$(sed -n "s/.*ModuleVersion[[:space:]]*=[[:space:]]*'\([^']*\)'.*/\1/p" src/Zapman/Zapman.psd1 | head -n1 | tr -d ' \r\n')
+          VERSION="v${MODVER}"
           if [ "$VERSION" != "$TAG" ]; then
             echo "Error: tag '$TAG' does not match ModuleVersion in src/Zapman/Zapman.psd1 ('$VERSION')"
             exit 1
+          fi
+
+      - name: Notes from CHANGELOG
+        run: |
+          set -euo pipefail
+          TAG='${{ github.event.inputs.tag }}'
+          awk -v tag="$TAG" '
+            $0 ~ "^## " tag "($|[ \t-])" { p=1; next }
+            p && $0 ~ /^## / { exit }
+            p { print }
+          ' CHANGELOG.md | sed 's/\r$//' > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            printf '%s\n' "No CHANGELOG section for $TAG." > release-notes.md
           fi
 
       - name: Install tools
@@ -67,6 +86,10 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag }}
           name: ${{ github.event.inputs.tag }}
+          body_path: release-notes.md
+          make_latest: true
+          fail_on_unmatched_files: true
+          overwrite_files: true
           files: |
             zapman-${{ github.event.inputs.tag }}.zip
             zapman-${{ github.event.inputs.tag }}.rar

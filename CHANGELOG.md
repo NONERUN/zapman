@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Changed
+
+- GitHub Release: архив с существующего git-тега; YAML job — с `main`. См. [`docs/dev.md`](docs/dev.md).
+
 ## v0.1.1 - 2026-09-06
 
 ### Breaking
