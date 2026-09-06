@@ -10,6 +10,10 @@ $script:startupMarks = New-Object System.Collections.ArrayList
 $script:guiBootOwnsRun = $false
 $script:guiShellWindow = $null
 $script:guiApp = $null
+$script:guiWindowIcon = $null
+$script:guiIconSmall = [IntPtr]::Zero
+$script:guiIconBig = [IntPtr]::Zero
+$script:guiAppUserModelSet = $false
 
 function Add-GuiStartupMark {
     param([string]$Name)
@@ -24,8 +28,21 @@ function Initialize-GuiBootConsoleType {
 using System;
 using System.Runtime.InteropServices;
 public static class GuiBootConsole {
+    public const int GwlExStyle = -20;
+    public const int WsExToolwindow = 0x00000080;
+    public const int WsExAppwindow = 0x00040000;
+    public const uint WmSetIcon = 0x0080;
+    public const uint ImageIcon = 1;
+    public const uint LrLoadFromFile = 0x0010;
     [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr LoadImage(IntPtr hInst, string name, uint type, int cx, int cy, uint fuLoad);
+    [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern int SetCurrentProcessExplicitAppUserModelID(string appID);
 }
 '@
     if (-not ('GuiBootConsole' -as [type])) {
@@ -37,9 +54,14 @@ function Hide-GuiBootConsole {
     try {
         Initialize-GuiBootConsoleType
         $hwnd = [GuiBootConsole]::GetConsoleWindow()
-        if ($hwnd -ne [IntPtr]::Zero) {
-            [void][GuiBootConsole]::ShowWindow($hwnd, 0)
+        if ($hwnd -eq [IntPtr]::Zero) {
+            return
         }
+        $ex = [GuiBootConsole]::GetWindowLong($hwnd, [GuiBootConsole]::GwlExStyle)
+        $ex = $ex -bor [GuiBootConsole]::WsExToolwindow
+        $ex = $ex -band (-bnot [GuiBootConsole]::WsExAppwindow)
+        [void][GuiBootConsole]::SetWindowLong($hwnd, [GuiBootConsole]::GwlExStyle, $ex)
+        [void][GuiBootConsole]::ShowWindow($hwnd, 0)
     } catch {
         return
     }
@@ -55,6 +77,92 @@ function Show-GuiBootConsole {
     } catch {
         return
     }
+}
+
+function Get-ZapmanGuiIconImage {
+    # App icon is src/gui/app.ico. Set it before Show so the taskbar does not keep the PowerShell icon.
+    if ($script:guiWindowIcon) {
+        return $script:guiWindowIcon
+    }
+    try {
+        $ico = Join-Path $PSScriptRoot 'app.ico'
+        if (-not (Test-Path -LiteralPath $ico)) {
+            return $null
+        }
+        $uri = New-Object System.Uri $ico
+        $bmp = New-Object System.Windows.Media.Imaging.BitmapImage
+        $bmp.BeginInit()
+        $bmp.UriSource = $uri
+        $bmp.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+        $bmp.EndInit()
+        $bmp.Freeze()
+        $script:guiWindowIcon = $bmp
+        return $bmp
+    } catch {
+        return $null
+    }
+}
+
+function Set-ZapmanGuiAppUserModelId {
+    if ($script:guiAppUserModelSet) {
+        return
+    }
+    try {
+        Initialize-GuiBootConsoleType
+        [void][GuiBootConsole]::SetCurrentProcessExplicitAppUserModelID('Zapret.Zapman')
+        $script:guiAppUserModelSet = $true
+    } catch {
+        return
+    }
+}
+
+function Set-ZapmanGuiNativeWindowIcon {
+    param($Window)
+    try {
+        Initialize-GuiBootConsoleType
+        $ico = Join-Path $PSScriptRoot 'app.ico'
+        if (-not (Test-Path -LiteralPath $ico)) {
+            return
+        }
+        if ($script:guiIconSmall -eq [IntPtr]::Zero) {
+            $script:guiIconSmall = [GuiBootConsole]::LoadImage(
+                [IntPtr]::Zero, $ico, [GuiBootConsole]::ImageIcon, 16, 16, [GuiBootConsole]::LrLoadFromFile
+            )
+        }
+        if ($script:guiIconBig -eq [IntPtr]::Zero) {
+            $script:guiIconBig = [GuiBootConsole]::LoadImage(
+                [IntPtr]::Zero, $ico, [GuiBootConsole]::ImageIcon, 32, 32, [GuiBootConsole]::LrLoadFromFile
+            )
+        }
+        $helper = New-Object System.Windows.Interop.WindowInteropHelper($Window)
+        $hwnd = $helper.EnsureHandle()
+        if ($hwnd -eq [IntPtr]::Zero) {
+            return
+        }
+        if ($script:guiIconSmall -ne [IntPtr]::Zero) {
+            [void][GuiBootConsole]::SendMessage($hwnd, [GuiBootConsole]::WmSetIcon, [IntPtr]::Zero, $script:guiIconSmall)
+        }
+        if ($script:guiIconBig -ne [IntPtr]::Zero) {
+            [void][GuiBootConsole]::SendMessage($hwnd, [GuiBootConsole]::WmSetIcon, [IntPtr]1, $script:guiIconBig)
+        }
+    } catch {
+        return
+    }
+}
+
+function Set-ZapmanGuiWindowIcon {
+    param($Window)
+    if (-not $Window) {
+        return
+    }
+    if ($Window -isnot [System.Windows.Window]) {
+        return
+    }
+    $src = Get-ZapmanGuiIconImage
+    if ($src) {
+        $Window.Icon = $src
+    }
+    Set-ZapmanGuiNativeWindowIcon -Window $Window
 }
 
 function Initialize-GuiBootWin32 {
@@ -128,6 +236,7 @@ function Update-GuiBootWindowPaint {
     }
 }
 
+Set-ZapmanGuiAppUserModelId
 Hide-GuiBootConsole
 Add-GuiStartupMark 'hide-console'
 
@@ -181,6 +290,7 @@ if (-not (Test-Path -LiteralPath $xamlPath)) {
 try {
     $script:guiApp = New-Object System.Windows.Application
     $script:guiApp.ShutdownMode = [System.Windows.ShutdownMode]::OnMainWindowClose
+    Set-ZapmanGuiAppUserModelId
     $fs = New-Object System.IO.FileStream($xamlPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
     try {
         $window = [System.Windows.Markup.XamlReader]::Load($fs)
@@ -203,6 +313,7 @@ try {
         }
     }
     $script:guiApp.MainWindow = $window
+    Set-ZapmanGuiWindowIcon -Window $window
     $window.Show()
     [void]$window.Activate()
     Update-GuiBootWindowPaint -Window $window
@@ -215,7 +326,13 @@ try {
     exit 1
 }
 
-. (Join-Path $PSScriptRoot 'gui.ps1')
+try {
+    . (Join-Path $PSScriptRoot 'gui.ps1')
+} catch {
+    Show-GuiBootConsole
+    Write-Host $_.Exception.Message
+    exit 1
+}
 
 try {
     $app = [System.Windows.Application]::Current

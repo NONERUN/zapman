@@ -237,7 +237,7 @@ function Invoke-GuiDownload {
     $script:dlLabel = $lbl
     $wc = New-Object System.Net.WebClient
     $wc.Headers.Add('Cache-Control', 'no-cache')
-    $wc.Headers.Add('User-Agent', 'zapret')
+    $wc.Headers.Add('User-Agent', (Get-ZapmanWebUserAgent))
 
     $wc.add_DownloadProgressChanged({
         param($source, $e)
@@ -280,6 +280,11 @@ function Invoke-GuiDownload {
             $script:dlError = Get-ZapmanUiString -Key 'DownloadFailed'
         }
         $script:dlDone = $true
+        Invoke-GuiOnUi {
+            if ($script:dlDlg) {
+                $script:dlDlg.Close()
+            }
+        }
     })
 
     $btnCancel.Add_Click({
@@ -288,18 +293,16 @@ function Invoke-GuiDownload {
     $dlg.Add_Closing({
         if (-not $script:dlDone) {
             $wc.CancelAsync()
+            $_.Cancel = $true
         }
     })
 
+    $script:dlDlg = $dlg
     try {
-        $dlg.Show()
         $wc.DownloadFileAsync([Uri]$Url, $partial)
-        while (-not $script:dlDone) {
-            Invoke-GuiPump
-            Start-Sleep -Milliseconds 40
-        }
+        [void]$dlg.ShowDialog()
     } finally {
-        $dlg.Close()
+        $script:dlDlg = $null
         $wc.Dispose()
     }
 
@@ -1061,11 +1064,17 @@ function Show-HostsUpdateDialog {
 }
 
 function Update-StrategyListMarks {
-    param($ListBox)
+    param(
+        $ListBox,
+        [string]$Engine
+    )
     $runningName = Get-ZapretRunningStrategyName
     $installedName = Get-ZapretInstalledStrategyName
     $running = Test-ZapretBypassRunning
-    $eng = Get-ZapretEngine
+    $eng = $Engine
+    if ([string]::IsNullOrWhiteSpace($eng)) {
+        $eng = Get-ZapretEngine
+    }
     foreach ($it in @($ListBox.Items)) {
         if (-not ($it -is [System.Windows.Controls.ListBoxItem])) {
             continue
@@ -1130,8 +1139,8 @@ function Show-StrategyDialog {
         if ($rbWinws2.IsChecked -eq $true) {
             $eng = 'winws2'
         }
-        Set-ZapretEngine -Engine $eng | Out-Null
-        Update-StrategyListMarks -ListBox $lb
+        $script:strategyDialogEngine = $eng
+        Update-StrategyListMarks -ListBox $lb -Engine $eng
         $file = Get-SelectedStrategy -ListBox $lb
         $can = $false
         if ($file -and (Test-ZapretStrategySupportsEngine -Path $file.FullName -Engine $eng)) {
@@ -1168,6 +1177,7 @@ function Show-StrategyDialog {
             }
         }
         Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnRunSelected') -FreezeUi -Action {
+            Set-ZapretEngine -Engine $script:strategyDialogEngine | Out-Null
             Start-ZapretSelectedStrategy -File $file -OnWait { Invoke-GuiPump }
             Write-GuiLog (Get-ZapmanUiString -Key 'RunDone' -FormatArgs @($file.BaseName))
         }
@@ -1181,6 +1191,7 @@ function Show-StrategyDialog {
         }
         $script:installOk = $false
         Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnInstall') -FreezeUi -Action {
+            Set-ZapretEngine -Engine $script:strategyDialogEngine | Out-Null
             Install-ZapretService -File $file -OnWait { Invoke-GuiPump }
             Write-GuiLog (Get-ZapmanUiString -Key 'InstallDone' -FormatArgs @($file.BaseName))
             $script:installOk = $true
@@ -1190,6 +1201,7 @@ function Show-StrategyDialog {
         }
     })
     $btnT.Add_Click({
+        Set-ZapretEngine -Engine $script:strategyDialogEngine | Out-Null
         $script:strategyPendingTests = $true
         $dlg.Close()
     })

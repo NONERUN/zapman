@@ -62,11 +62,16 @@ function Get-ZapmanVersionFromRemoteBody {
     return (ConvertTo-ZapmanVersion -Text $t)
 }
 
+function Get-ZapmanWebUserAgent {
+    # Product HTTP User-Agent. Use this string for all product downloads.
+    return 'zapman'
+}
+
 function Get-ZapretRemoteVersion {
     Enable-ZapmanTls12
     $res = Invoke-WebRequest -Uri (Get-ZapretVersionCheckUrl) -UseBasicParsing -TimeoutSec 8 -Headers @{
         'Cache-Control' = 'no-cache'
-        'User-Agent'    = 'zapman'
+        'User-Agent'    = (Get-ZapmanWebUserAgent)
         'Accept'        = 'application/vnd.github+json'
     }
     return (Get-ZapmanVersionFromRemoteBody -Body ([string]$res.Content))
@@ -97,7 +102,7 @@ function Invoke-ZapmanWebDownload {
     $wc = New-Object System.Net.WebClient
     try {
         $wc.Headers.Add('Cache-Control', 'no-cache')
-        $wc.Headers.Add('User-Agent', 'zapret')
+        $wc.Headers.Add('User-Agent', (Get-ZapmanWebUserAgent))
         $wc.DownloadFile($Url, $Destination)
     } finally {
         $wc.Dispose()
@@ -477,11 +482,10 @@ function Get-ZapmanDiagnosticReport {
         [void]$items.Add((New-ZapmanDiagItem -Id 'proxy' -Status 'ok' -Text 'System proxy is off'))
     }
 
-    Enable-ZapmanTcpTimestamps
     if (Test-ZapmanTcpTimestampsEnabled) {
         [void]$items.Add((New-ZapmanDiagItem -Id 'tcp' -Status 'ok' -Text 'TCP timestamps are enabled'))
     } else {
-        [void]$items.Add((New-ZapmanDiagItem -Id 'tcp' -Status 'fail' -Text 'Failed to enable TCP timestamps'))
+        [void]$items.Add((New-ZapmanDiagItem -Id 'tcp' -Status 'fail' -Text 'TCP timestamps are disabled'))
     }
 
     if (@(Get-Process -Name 'AdguardSvc' -ErrorAction SilentlyContinue).Count -gt 0) {

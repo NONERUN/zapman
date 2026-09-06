@@ -6,8 +6,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
-if ($PSVersionTable.PSVersion.Major -lt 3) {
-    Write-Host 'ERROR: Windows PowerShell is too old. This program needs 3.0 or newer. Target: 5.1.'
+$psVer = $PSVersionTable.PSVersion
+if ($psVer.Major -lt 5 -or ($psVer.Major -eq 5 -and $psVer.Minor -lt 1)) {
+    Write-Host 'ERROR: This program needs Windows PowerShell 5.1.'
     Write-Host 'On Windows 7 install WMF 5.1 and .NET Framework 4.5 or newer.'
     exit 1
 }
@@ -97,6 +98,10 @@ public static class GuiConsole {
 }
 
 function Hide-ConsoleWindow {
+    if (Get-Command -Name Hide-GuiBootConsole -ErrorAction SilentlyContinue) {
+        Hide-GuiBootConsole
+        return
+    }
     try {
         Initialize-GuiConsoleType
         $hwnd = [GuiConsole]::GetConsoleWindow()
@@ -128,10 +133,14 @@ function Import-ZapmanXaml {
     }
     $fs = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
     try {
-        return [System.Windows.Markup.XamlReader]::Load($fs)
+        $loaded = [System.Windows.Markup.XamlReader]::Load($fs)
     } finally {
         $fs.Dispose()
     }
+    if (Get-Command -Name Set-ZapmanGuiWindowIcon -ErrorAction SilentlyContinue) {
+        Set-ZapmanGuiWindowIcon -Window $loaded
+    }
+    return $loaded
 }
 
 function Get-XamlChild {
@@ -172,6 +181,9 @@ function Show-ZapmanOwnedDialog {
     if ($window) {
         $Dialog.Owner = $window
         $Dialog.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
+    }
+    if (Get-Command -Name Set-ZapmanGuiWindowIcon -ErrorAction SilentlyContinue) {
+        Set-ZapmanGuiWindowIcon -Window $Dialog
     }
     return $Dialog.ShowDialog()
 }
@@ -342,7 +354,7 @@ function Start-GuiVersionCheck {
     Enable-ZapmanTls12
     $wc = New-Object System.Net.WebClient
     $wc.Headers.Add('Cache-Control', 'no-cache')
-    $wc.Headers.Add('User-Agent', 'zapman')
+    $wc.Headers.Add('User-Agent', (Get-ZapmanWebUserAgent))
     $wc.Headers.Add('Accept', 'application/vnd.github+json')
     $script:versionCheckClient = $wc
     $wc.add_DownloadStringCompleted({
@@ -547,6 +559,8 @@ function Set-ActionButtonsEnabled {
     $chkTray.IsEnabled = $Enabled
     $cmbGame.IsEnabled = $Enabled
     $cmbIpset.IsEnabled = $Enabled
+    $rbRu.IsEnabled = $Enabled
+    $rbEn.IsEnabled = $Enabled
 }
 
 function Update-Status {
@@ -710,6 +724,7 @@ function Invoke-GuiAction {
     )
 
     if ($script:busy) {
+        Write-GuiLog $BusyText
         return
     }
     $script:busy = $true
@@ -774,6 +789,9 @@ $btnStrategy.Add_Click({
 # opened a new dialog after each Close.
 $grpStatus.Add_MouseLeftButtonUp({
     $_.Handled = $true
+    if ($script:busy) {
+        return
+    }
     Show-StatusJournalDialog
 })
 
@@ -893,7 +911,7 @@ $btnFakes.Add_Click({
 })
 
 $btnIpsetUpd.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnIpset') -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnIpset') -FreezeUi -Action {
         $temp = Join-Path $env:TEMP 'zapret-ipset-all.txt'
         try {
             Invoke-GuiDownload -Url (Get-ZapretIpsetListUrl) -Destination $temp -Title (Get-ZapmanUiString -Key 'IpsetTitle')
@@ -910,7 +928,7 @@ $btnIpsetUpd.Add_Click({
 })
 
 $btnHosts.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnHosts') -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnHosts') -FreezeUi -Action {
         $temp = Join-Path $env:TEMP 'zapret_hosts.txt'
         try {
             Invoke-GuiDownload -Url ((Get-ZapretHostsSourceUrl) + '?t=' + [guid]::NewGuid().ToString()) -Destination $temp -Title (Get-ZapmanUiString -Key 'HostsTitle')
@@ -942,7 +960,7 @@ $btnUpdates.Add_Click({
 })
 
 $btnDiag.Add_Click({
-    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnDiag') -Action {
+    Invoke-GuiAction -BusyText (Get-ZapmanUiString -Key 'BtnDiag') -FreezeUi -Action {
         Show-GuiDiagnostics
         Write-GuiLog (Get-ZapmanUiString -Key 'DiagDone')
     }
@@ -986,25 +1004,6 @@ function Start-GuiFirstPaint {
             }
             $script:startupReady = $true
             try {
-                $winwsExe = Join-Path $script:binDir 'winws.exe'
-                if (Test-Path -LiteralPath $winwsExe) {
-                    try {
-                        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
-                        $extracted = [System.Drawing.Icon]::ExtractAssociatedIcon($winwsExe)
-                        if ($extracted) {
-                            $src = [System.Windows.Interop.Imaging]::CreateBitmapSourceFromHIcon(
-                                $extracted.Handle,
-                                [System.Windows.Int32Rect]::Empty,
-                                [System.Windows.Media.Imaging.BitmapSizeOptions]::FromEmptyOptions()
-                            )
-                            $src.Freeze()
-                            $window.Icon = $src
-                            $extracted.Dispose()
-                        }
-                    } catch {
-                        $null = $_.Exception
-                    }
-                }
                 Set-ActionButtonsEnabled -Enabled $true
                 Update-Status
                 $cfgErr = Get-ZapmanConfigError
@@ -1042,6 +1041,18 @@ $window.Add_Closed({
     }
     Stop-GuiVersionCheck
     $timer.Stop()
+    if ($script:guiMutexOwned -and $script:guiMutex) {
+        try {
+            [void]$script:guiMutex.ReleaseMutex()
+        } catch {
+            $null = $_.Exception
+        }
+        $script:guiMutexOwned = $false
+    }
+    if ($script:guiMutex) {
+        $script:guiMutex.Dispose()
+        $script:guiMutex = $null
+    }
 })
 
 $rbRu.Add_Checked({
@@ -1050,6 +1061,11 @@ $rbRu.Add_Checked({
         Set-ZapmanUiLanguage -Language 'ru'
         Update-GuiLanguage
         Update-Status
+        try {
+            Restart-ZapmanTrayWatchProcess
+        } catch {
+            Write-GuiLog (Get-ZapmanExceptionText $_)
+        }
     }
 })
 $rbEn.Add_Checked({
@@ -1058,6 +1074,11 @@ $rbEn.Add_Checked({
         Set-ZapmanUiLanguage -Language 'en'
         Update-GuiLanguage
         Update-Status
+        try {
+            Restart-ZapmanTrayWatchProcess
+        } catch {
+            Write-GuiLog (Get-ZapmanExceptionText $_)
+        }
     }
 })
 

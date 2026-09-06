@@ -10,8 +10,9 @@ try {
     Write-Verbose $_.Exception.Message
 }
 
-if ($PSVersionTable.PSVersion.Major -lt 3) {
-    Write-Host 'ERROR: Windows PowerShell is too old. This program needs 3.0 or newer. Target: 5.1.'
+$psVer = $PSVersionTable.PSVersion
+if ($psVer.Major -lt 5 -or ($psVer.Major -eq 5 -and $psVer.Minor -lt 1)) {
+    Write-Host 'ERROR: This program needs Windows PowerShell 5.1.'
     Write-Host 'On Windows 7 install WMF 5.1 and .NET Framework 4.5 or newer.'
     exit 1
 }
@@ -34,13 +35,39 @@ function Invoke-ZapmanCliTests {
     if (-not (Test-Path -LiteralPath $testsPath)) {
         throw ("File not found: {0}" -f $testsPath)
     }
+    if (-not (Test-IsAdministrator)) {
+        return (Start-ZapmanElevatedPowerShellFile -FilePath $testsPath -ArgumentList @($Extra))
+    }
     $extraList = @($Extra)
     if ($extraList.Count -gt 0) {
-        & $testsPath @extraList
-        return [int]$LASTEXITCODE
+        $testType = ''
+        $strategies = ''
+        $askType = $true
+        $askNames = $true
+        $i = 0
+        while ($i -lt $extraList.Count) {
+            $tok = [string]$extraList[$i]
+            if ($tok -eq '-TestType' -and ($i + 1) -lt $extraList.Count) {
+                $testType = [string]$extraList[$i + 1]
+                $askType = $false
+                $i += 2
+                continue
+            }
+            if ($tok -eq '-Strategies' -and ($i + 1) -lt $extraList.Count) {
+                $strategies = [string]$extraList[$i + 1]
+                $askNames = $false
+                $i += 2
+                continue
+            }
+            if ($tok -eq '-NoPause') {
+                $i++
+                continue
+            }
+            $i++
+        }
+        return (Invoke-ZapmanCliTestRun -TestType $testType -Strategies $strategies -AskType:$askType -AskNames:$askNames)
     }
-    & $testsPath
-    return [int]$LASTEXITCODE
+    return (Invoke-ZapmanCliTestRun -AskType -AskNames)
 }
 
 function Show-ZapmanCliUsage {
@@ -54,12 +81,14 @@ function Show-ZapmanCliMenu {
         Write-Host ("  1. {0}" -f (Get-ZapmanUiString -Key 'CliService'))
         Write-Host ("  2. {0}" -f (Get-ZapmanUiString -Key 'CliTests'))
         Write-Host ("  3. {0}" -f (Get-ZapmanUiString -Key 'CliEnv'))
+        Write-Host ("  4. {0} [{1}]" -f (Get-ZapmanUiString -Key 'MenuLang'), (Get-ZapmanCliLanguageLabel))
         Write-Host ("  0. {0}" -f (Get-ZapmanUiString -Key 'MenuExit'))
         $choice = Read-Host
         switch ($choice) {
             '1' { [void](Start-ZapmanServiceConsole) }
             '2' { [void](Invoke-ZapmanCliTests) }
             '3' { [void](Show-ZapmanHostReadyReport -ShowVersions) }
+            '4' { Invoke-LanguageToggle }
             '0' { return 0 }
             default { Write-Host (Get-ZapmanUiString -Key 'InvalidChoice') }
         }
@@ -83,10 +112,6 @@ if ($command -eq 'help' -or $command -eq '-h' -or $command -eq '--help' -or $com
 
 if ($command -eq 'env' -or $command -eq 'check-env') {
     exit (Show-ZapmanHostReadyReport -ShowVersions)
-}
-
-if ((Show-ZapmanHostReadyReport) -ne 0) {
-    exit 1
 }
 
 if ([string]::IsNullOrWhiteSpace($command)) {

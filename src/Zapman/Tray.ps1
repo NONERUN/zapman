@@ -3,6 +3,27 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
+# Hide the console before the module load. A visible host flashes until Import-Module ends.
+try {
+    $hide = @'
+using System;
+using System.Runtime.InteropServices;
+public static class ZapmanTrayConsole {
+    [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+'@
+    if (-not ('ZapmanTrayConsole' -as [type])) {
+        Add-Type -TypeDefinition $hide -ErrorAction Stop
+    }
+    $hwnd = [ZapmanTrayConsole]::GetConsoleWindow()
+    if ($hwnd -ne [IntPtr]::Zero) {
+        [void][ZapmanTrayConsole]::ShowWindow($hwnd, 0)
+    }
+} catch {
+    $null = $_.Exception
+}
+
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
 Add-Type -AssemblyName System.Drawing -ErrorAction Stop
 
@@ -108,15 +129,13 @@ function Update-ZapmanTrayUi {
     }
     if ($script:trayItemStart -or $script:trayItemStop) {
         $svc = Get-ZapretService
-        $svcRunning = $false
         $svcNotStopped = $false
         if ($svc) {
-            $svcRunning = ($svc.Status -eq 'Running')
             $svcNotStopped = ($svc.Status -ne 'Stopped')
         }
         $bypassOn = Test-ZapretBypassRunning
         if ($script:trayItemStart) {
-            $script:trayItemStart.Enabled = [bool]($svc -and -not $svcRunning)
+            $script:trayItemStart.Enabled = [bool]($svc -and $svc.Status -eq 'Stopped')
         }
         if ($script:trayItemStop) {
             $script:trayItemStop.Enabled = [bool]($bypassOn -or $svcNotStopped)
@@ -139,21 +158,9 @@ function Show-ZapmanTrayError {
 }
 
 function Get-ZapmanTrayIcon {
-    $layout = Get-ZapretLayout
-    $engine = Get-ZapretEngine
-    $exeName = 'winws.exe'
-    if ($engine -eq 'winws2') {
-        $exeName = 'winws2.exe'
-    }
-    $exe = Join-Path $layout.Bin $exeName
-    if (-not (Test-Path -LiteralPath $exe)) {
-        $exe = Join-Path $layout.Bin 'winws.exe'
-    }
-    if (-not (Test-Path -LiteralPath $exe)) {
-        $exe = Join-Path $layout.Bin 'winws2.exe'
-    }
-    if (Test-Path -LiteralPath $exe) {
-        return [System.Drawing.Icon]::ExtractAssociatedIcon($exe)
+    $ico = Join-Path (Get-ZapretLayout).Gui 'app.ico'
+    if (Test-Path -LiteralPath $ico) {
+        return New-Object System.Drawing.Icon $ico
     }
     return [System.Drawing.SystemIcons]::Application
 }
@@ -207,18 +214,24 @@ try {
     })
     $script:trayItemStart.Add_Click({
         try {
+            $script:trayItemStart.Enabled = $false
+            $script:trayItemStop.Enabled = $false
             Start-ZapretServiceIfInstalled
             Update-ZapmanTrayUi
         } catch {
             Show-ZapmanTrayError -Text (Get-ZapmanExceptionText $_)
+            Update-ZapmanTrayUi
         }
     })
     $script:trayItemStop.Add_Click({
         try {
+            $script:trayItemStart.Enabled = $false
+            $script:trayItemStop.Enabled = $false
             Stop-ZapretBypass
             Update-ZapmanTrayUi
         } catch {
             Show-ZapmanTrayError -Text (Get-ZapmanExceptionText $_)
+            Update-ZapmanTrayUi
         }
     })
     $script:trayNotify.Add_DoubleClick({

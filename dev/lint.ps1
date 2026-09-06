@@ -107,6 +107,15 @@ function Test-ZapretStrategyJsonRules {
             if ($eng -eq 'winws' -and $argv -match '--lua-desync') {
                 [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws argv contains --lua-desync.'))
             }
+            if ($eng -eq 'winws2' -and $argv -match 'blob=empty') {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws2 argv contains blob=empty.'))
+            }
+            if ($eng -eq 'winws2' -and $argv -match '--lua-desync=fake:[^\s]*tls_mod=' -and $argv -notmatch '--lua-desync=fake:[^\s]*blob=') {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws2 fake tls_mod needs a blob.'))
+            }
+            if ($eng -eq 'winws' -and $argv -match '--dpi-desync-fakedsplit-pattern=bin:') {
+                [void]$issues.Add((New-ZapretLintIssue -ScriptName $rel -Line 1 -RuleName 'ZapretStrategyArgv' -Message 'winws fakedsplit-pattern bin: must be a path.'))
+            }
         }
     }
     return @($issues)

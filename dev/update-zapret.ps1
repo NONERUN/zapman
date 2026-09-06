@@ -2,7 +2,7 @@
 # Does not touch fake *.bin files. Cache: .local/releases/
 # Usage:
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\update-zapret.ps1
-#   ... -ZapretTag v72.13 -Zapret2Tag v1.0.4
+#   ... -ZapretTag <tag> -Zapret2Tag <tag>
 #   ... -DryRun
 
 [CmdletBinding()]
@@ -301,5 +301,5 @@ $sources = @(
 )
 Write-ZapretBinManifest -Sources $sources -Files @($files)
 Write-Host ("Wrote {0}" -f $manifestPath)
-Write-Host 'Fake *.bin files were not changed. Update README / PLAN / AGENTS if the tags changed.'
+Write-Host 'Fake *.bin files were not changed. Tags are in bin/versions.json. Note a bump in CHANGELOG.md.'
 exit 0

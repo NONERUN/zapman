@@ -1,59 +1,112 @@
 # Разработка
 
-Человеческая инструкция. Правила для агента (ловушки 5.1/WPF, политика alpha) — в [`AGENTS.md`](../AGENTS.md). Контракт движков — [`PLAN.md`](../PLAN.md). При смене политики правьте оба файла в одном изменении.
+Ловушки PowerShell 5.1 / WPF, два `.bat`, что не делать в коде — [`AGENTS.md`](../AGENTS.md). Этот файл — поля JSON и команды обновления `bin/`. Правка генератора и этого файла — в одном изменении.
 
-## Среда
+Версия продукта — `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1). В окне и в git-теге: `v` + это число. Схема JSON — `ModuleVersion` в [`src/ZapretSpec/ZapretSpec.psd1`](../src/ZapretSpec/ZapretSpec.psd1). Поле `specVersion` в каждом `strategies/*.json` должно совпадать. `cli.bat env` печатает обе.
 
-Целевой интерпретатор — **Windows PowerShell 5.1** (`powershell.exe`), не PowerShell 7 (`pwsh`). Не используйте `??`, `?:`, `&&` / `||`, `-Parallel`.
+## Движки
 
-**Windows 10 LTSC — цель рантайма, не разработки.** Разработка и `dev\lint.ps1` могут идти на более новой десктопной сборке. Не добавляйте зависимость, без которой продукт на LTSC не открывается (нет требования Visual Studio / .NET SDK).
+В `bin/` лежат оба exe, общий WinDivert / `cygwin1.dll`, Lua рядом с winws2. Теги и SHA256 — [`bin/versions.json`](../bin/versions.json).
 
-В корне **два** `.bat`: `zapman.bat` (GUI, `-STA`) и `cli.bat` (консоль). Новый `.bat` не добавлять. Логика — только `.ps1`.
+Обновить exe (fake `.bin` не трогает):
 
-## Совместимость (alpha)
+```text
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\update-zapret.ps1
+```
 
-Обратная совместимость **только у набора стратегий** (что они делают с трафиком). Набор поддерживается в согласовании с [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube). Имена файлов и подписи в GUI менять можно. Обвязку (CLI, служба, раскладка, флаги) не сохраняйте через shim: удаляйте старый путь.
+Windows 7: тот же `WinDivert.dll` / `WinDivert64.sys` для обоих exe. Если ОС требует подпись — подмена из [zapret-win-bundle/win7](https://github.com/bol-van/zapret-win-bundle/tree/master/win7). См. [`troubleshooting.md`](troubleshooting.md).
 
-Ломающие изменения — [`CHANGELOG.md`](../CHANGELOG.md). Документацию (`README.md`, этот файл, `AGENTS.md`, `PLAN.md`, `docs/`) обновляйте в том же изменении.
+Выбор exe — радио в «Стратегия…» (GUI) или пункты 5/6 в `cli.bat service`. Ключ `user/config.json` `engine`: `winws` (дефолт) или `winws2`. Нет файла выбранного exe — ошибка, второй exe сам не подставляется.
 
-Версия продукта — `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1) (`0.1.0`). В окне и в git-теге: `v` + это число. Схема стратегий — отдельный [`src/ZapretSpec/ZapretSpec.psd1`](../src/ZapretSpec/ZapretSpec.psd1) (`0.1.0`); поле `specVersion` в JSON должно совпадать.
+Служба `zapret`: ImagePath = `"<bin>\<exe>" <argv>`. Для winws2 `Install-ZapretService` дописывает `--chdir="<bin>"`, если генератор сам `--chdir` не дал (не даёт). SCM стартует из System32; без `--chdir` Lua не находится. Смена `engine` или Game Filter при установленной службе — снова **Установить службу**.
 
-## Раскладка
+GUI и CLI строку флагов не разбирают. Нет exe — отказ.
 
-| Путь | Роль |
-|---|---|
-| `zapman.bat` | GUI → `src/gui/gui-boot.ps1` → `gui.ps1` |
-| `cli.bat` | Консоль → `src/cli/cli.ps1` |
-| `src/gui/` | WPF: `*.xaml` (ASCII) + code-behind. Тексты — `Get-ZapmanUiString` |
-| `src/Zapman/` | Модуль обвязки. Сторож в трее: `Tray.ps1` (отдельный процесс) |
-| `src/ZapretSpec/` | Генератор argv из JSON (своя `ModuleVersion`) |
-| `src/Zapret/Bypass.ps1` | Движок (dotsource, не отдельный модуль) |
-| `strategies/*.json` | Намерение. Сток — `lists:`, свои файлы — `user:` |
-| `lists/` | Сток-хостлисты и `ipset-all.default.txt` |
-| `user/` | Свои списки и рабочий ipset (gitignore). `config.json` в корне |
-| `docs/` | Использование, проблемы, эта страница; `docs/ui` — генератор |
+Одинаковые пакеты на winws и winws2 не обещаем (у z2 другие range, payload, empty ACK). Одинаковые поля JSON — да. Проверка — тесты на выбранном `engine`.
 
-Кириллица в [`src/Zapman/Ui.ps1`](../src/Zapman/Ui.ps1) — UTF-8 **с BOM**. Комментарии в коде — [ASD-STE100](https://www.asd-ste100.org/) Simplified Technical English.
+## JSON → argv
 
-## Линтер
+Один файл `strategies/*.json`. Генератор — [`src/ZapretSpec/`](../src/ZapretSpec/), экспорт `ConvertTo-ZapretStrategyArgList`. Lua только stock `bin/lua/zapret-lib.lua` и `bin/lua/zapret-antidpi.lua`. Свой `.lua` не подключать. Lua-атаку в флаги winws не переводить.
 
-После правок `.ps1`, `.bat`, `src/gui/`, `src/cli/`, `src/Zapman/`, `src/Zapret/`, `src/ZapretSpec/`, `strategies/` или `dev/`:
+Неизвестный `desync` — throw. Не добавлять имя атаки вне таблицы.
+
+Префиксы путей: `lists:` → `lists/`, `user:` → `user/`, `bin:` → `bin/`. Регистр префикса как в таблице.
+
+### Корень файла
+
+| Поле | winws | winws2 |
+|---|---|---|
+| `specVersion` | Должно равняться ZapretSpec `ModuleVersion` | то же |
+| `wf.tcp` | `--wf-tcp=` | `--wf-tcp-out=` |
+| `wf.udp` | `--wf-udp=` | `--wf-udp-out=` |
+
+В `wf.*` токены `$gf.Tcp` / `$gf.Udp` заменяются на порты Game Filter (`12` или `1024-65535`).
+
+### Профиль (`profiles[]`)
+
+`desync` — только эти имена: `fake`, `multisplit`, `multidisorder`, `hostfakesplit`, `fakedsplit`, `syndata`.
+
+| Поле | winws | winws2 |
+|---|---|---|
+| `tcp` / `udp` / `l3` / `l7` | `--filter-tcp=` / `--filter-udp=` / `--filter-l3=` / `--filter-l7=` | то же |
+| `payload` | не пишется (фильтр из `l7`) | `--payload=` |
+| `hostlist` | `--hostlist=` | то же |
+| `hostlistExclude` | `--hostlist-exclude=` | то же |
+| `hostlistDomains` | `--hostlist-domains=` | то же |
+| `hostlistExcludeDomains` | `--hostlist-exclude-domains=` | то же |
+| `ipset` | `--ipset=` | то же |
+| `ipsetExclude` | `--ipset-exclude=` | то же |
+| `desync` | `--dpi-desync=` | `--lua-desync=<атака>:…` на каждую атаку |
+| `repeats` | `--dpi-desync-repeats=` | `repeats=` у Lua (не на `multisplit` / `multidisorder`) |
+| `anyProtocol` | `--dpi-desync-any-protocol=1` | `--payload=all` если нет явного `payload` |
+| `cutoff` | `--dpi-desync-cutoff=` как в JSON | `nN` → `--out-range=-dN`; иначе при TCP/QUIC → `--out-range=-d10` |
+| `splitPos` | `--dpi-desync-split-pos=` | `pos=` у split-атак |
+| `seqovl` | `--dpi-desync-split-seqovl=` | `seqovl=` |
+| `seqovlPattern` | `--dpi-desync-split-seqovl-pattern=` (путь `bin:`/`lists:`/`user:`) | blob + `seqovl_pattern=` |
+| `ipId` | `--ip-id=` | `ip_id=` |
+| `tlsMod` | `--dpi-desync-fake-tls-mod=` после `fake-tls` | `tls_mod=` на последнем TLS-fake |
+| `hostfakesplitMod` | `--dpi-desync-hostfakesplit-mod=` как в JSON | куски через запятую; **`altorder=*` не писать** (в stock Lua нет) |
+| `fakedsplitPattern` | `--dpi-desync-fakedsplit-pattern=` (путь, не сырой `bin:`) | `pattern=` / blob |
+
+### Fooling
+
+| JSON | winws | winws2 |
+|---|---|---|
+| `fooling` содержит `ts` | `--dpi-desync-fooling=…ts…` | `tcp_ts=-600000` |
+| `fooling` содержит `md5sig` | `--dpi-desync-fooling=…md5sig…` | `tcp_md5` |
+| `fooling` содержит `badseq` | `--dpi-desync-fooling=…badseq…` и `--dpi-desync-badseq-increment=` | `tcp_seq=` и `tcp_ack=` |
+| нет `badseqIncrement` при `badseq` | increment **−10** | **−10** |
+| другое имя fooling | throw | throw |
+
+Fooling не вешается на Lua-атаку `multisplit`.
+
+### Fake
+
+Слоты: `quic`, `tls`, `http`, `discord`, `stun`, `unknown`, `unknownUdp`.
+
+| JSON | winws | winws2 |
+|---|---|---|
+| `fake.tls` / `http` / … | `--dpi-desync-fake-tls=` (и аналоги) | `--blob=name:@file` или `name:0xHEX`, затем `blob=` в `--lua-desync=fake` |
+| значение `!` | как в JSON (встроенный hello z1) | stock `bin:tls_clienthello_www_google_com.bin` |
+| TLS-профиль с `fake` в `desync`, слота `tls` нет | z1 подставляет встроенный `!` | то же, что `!` (google hello). Не `blob=empty` |
+| hex `0x00000000` | как есть | имя blob `hex_00000000`, не `0x…` |
+| порядок | `fake-tls` **до** `fake-tls-mod` | `tls_mod` только на последний TLS-ref |
+
+На z2 в argv не должно быть `--dpi-desync`. На z1 не должно быть `--lua-desync`. `--blob=` только `name:value` (двоеточие).
+
+## Линтер и макеты
+
+После правок `.ps1` / стратегий / `dev/`:
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ```
 
-Исправить все FAIL до конца задачи. Опционально: PSScriptAnalyzer; Blinter для `.bat` (`pipx install Blinter`).
-
-## Макеты окон
-
-Генератор читает `src/gui/*.xaml` и строки UI, пишет [`docs/ui/`](ui/index.md). После правки XAML, `Ui.ps1` или привязок в `gui.ps1` / `gui-dialogs.ps1`:
+После XAML или `src/Zapman/Ui.ps1`:
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ```
 
-Линтер в режиме `-Check` падает, если `docs/ui` устарел. Файлы в `docs/ui` не править руками.
-
-Движки в `bin/` обновлять так: `dev\update-zapret.ps1` (официальные zip zapret / zapret2; fake `.bin` не трогает).
+Файлы в [`docs/ui/`](ui/index.md) руками не править. Кириллица в `src/Zapman/Ui.ps1` — UTF-8 с BOM.

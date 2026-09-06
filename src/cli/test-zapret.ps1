@@ -9,36 +9,52 @@ param(
 Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapman\Zapman.psd1')
 [void](Initialize-ZapmanUiLanguage)
 
-$names = @()
-if (-not [string]::IsNullOrWhiteSpace($Strategies)) {
-    $names = @($Strategies.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+$servicePath = Join-Path $PSScriptRoot 'service.ps1'
+if (-not (Test-Path -LiteralPath $servicePath)) {
+    throw ("File not found: {0}" -f $servicePath)
+}
+. $servicePath
+
+if (-not (Test-IsAdministrator)) {
+    $pass = New-Object System.Collections.ArrayList
+    if (-not [string]::IsNullOrWhiteSpace($TestType)) {
+        [void]$pass.Add('-TestType')
+        [void]$pass.Add($TestType)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Strategies)) {
+        [void]$pass.Add('-Strategies')
+        [void]$pass.Add($Strategies)
+    }
+    if ($NoPause) {
+        [void]$pass.Add('-NoPause')
+    }
+    exit (Start-ZapmanElevatedPowerShellFile -FilePath $PSCommandPath -ArgumentList @($pass))
 }
 
 $askType = [string]::IsNullOrWhiteSpace($TestType)
 $askNames = [string]::IsNullOrWhiteSpace($Strategies)
-
-$snap = $null
-$code = 1
-if (Get-ZapretService) {
-    Write-Host (Get-ZapmanUiString -Key 'TestsNeedNoService')
-    $snap = Suspend-ZapretServiceForTests
+$code = Invoke-ZapmanCliTestRun -TestType $TestType -Strategies $Strategies -AskType:$askType -AskNames:$askNames
+if ($null -eq $code) {
+    $code = 1
 }
 
-try {
-    $code = Invoke-ZapmanStrategyTests -TestType $TestType -Names $names -AskType:$askType -AskNames:$askNames
-    if ($null -eq $code) {
-        $code = 1
-    }
-} finally {
-    if ($snap -and $snap.File) {
-        Restore-ZapretServiceAfterTests -Snapshot $snap
-        Write-Host (Get-ZapmanUiString -Key 'InstallDone' -FormatArgs @($snap.File.BaseName))
+$doPause = -not $NoPause
+if ($doPause) {
+    try {
+        if ([Console]::IsInputRedirected) {
+            $doPause = $false
+        }
+    } catch {
+        $doPause = $false
     }
 }
-
-if (-not $NoPause) {
-    Write-Host "Press any key to close..." -ForegroundColor Yellow
-    [void][System.Console]::ReadKey($true)
+if ($doPause) {
+    try {
+        Write-Host "Press any key to close..." -ForegroundColor Yellow
+        [void][System.Console]::ReadKey($true)
+    } catch {
+        $null = $_.Exception
+    }
 }
 
 exit ([int]$code)

@@ -140,7 +140,7 @@ $script:ZapmanUiEn = @{
     StatusLineBypassOn   = 'Bypass ({0}) is RUNNING.'
     StatusLineBypassOff  = 'Bypass (winws / winws2) is NOT running.'
     StatusLineLastError  = 'Last error:'
-    ConfigParseFail      = 'config.json is not valid JSON. Using defaults.'
+    ConfigParseFail      = 'user/config.json is not valid JSON. Using defaults.'
     FakesTitle           = 'Fakes'
     FakesDiscord         = 'Discord UDP'
     FakesGame            = 'Game UDP'
@@ -189,6 +189,7 @@ $script:ZapmanUiEn = @{
     MenuIpset            = 'IPSet Filter'
     MenuAuto             = 'Auto-Update Check'
     MenuTray             = 'Tray icon'
+    MenuLang             = 'Language'
     MenuFakes            = 'Fakes'
     MenuIpsetDl          = 'Download ipset'
     MenuHosts            = 'Compare hosts'
@@ -351,7 +352,7 @@ $script:ZapmanUiRu = @{
     StatusLineBypassOn   = 'Обход ({0}) запущен.'
     StatusLineBypassOff  = 'Обход (winws / winws2) не запущен.'
     StatusLineLastError  = 'Последняя ошибка:'
-    ConfigParseFail      = 'config.json не JSON. Используются значения по умолчанию.'
+    ConfigParseFail      = 'user/config.json не JSON. Используются значения по умолчанию.'
     FakesTitle           = 'Fake'
     FakesDiscord         = 'Discord UDP'
     FakesGame            = 'Game UDP'
@@ -400,6 +401,7 @@ $script:ZapmanUiRu = @{
     MenuIpset            = 'IPSet Filter'
     MenuAuto             = 'Auto-Update Check'
     MenuTray             = 'Иконка в трее'
+    MenuLang             = 'Язык'
     MenuFakes            = 'Fake'
     MenuIpsetDl          = 'Скачать ipset'
     MenuHosts            = 'Сверить hosts'
@@ -510,6 +512,7 @@ function Enable-ZapmanConsoleUtf8 {
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         [Console]::InputEncoding = [System.Text.Encoding]::UTF8
         $OutputEncoding = [System.Text.Encoding]::UTF8
+        $global:OutputEncoding = [System.Text.Encoding]::UTF8
     } catch {
         return
     }

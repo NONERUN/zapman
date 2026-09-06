@@ -10,7 +10,7 @@ $script:ZapmanBinDir = Join-Path $script:ZapmanRoot 'bin'
 $script:ZapmanListsDir = Join-Path $script:ZapmanRoot 'lists'
 $script:ZapmanUserDir = Join-Path $script:ZapmanRoot 'user'
 $script:ZapmanStrategiesDir = Join-Path $script:ZapmanRoot 'strategies'
-$script:ZapmanConfigPath = Join-Path $script:ZapmanRoot 'config.json'
+$script:ZapmanConfigPath = Join-Path $script:ZapmanUserDir 'config.json'
 $script:ZapmanResultsDir = Join-Path $script:ZapmanRoot 'test-results'
 
 function ConvertTo-ZapmanVersion {
@@ -71,31 +71,37 @@ function New-ZapmanConfigDefaults {
         gameFilter       = 'disabled'
         autoUpdateCheck  = $true
         trayWatch        = $true
-        testTargets      = @(
-            (New-Object PSObject -Property @{ name = 'DiscordMain'; value = 'https://discord.com' })
-            (New-Object PSObject -Property @{ name = 'DiscordGateway'; value = 'https://gateway.discord.gg' })
-            (New-Object PSObject -Property @{ name = 'DiscordCDN'; value = 'https://cdn.discordapp.com' })
-            (New-Object PSObject -Property @{ name = 'DiscordUpdates'; value = 'https://updates.discord.com' })
-            (New-Object PSObject -Property @{ name = 'YouTubeWeb'; value = 'https://www.youtube.com' })
-            (New-Object PSObject -Property @{ name = 'YouTubeShort'; value = 'https://youtu.be' })
-            (New-Object PSObject -Property @{ name = 'YouTubeImage'; value = 'https://i.ytimg.com' })
-            (New-Object PSObject -Property @{ name = 'YouTubeVideoRedirect'; value = 'https://redirector.googlevideo.com' })
-            (New-Object PSObject -Property @{ name = 'GoogleMain'; value = 'https://www.google.com' })
-            (New-Object PSObject -Property @{ name = 'GoogleGstatic'; value = 'https://www.gstatic.com' })
-            (New-Object PSObject -Property @{ name = 'CloudflareWeb'; value = 'https://www.cloudflare.com' })
-            (New-Object PSObject -Property @{ name = 'CloudflareCDN'; value = 'https://cdnjs.cloudflare.com' })
-            (New-Object PSObject -Property @{ name = 'CloudflareDNS1111'; value = 'PING:1.1.1.1' })
-            (New-Object PSObject -Property @{ name = 'CloudflareDNS1001'; value = 'PING:1.0.0.1' })
-            (New-Object PSObject -Property @{ name = 'GoogleDNS8888'; value = 'PING:8.8.8.8' })
-            (New-Object PSObject -Property @{ name = 'GoogleDNS8844'; value = 'PING:8.8.4.4' })
-            (New-Object PSObject -Property @{ name = 'Quad9DNS9999'; value = 'PING:9.9.9.9' })
-        )
     }
 }
 
 $script:ZapmanConfigCache = $null
 $script:ZapmanConfigCacheMtime = $null
 $script:ZapmanConfigError = ''
+
+function ConvertTo-ZapmanJsonBool {
+    param(
+        $Value,
+        [bool]$Default = $false
+    )
+    if ($null -eq $Value) {
+        return $Default
+    }
+    if ($Value -is [bool]) {
+        return [bool]$Value
+    }
+    $t = ([string]$Value).Trim()
+    if ($t.Length -lt 1) {
+        return $Default
+    }
+    $low = $t.ToLowerInvariant()
+    if ($low -eq 'true' -or $low -eq '1' -or $low -eq 'yes') {
+        return $true
+    }
+    if ($low -eq 'false' -or $low -eq '0' -or $low -eq 'no') {
+        return $false
+    }
+    return $Default
+}
 
 function Get-ZapmanConfig {
     $path = $script:ZapmanConfigPath
@@ -139,16 +145,10 @@ function Get-ZapmanConfig {
         }
     }
     if ($parsed.PSObject.Properties['autoUpdateCheck']) {
-        $cfg.autoUpdateCheck = [bool]$parsed.autoUpdateCheck
+        $cfg.autoUpdateCheck = ConvertTo-ZapmanJsonBool -Value $parsed.autoUpdateCheck -Default $true
     }
     if ($parsed.PSObject.Properties['trayWatch']) {
-        $cfg.trayWatch = [bool]$parsed.trayWatch
-    }
-    if ($parsed.PSObject.Properties['testTargets']) {
-        $items = @($parsed.testTargets)
-        if ($items.Count -gt 0) {
-            $cfg.testTargets = @($items)
-        }
+        $cfg.trayWatch = ConvertTo-ZapmanJsonBool -Value $parsed.trayWatch -Default $true
     }
     $script:ZapmanConfigCache = $cfg
     $script:ZapmanConfigCacheMtime = $mtime
@@ -163,10 +163,13 @@ function Save-ZapmanConfig {
         gameFilter      = [string]$Config.gameFilter
         autoUpdateCheck = [bool]$Config.autoUpdateCheck
         trayWatch       = [bool]$Config.trayWatch
-        testTargets     = @($Config.testTargets)
     }
     $json = $payload | ConvertTo-Json -Depth 6
     $utf8 = New-Object System.Text.UTF8Encoding $false
+    $dir = Split-Path -Parent $script:ZapmanConfigPath
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir | Out-Null
+    }
     [System.IO.File]::WriteAllText($script:ZapmanConfigPath, $json, $utf8)
     $script:ZapmanConfigCache = $Config
     $script:ZapmanConfigError = ''
@@ -198,10 +201,10 @@ function Update-ZapmanConfig {
         $cfg.gameFilter = $GameFilter
     }
     if ($PSBoundParameters.ContainsKey('AutoUpdateCheck')) {
-        $cfg.autoUpdateCheck = [bool]$AutoUpdateCheck
+        $cfg.autoUpdateCheck = ConvertTo-ZapmanJsonBool -Value $AutoUpdateCheck -Default $cfg.autoUpdateCheck
     }
     if ($PSBoundParameters.ContainsKey('TrayWatch')) {
-        $cfg.trayWatch = [bool]$TrayWatch
+        $cfg.trayWatch = ConvertTo-ZapmanJsonBool -Value $TrayWatch -Default $cfg.trayWatch
     }
     Save-ZapmanConfig -Config $cfg
     return $cfg
@@ -394,9 +397,23 @@ function Test-ZapretBinVersions {
     return @($errors)
 }
 
+function Test-ZapmanPowerShell51 {
+    $v = $PSVersionTable.PSVersion
+    if ($v.Major -gt 5) {
+        return $true
+    }
+    if ($v.Major -eq 5 -and $v.Minor -ge 1) {
+        return $true
+    }
+    return $false
+}
+
 # Console probe only (cli.bat env). The GUI does not call this at start.
 function Test-ZapmanHostReady {
     $errors = New-Object System.Collections.ArrayList
+    if (-not (Test-ZapmanPowerShell51)) {
+        [void]$errors.Add('This program needs Windows PowerShell 5.1 (WMF 5.1 on Windows 7).')
+    }
     if (-not (Test-Zapman64BitOs)) {
         [void]$errors.Add('This program needs a 64-bit Windows system. 32-bit is not supported.')
     }

@@ -1,0 +1,8 @@
+Heroicons lock-closed (solid, 24px). MIT License.
+
+Copyright (c) Tailwind Labs, Inc.
+
+https://github.com/tailwindlabs/heroicons
+
+The glyph is rasterized into app.ico (white lock on a blue rounded square) for the GUI and tray.
+The source path is in app.svg.

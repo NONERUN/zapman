@@ -1,4 +1,4 @@
-# Zapret Manager console (same actions as the GUI).
+﻿# Zapret Manager console (same actions as the GUI).
 # Start: cli.bat service
 
 Set-StrictMode -Version Latest
@@ -63,7 +63,7 @@ function Read-YesNo {
     if ([string]::IsNullOrWhiteSpace($raw)) {
         return $DefaultYes
     }
-    if ($raw -eq 'Y' -or $raw -eq 'y') {
+    if ($raw -eq 'Y' -or $raw -eq 'y' -or $raw -eq 'Д' -or $raw -eq 'д') {
         return $true
     }
     return $false
@@ -77,10 +77,19 @@ function Select-ZapretStrategyFile {
         return $null
     }
     $engine = Get-ZapretEngine
+    $runningName = Get-ZapretRunningStrategyName
+    $installedName = Get-ZapretInstalledStrategyName
     Write-Host (Get-ZapmanUiString -Key 'PickStrategy')
     for ($i = 0; $i -lt $files.Count; $i++) {
         $ok = Test-ZapretStrategySupportsEngine -Path $files[$i].FullName -Engine $engine
-        $line = "  {0}. {1}" -f ($i + 1), $files[$i].BaseName
+        $name = $files[$i].BaseName
+        $mark = ''
+        if ((Test-ZapretBypassRunning) -and $name -eq $runningName) {
+            $mark = Get-ZapmanUiString -Key 'StratMarkRun'
+        } elseif ($name -eq $installedName) {
+            $mark = Get-ZapmanUiString -Key 'StratMarkService'
+        }
+        $line = "  {0}. {1}{2}" -f ($i + 1), $name, $mark
         if ($ok) {
             Write-Host $line
         } else {
@@ -98,7 +107,13 @@ function Select-ZapretStrategyFile {
         Wait-Pause
         return $null
     }
-    return $files[$idx - 1]
+    $file = $files[$idx - 1]
+    if (-not (Test-ZapretStrategySupportsEngine -Path $file.FullName -Engine $engine)) {
+        Write-Bad (Get-ZapmanUiString -Key 'EngineNoFlags' -FormatArgs @($engine))
+        Wait-Pause
+        return $null
+    }
+    return $file
 }
 
 # Strategy: run, install, tests.
@@ -158,8 +173,15 @@ function Invoke-StrategyTests {
             Write-Ok (Get-ZapmanUiString -Key 'RemoveDone')
         }
         try {
-            Invoke-ZapmanStrategyTests -AskType -AskNames
-            Write-Host (Get-ZapmanUiString -Key 'TestsTitle')
+            $code = Invoke-ZapmanStrategyTests -AskType -AskNames
+            if ($null -eq $code) {
+                $code = 1
+            }
+            if ([int]$code -ne 0) {
+                Write-Bad (Get-ZapmanUiString -Key 'TestsTitle')
+            } else {
+                Write-Host (Get-ZapmanUiString -Key 'TestsTitle')
+            }
         } finally {
             if ($snap -and $snap.File) {
                 Restore-ZapretServiceAfterTests -Snapshot $snap
@@ -309,7 +331,10 @@ function Invoke-GameFilterMenu {
     }
     Set-ZapretGameFilterMode -Mode $mode
     if (Get-ZapretService) {
-        Write-Warn (Get-ZapmanUiString -Key 'FilterNeedInstall')
+        if (Read-YesNo -Prompt (Get-ZapmanUiString -Key 'FilterNeedInstall') -DefaultYes $true) {
+            Invoke-StrategyInstall
+            return
+        }
     } else {
         Write-Warn (Get-ZapmanUiString -Key 'FilterNeedRerun')
     }
@@ -343,7 +368,10 @@ function Invoke-IpsetMenu {
         Set-ZapretIpsetMode -Mode $mode
         Write-Host (Get-ZapmanUiString -Key 'IpsetNow' -FormatArgs @($mode))
         if (Get-ZapretService) {
-            Write-Warn (Get-ZapmanUiString -Key 'FilterNeedRestart')
+            if (Read-YesNo -Prompt (Get-ZapmanUiString -Key 'FilterNeedRestart') -DefaultYes $true) {
+                Stop-ZapretBypass
+                Start-ZapretServiceIfInstalled
+            }
         } else {
             Write-Warn (Get-ZapmanUiString -Key 'FilterNeedRerun')
         }
@@ -377,6 +405,26 @@ function Invoke-TrayWatchToggle {
         Write-Bad $_.Exception.Message
     }
     Wait-Pause
+}
+
+function Get-ZapmanCliLanguageLabel {
+    if ((Get-ZapmanUiLanguage) -eq 'ru') {
+        return (Get-ZapmanUiString -Key 'LangRu')
+    }
+    return (Get-ZapmanUiString -Key 'LangEn')
+}
+
+function Invoke-LanguageToggle {
+    $next = 'ru'
+    if ((Get-ZapmanUiLanguage) -eq 'ru') {
+        $next = 'en'
+    }
+    Set-ZapmanUiLanguage -Language $next
+    try {
+        Restart-ZapmanTrayWatchProcess
+    } catch {
+        Write-Bad (Get-ZapmanExceptionText $_)
+    }
 }
 
 # Tools: version, ipset download, hosts, diagnostics.
@@ -576,7 +624,10 @@ function Invoke-ReplaceFakes {
     }
     if ($applied -gt 0) {
         if (Get-ZapretService) {
-            Write-Warn (Get-ZapmanUiString -Key 'FakeNeedRestart')
+            if (Read-YesNo -Prompt (Get-ZapmanUiString -Key 'FakeNeedRestart') -DefaultYes $true) {
+                Stop-ZapretBypass
+                Start-ZapretServiceIfInstalled
+            }
         } else {
             Write-Warn (Get-ZapmanUiString -Key 'FakeNeedRerun')
         }
@@ -639,14 +690,15 @@ function Invoke-ZapmanServiceMenu {
         Write-MenuItem -Number '8' -Text (Get-ZapmanUiString -Key 'MenuAuto') -Tag $upd
         Write-MenuItem -Number '9' -Text (Get-ZapmanUiString -Key 'MenuTray') -Tag $tray
         Write-MenuItem -Number '10' -Text (Get-ZapmanUiString -Key 'MenuFakes')
+        Write-MenuItem -Number '11' -Text (Get-ZapmanUiString -Key 'MenuLang') -Tag (Get-ZapmanCliLanguageLabel)
         Write-MenuSection -Key 'GrpTools'
-        Write-MenuItem -Number '11' -Text (Get-ZapmanUiString -Key 'MenuIpsetDl')
-        Write-MenuItem -Number '12' -Text (Get-ZapmanUiString -Key 'MenuHosts')
-        Write-MenuItem -Number '13' -Text (Get-ZapmanUiString -Key 'MenuVersion')
-        Write-MenuItem -Number '14' -Text (Get-ZapmanUiString -Key 'MenuDiag')
+        Write-MenuItem -Number '12' -Text (Get-ZapmanUiString -Key 'MenuIpsetDl')
+        Write-MenuItem -Number '13' -Text (Get-ZapmanUiString -Key 'MenuHosts')
+        Write-MenuItem -Number '14' -Text (Get-ZapmanUiString -Key 'MenuVersion')
+        Write-MenuItem -Number '15' -Text (Get-ZapmanUiString -Key 'MenuDiag')
         Write-MenuSep
         Write-MenuItem -Number '0' -Text (Get-ZapmanUiString -Key 'MenuExit')
-        $choice = Read-Host '  Select option (0-14)'
+        $choice = Read-Host '  Select option (0-15)'
         switch ($choice) {
             '1' { Invoke-StrategyMenu }
             '2' { Invoke-StartService }
@@ -658,26 +710,82 @@ function Invoke-ZapmanServiceMenu {
             '8' { Invoke-AutoUpdateToggle }
             '9' { Invoke-TrayWatchToggle }
             '10' { Invoke-ReplaceFakes }
-            '11' { Invoke-UpdateIpset }
-            '12' { Invoke-CompareHosts }
-            '13' { Invoke-CheckVersion }
-            '14' { Invoke-Diagnostics }
+            '11' { Invoke-LanguageToggle }
+            '12' { Invoke-UpdateIpset }
+            '13' { Invoke-CompareHosts }
+            '14' { Invoke-CheckVersion }
+            '15' { Invoke-Diagnostics }
             '0' { return 0 }
             default { }
         }
     }
 }
 
+function Start-ZapmanElevatedPowerShellFile {
+    param(
+        [string]$FilePath,
+        [string[]]$ArgumentList = @()
+    )
+    $ps = Get-ZapmanPowershellExePath
+    $arg = '-NoProfile -ExecutionPolicy Bypass -File "' + $FilePath + '"'
+    foreach ($item in @($ArgumentList)) {
+        if ([string]::IsNullOrWhiteSpace($item)) {
+            continue
+        }
+        if ($item -match '\s') {
+            $arg = $arg + ' "' + $item + '"'
+        } else {
+            $arg = $arg + ' ' + $item
+        }
+    }
+    $root = (Get-ZapretLayout).Root
+    try {
+        $p = Start-Process -FilePath $ps -ArgumentList $arg -Verb RunAs -WorkingDirectory $root -Wait -PassThru
+    } catch {
+        Write-Host (Get-ZapmanUiString -Key 'AdminRequired') -ForegroundColor Red
+        return 1
+    }
+    if ($null -eq $p) {
+        return 1
+    }
+    return [int]$p.ExitCode
+}
+
+function Invoke-ZapmanCliTestRun {
+    param(
+        [string]$TestType,
+        [string]$Strategies,
+        [switch]$AskType,
+        [switch]$AskNames
+    )
+    $names = @()
+    if (-not [string]::IsNullOrWhiteSpace($Strategies)) {
+        $names = @($Strategies.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    }
+    $snap = $null
+    $code = 1
+    if (Get-ZapretService) {
+        Write-Host (Get-ZapmanUiString -Key 'TestsNeedNoService')
+        $snap = Suspend-ZapretServiceForTests
+    }
+    try {
+        $code = Invoke-ZapmanStrategyTests -TestType $TestType -Names $names -AskType:$AskType -AskNames:$AskNames
+        if ($null -eq $code) {
+            $code = 1
+        }
+    } finally {
+        if ($snap -and $snap.File) {
+            Restore-ZapretServiceAfterTests -Snapshot $snap
+            Write-Host (Get-ZapmanUiString -Key 'InstallDone' -FormatArgs @($snap.File.BaseName))
+        }
+    }
+    return [int]$code
+}
+
 function Start-ZapmanServiceConsole {
     if (-not (Test-IsAdministrator)) {
-        $argList = "-NoProfile -NoLogo -ExecutionPolicy Bypass -File `"$script:ZapmanServiceEntryPath`""
-        try {
-            Start-Process -FilePath 'powershell.exe' -ArgumentList $argList -Verb RunAs | Out-Null
-        } catch {
-            Write-Host (Get-ZapmanUiString -Key 'AdminRequired') -ForegroundColor Red
-            return 1
-        }
-        return 0
+        $code = Start-ZapmanElevatedPowerShellFile -FilePath $script:ZapmanServiceEntryPath
+        exit $code
     }
 
     Initialize-ZapmanUserLists

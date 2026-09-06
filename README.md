@@ -20,44 +20,41 @@
 > WinDivert может вызвать реакцию антивируса: это фильтр трафика, не вирус. Добавьте папку в исключения или отключите детект PUA. Подробности — [Проблемы](docs/troubleshooting.md#античит-ругается-на-windivert).
 
 > [!IMPORTANT]
-> Движки в [`bin`](./bin) — официальные [zapret v72.13](https://github.com/bol-van/zapret/releases/tag/v72.13) (`winws.exe`) и [zapret2 v1.0.4](https://github.com/bol-van/zapret2/releases/tag/v1.0.4) (`winws2.exe`). SHA256 — [`bin/versions.json`](./bin/versions.json).
+> Файлы в [`bin`](./bin) — официальные [zapret](https://github.com/bol-van/zapret) (`winws.exe`) и [zapret2](https://github.com/bol-van/zapret2) (`winws2.exe`). Тег и SHA256 — [`bin/versions.json`](./bin/versions.json).
 
 ## Использование
 
 1. Включите [Secure DNS](docs/usage.md#secure-dns) (не поставщик «по умолчанию»).
 2. Скачайте архив со [страницы релизов](https://github.com/NONERUN/zapman/releases/latest) **этого** репозитория.
 3. Свойства архива → «Разблокировать» (7-Zip / PeaZip часто не требуют).
-4. Распакуйте в путь без кириллицы, пробелов и спецсимволов. Обновление: скопируйте старую папку `user/` в новую распаковку (`config.json` остаётся в корне).
+4. Распакуйте в путь без кириллицы, пробелов и спецсимволов. Обновление: скопируйте старую папку `user/` в новую распаковку.
 5. Запустите [`zapman.bat`](./zapman.bat) (права администратора).
 
 На **Windows 10 LTSC** и новее с рабочим столом ничего ставить не нужно. На **Windows 7 SP1 x64** — WMF 5.1 и .NET 4.5+.
 
-**Старт службы** запускает уже установленную службу. Другую стратегию без автозапуска — **Стратегия…**.
+Кнопки, служба, трей (`zapman-tray`), IPSet, консоль `cli.bat` — [использование](docs/usage.md).
 
 ## Документация
 
-- [Использование](docs/usage.md) — DNS, файлы, списки, служба и фильтры
-- [Проблемы](docs/troubleshooting.md) — FAQ и переустановка
-- [Окна GUI](docs/ui/index.md) — макеты из текущего XAML
-- [Разработка](docs/dev.md) — линтер, генератор окон, раскладка
+- [Использование](docs/usage.md)
+- [Проблемы](docs/troubleshooting.md)
+- [Окна GUI](docs/ui/index.md)
+- [Разработка](docs/dev.md) — JSON → флаги, `dev\update-zapret.ps1`
+- [AGENTS.md](AGENTS.md) — правила для агента (5.1, WPF, что не делать)
 
 ## Разработка
 
-Целевой интерпретатор — `powershell.exe` **5.1**, не `pwsh`.
-
-После правок `.ps1` / GUI:
+Интерпретатор продукта — `powershell.exe` **5.1**, не `pwsh`.
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ```
 
-Макеты окон после смены XAML или подписей:
+После смены XAML или строк UI:
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 ```
-
-Полный текст — [docs/dev.md](docs/dev.md). Правила для агента — [AGENTS.md](AGENTS.md).
 
 ## Поддержка проекта
 
@@ -67,7 +64,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 
 ## Лицензия
 
-[MIT](LICENSE.txt)
+[MIT](LICENSE.txt). Иконка окон и трея — [`src/gui/app.LICENSE.txt`](src/gui/app.LICENSE.txt) (Heroicons, MIT).
 
 ## Благодарность
 

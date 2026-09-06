@@ -26,14 +26,26 @@ function Get-ZapmanPowershellExePath {
     return 'powershell.exe'
 }
 
+function Start-ZapmanHiddenPowerShellFile {
+    param([string]$FilePath)
+    $ps = Get-ZapmanPowershellExePath
+    $arg = '-NoProfile -STA -ExecutionPolicy Bypass -File "' + $FilePath + '"'
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo.FileName = $ps
+    $p.StartInfo.Arguments = $arg
+    $p.StartInfo.UseShellExecute = $false
+    $p.StartInfo.CreateNoWindow = $true
+    [void]$p.Start()
+}
+
 function Test-ZapmanTrayWatchEnabled {
     return [bool]((Get-ZapmanConfig).trayWatch)
 }
 
 function Set-ZapmanTrayWatchEnabled {
     param([bool]$Enabled)
+    Sync-ZapmanTrayWatchState -Enabled $Enabled
     [void](Update-ZapmanConfig -TrayWatch $Enabled)
-    Sync-ZapmanTrayWatch
 }
 
 function Get-ZapmanWin32ProcessList {
@@ -127,12 +139,13 @@ function Show-ZapmanGuiWindow {
 
 function Open-ZapmanGui {
     if (Test-ZapmanNamedMutexHeld -Name (Get-ZapmanGuiMutexName)) {
-        if (Show-ZapmanGuiWindow) {
-            return
-        }
-        Start-Sleep -Milliseconds 400
-        if (Show-ZapmanGuiWindow) {
-            return
+        $n = 0
+        while ($n -lt 8) {
+            if (Show-ZapmanGuiWindow) {
+                return
+            }
+            Start-Sleep -Milliseconds 250
+            $n++
         }
         return
     }
@@ -140,9 +153,7 @@ function Open-ZapmanGui {
     if (-not (Test-Path -LiteralPath $boot)) {
         throw ('GUI entry is missing: {0}' -f $boot)
     }
-    $ps = Get-ZapmanPowershellExePath
-    $argList = '-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $boot + '"'
-    Start-Process -FilePath $ps -ArgumentList $argList | Out-Null
+    Start-ZapmanHiddenPowerShellFile -FilePath $boot
 }
 
 function Invoke-ZapmanSchtasks {
@@ -174,8 +185,14 @@ function Register-ZapmanTrayTask {
     if (-not (Test-Path -LiteralPath $scriptPath)) {
         throw ('Tray script is missing: {0}' -f $scriptPath)
     }
+    if ($scriptPath.IndexOf('"') -ge 0) {
+        throw ('Tray script path has a quote: {0}' -f $scriptPath)
+    }
     $ps = Get-ZapmanPowershellExePath
-    $tr = ('{0} -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File {1}' -f $ps, $scriptPath)
+    if ($ps.IndexOf('"') -ge 0) {
+        throw ('PowerShell path has a quote: {0}' -f $ps)
+    }
+    $tr = ('{0} -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File \"{1}\"' -f $ps, $scriptPath)
     $name = Get-ZapmanTrayTaskName
     $taskArgs = '/Create /TN "' + $name + '" /SC ONLOGON /RL HIGHEST /F /TR "' + $tr + '"'
     $res = Invoke-ZapmanSchtasks -Arguments $taskArgs
@@ -213,9 +230,7 @@ function Start-ZapmanTrayWatchProcess {
     if (-not (Test-Path -LiteralPath $scriptPath)) {
         throw ('Tray script is missing: {0}' -f $scriptPath)
     }
-    $ps = Get-ZapmanPowershellExePath
-    $argList = '-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $scriptPath + '"'
-    Start-Process -FilePath $ps -ArgumentList $argList | Out-Null
+    Start-ZapmanHiddenPowerShellFile -FilePath $scriptPath
 }
 
 function Stop-ZapmanTrayWatchProcess {
@@ -238,14 +253,34 @@ function Stop-ZapmanTrayWatchProcess {
         }
         Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
     }
+    $deadline = (Get-Date).AddSeconds(2)
+    do {
+        if (-not (Test-ZapmanNamedMutexHeld -Name (Get-ZapmanTrayMutexName))) {
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    } while ((Get-Date) -lt $deadline)
 }
 
-function Sync-ZapmanTrayWatch {
-    if (Test-ZapmanTrayWatchEnabled) {
+function Sync-ZapmanTrayWatchState {
+    param([bool]$Enabled)
+    if ($Enabled) {
         Register-ZapmanTrayTask
         Start-ZapmanTrayWatchProcess
     } else {
         Unregister-ZapmanTrayTask
         Stop-ZapmanTrayWatchProcess
     }
+}
+
+function Sync-ZapmanTrayWatch {
+    Sync-ZapmanTrayWatchState -Enabled (Test-ZapmanTrayWatchEnabled)
+}
+
+function Restart-ZapmanTrayWatchProcess {
+    if (-not (Test-ZapmanTrayWatchEnabled)) {
+        return
+    }
+    Stop-ZapmanTrayWatchProcess
+    Start-ZapmanTrayWatchProcess
 }

@@ -4,7 +4,7 @@
 
 ## После запуска стратегии ничего не происходит
 
-После **Запустить без установки** или **Установить службу** в панели задач должен быть `winws.exe` или `winws2.exe` (обход). Свернуть GUI оставляет кнопку на панели задач. Крестик закрывает окно, службу не снимает. Иконка в трее — отдельный сторож (задание при входе); из неё можно открыть GUI, стартовать службу и остановить обход.
+После **Запустить без установки** или **Установить службу** в панели задач должен быть `winws.exe` или `winws2.exe`. Свернуть GUI оставляет кнопку на панели задач. Крестик закрывает GUI, службу не снимает. Иконка — процесс [`src/Zapman/Tray.ps1`](../src/Zapman/Tray.ps1), задание `zapman-tray` при входе: открыть GUI, Старт службы, Стоп.
 
 Если процесса нет: клик по **Status** — stderr/stdout winws / winws2 и код выхода. **Диагностика**, исключения антивируса для папки, сверка `bin/` (`cli.bat env`). В окне тестов тот же дамп на вкладке стратегии (можно выделить и копировать) и в `test-results/`.
 
@@ -41,19 +41,19 @@ ipconfig /flushdns
 
 ## Как переустановить полностью
 
-1. Скопируйте папку `user/` (свои `*-user.txt` и рабочий `ipset-all.txt`). `config.json` в корне, если меняли настройки — тоже.
+1. Скопируйте папку `user/` (свои `*-user.txt`, рабочий `ipset-all.txt`, `config.json`).
 2. Перезагрузите устройство.
 3. `zapman.bat` → **Снять службы** (или `cli.bat service`).
 4. **Диагностика** (ошибки устраните; кэш Discord — по запросу).
 5. Удалите папку с Zapret Manager.
 6. Скачайте архив со [страницы релизов](https://github.com/NONERUN/zapman/releases/latest).
 7. Свойства архива → «Разблокировать» → распакуйте в путь без кириллицы, пробелов и спецсимволов.
-8. Скопируйте сохранённую `user/` в новую папку (и `config.json` в корень, если сохраняли).
+8. Скопируйте сохранённую `user/` в новую папку.
 9. Пробуйте стратегии. Рабочую поставьте на автозапуск: **Стратегия…** → **Установить службу**.
 
 ## Игра или приложение ломается при включённом обходе
 
-В GUI: **Game Filter** = `disabled`, **IPSet Filter** = `none`. Иначе фильтр может задеть лишнее. Затем снова Install или запуск стратегии.
+В GUI: **Game Filter** = `disabled`, **IPSet** = `none`. Иначе фильтр может задеть лишнее. Затем снова Install или запуск стратегии.
 
 Если без zapret всё работает, а с ним падает игра — это не баг конкретной игры в Issues. См. раздел про игры ниже.
 
@@ -63,7 +63,7 @@ ipconfig /flushdns
 
 ## Требуется цифровая подпись драйвера WinDivert (Windows 7)
 
-Замените `WinDivert.dll` и `WinDivert64.sys` в [`bin`](../bin) на файлы из [zapret-win-bundle/win7](https://github.com/bol-van/zapret-win-bundle/tree/master/win7).
+Замените `WinDivert.dll` и `WinDivert64.sys` в [`bin`](../bin) на файлы из [zapret-win-bundle/win7](https://github.com/bol-van/zapret-win-bundle/tree/master/win7). В поставке один общий WinDivert на оба exe; на Win7 подмена нужна, если ОС требует подпись драйвера.
 
 ## После «Снять службы» WinDivert остаётся
 
@@ -101,11 +101,9 @@ sc delete имя_из_первого_шага
 
 ## Игры
 
-Исследовать каждую игру нет возможности.
-
-1. Tools → скачать ipset, включить **Game Filter**.
-2. Если мало — **IPSet Filter** = `any` (ломает много сайтов; не держите постоянно). Лучше выписать IP игры в `user/ipset-all.txt`.
-3. Если не помогло — [Discussions этого репозитория](https://github.com/NONERUN/zapman/discussions) или [Discussions оригинального](https://github.com/Flowseal/zapret-discord-youtube/discussions) ([Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube)). Не Issue.
+1. Tools → скачать ipset, включить **Game Filter** (`TCP and UDP` / `all`).
+2. Если мало — **IPSet** = `any` (пустой `user/ipset-all.txt`; ломает много сайтов; не держите постоянно). Лучше выписать IP игры в `user/ipset-all.txt`.
+3. Если не помогло — [Discussions этого репозитория](https://github.com/NONERUN/zapman/discussions) или [Discussions оригинального](https://github.com/Flowseal/zapret-discord-youtube/discussions). Не Issue.
 
 ## Не нашли проблему
 

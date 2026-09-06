@@ -245,13 +245,47 @@ $dpiRangeBytes = 65536
 $defaultMaxParallel = [Math]::Min(16, [Math]::Max(8, [Environment]::ProcessorCount * 2))
 $dpiMaxParallel = $defaultMaxParallel
 $dpiCustomHost = $env:MONITOR_HOST
-if ($env:MONITOR_TIMEOUT) { [int]$dpiTimeoutSeconds = $env:MONITOR_TIMEOUT }
-if ($env:MONITOR_RANGE) { [int]$dpiRangeBytes = $env:MONITOR_RANGE }
-if ($env:MONITOR_MAX_PARALLEL) { [int]$dpiMaxParallel = $env:MONITOR_MAX_PARALLEL }
 $standardCurlTimeout = 4
 $standardMaxParallel = $defaultMaxParallel
-if ($env:TEST_CURL_TIMEOUT) { [int]$standardCurlTimeout = $env:TEST_CURL_TIMEOUT }
-if ($env:TEST_MAX_PARALLEL) { [int]$standardMaxParallel = $env:TEST_MAX_PARALLEL }
+
+function Get-ZapmanTestEnvInt {
+    param(
+        [string]$Name,
+        [int]$Default
+    )
+    $raw = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        return $Default
+    }
+    $n = 0
+    if (-not [int]::TryParse($raw, [ref]$n)) {
+        return $Default
+    }
+    return $n
+}
+
+function Get-ZapmanTestTargets {
+    # Built-in HTTP/ping targets for standard strategy tests
+    return @(
+        (New-Object PSObject -Property @{ name = 'DiscordMain'; value = 'https://discord.com' })
+        (New-Object PSObject -Property @{ name = 'DiscordGateway'; value = 'https://gateway.discord.gg' })
+        (New-Object PSObject -Property @{ name = 'DiscordCDN'; value = 'https://cdn.discordapp.com' })
+        (New-Object PSObject -Property @{ name = 'DiscordUpdates'; value = 'https://updates.discord.com' })
+        (New-Object PSObject -Property @{ name = 'YouTubeWeb'; value = 'https://www.youtube.com' })
+        (New-Object PSObject -Property @{ name = 'YouTubeShort'; value = 'https://youtu.be' })
+        (New-Object PSObject -Property @{ name = 'YouTubeImage'; value = 'https://i.ytimg.com' })
+        (New-Object PSObject -Property @{ name = 'YouTubeVideoRedirect'; value = 'https://redirector.googlevideo.com' })
+        (New-Object PSObject -Property @{ name = 'GoogleMain'; value = 'https://www.google.com' })
+        (New-Object PSObject -Property @{ name = 'GoogleGstatic'; value = 'https://www.gstatic.com' })
+        (New-Object PSObject -Property @{ name = 'CloudflareWeb'; value = 'https://www.cloudflare.com' })
+        (New-Object PSObject -Property @{ name = 'CloudflareCDN'; value = 'https://cdnjs.cloudflare.com' })
+        (New-Object PSObject -Property @{ name = 'CloudflareDNS1111'; value = 'PING:1.1.1.1' })
+        (New-Object PSObject -Property @{ name = 'CloudflareDNS1001'; value = 'PING:1.0.0.1' })
+        (New-Object PSObject -Property @{ name = 'GoogleDNS8888'; value = 'PING:8.8.8.8' })
+        (New-Object PSObject -Property @{ name = 'GoogleDNS8844'; value = 'PING:8.8.4.4' })
+        (New-Object PSObject -Property @{ name = 'Quad9DNS9999'; value = 'PING:9.9.9.9' })
+    )
+}
 
 function Get-DpiSuite {
     # Suite sourced from https://github.com/hyperion-cs/dpi-checkers (Apache-2.0 license)
@@ -259,7 +293,10 @@ function Get-DpiSuite {
     $url = "https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/suite.v2.json"
 
     try {
-        (Invoke-RestMethod -Uri $url -TimeoutSec $dpiTimeoutSeconds) |
+        Enable-ZapmanTls12
+        (Invoke-RestMethod -Uri $url -TimeoutSec $dpiTimeoutSeconds -Headers @{
+            'User-Agent' = (Get-ZapmanWebUserAgent)
+        }) |
             Select-Object `
                 @{n='Id';       e={$_.id}},
                 @{n='Provider'; e={$_.provider}},
@@ -609,7 +646,7 @@ function Read-ConfigSelection {
                 }
             }
         }
-        $valid = $selectedIndices | Sort-Object -Unique | Where-Object { $_ -ge 1 -and $_ -le $allFiles.Count }
+        $valid = @($selectedIndices | Sort-Object -Unique | Where-Object { $_ -ge 1 -and $_ -le $allFiles.Count })
         if ($valid.Count -eq 0) {
             Write-ZapmanTestHost ""
             Write-ZapmanTestHost "No valid configs selected. Try again." -ForegroundColor Yellow
@@ -643,10 +680,12 @@ function Get-ZapretTestWinwsSnapshot {
 function Restore-ZapretTestWinwsSnapshot {
     param($snapshot)
 
-    if (-not $snapshot -or $snapshot.Count -eq 0) { return }
+    if (-not $snapshot) { return }
+    $snapshot = @($snapshot)
+    if ($snapshot.Count -eq 0) { return }
 
     $current = @()
-    try { $current = (Get-ZapretTestWinwsSnapshot).CommandLine } catch { $current = @() }
+    try { $current = @((Get-ZapretTestWinwsSnapshot).CommandLine) } catch { $current = @() }
 
     Write-ZapmanTestHost "[INFO] Restoring previously running winws instances..." -ForegroundColor DarkGray
     foreach ($p in $snapshot) {
@@ -708,18 +747,13 @@ function Invoke-ZapmanStrategyTestsCore {
             New-Item -ItemType Directory -Path $resultsDir | Out-Null
         }
 
-        $dpiTimeoutSeconds = 5
-        $dpiRangeBytes = 65536
+        $dpiTimeoutSeconds = Get-ZapmanTestEnvInt -Name 'MONITOR_TIMEOUT' -Default 5
+        $dpiRangeBytes = Get-ZapmanTestEnvInt -Name 'MONITOR_RANGE' -Default 65536
         $defaultMaxParallel = [Math]::Min(16, [Math]::Max(8, [Environment]::ProcessorCount * 2))
-        $dpiMaxParallel = $defaultMaxParallel
+        $dpiMaxParallel = Get-ZapmanTestEnvInt -Name 'MONITOR_MAX_PARALLEL' -Default $defaultMaxParallel
         $dpiCustomHost = $env:MONITOR_HOST
-        if ($env:MONITOR_TIMEOUT) { [int]$dpiTimeoutSeconds = $env:MONITOR_TIMEOUT }
-        if ($env:MONITOR_RANGE) { [int]$dpiRangeBytes = $env:MONITOR_RANGE }
-        if ($env:MONITOR_MAX_PARALLEL) { [int]$dpiMaxParallel = $env:MONITOR_MAX_PARALLEL }
-        $standardCurlTimeout = 4
-        $standardMaxParallel = $defaultMaxParallel
-        if ($env:TEST_CURL_TIMEOUT) { [int]$standardCurlTimeout = $env:TEST_CURL_TIMEOUT }
-        if ($env:TEST_MAX_PARALLEL) { [int]$standardMaxParallel = $env:TEST_MAX_PARALLEL }
+        $standardCurlTimeout = Get-ZapmanTestEnvInt -Name 'TEST_CURL_TIMEOUT' -Default 4
+        $standardMaxParallel = Get-ZapmanTestEnvInt -Name 'TEST_MAX_PARALLEL' -Default $defaultMaxParallel
 
         $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
         if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -823,7 +857,7 @@ $targetList = @()
 $maxNameLen = 10
 if ($TestType -eq 'standard') {
     $rawTargets = New-OrderedDict
-    foreach ($item in @((Get-ZapmanConfig).testTargets)) {
+    foreach ($item in @(Get-ZapmanTestTargets)) {
         $tName = [string]$item.name
         $tVal = [string]$item.value
         if ([string]::IsNullOrWhiteSpace($tName) -or [string]::IsNullOrWhiteSpace($tVal)) {
@@ -832,17 +866,8 @@ if ($TestType -eq 'standard') {
         Add-OrSet -dict $rawTargets -key $tName -val $tVal
     }
 
-    if ($rawTargets.Count -eq 0) {
-        Write-ZapmanTestHost "[INFO] config.json has no testTargets. Using built-in defaults." -ForegroundColor Gray
-        $cfgDefaults = New-ZapmanConfigDefaults
-        foreach ($item in @($cfgDefaults.testTargets)) {
-            Add-OrSet -dict $rawTargets -key ([string]$item.name) -val ([string]$item.value)
-        }
-    } else {
-        Write-ZapmanTestHost ""
-        Write-ZapmanTestHost "[INFO] Loaded targets from config.json" -ForegroundColor Gray
-        Write-ZapmanTestHost "[INFO] Targets loaded: $($rawTargets.Count)" -ForegroundColor Gray
-    }
+    Write-ZapmanTestHost ""
+    Write-ZapmanTestHost ("[INFO] Targets: {0}" -f $rawTargets.Count) -ForegroundColor Gray
 
     foreach ($key in $rawTargets.Keys) {
         $targetList += Convert-Target -Name $key -Value $rawTargets[$key]
@@ -859,7 +884,7 @@ if (-not $batFiles -or $batFiles.Count -eq 0) {
 }
 
 $env:NO_UPDATE_CHECK = "1"
-$originalWinws = Get-ZapretTestWinwsSnapshot
+$originalWinws = @(Get-ZapretTestWinwsSnapshot)
 
 Write-ZapmanTestHost ""
 Write-ZapmanTestHost "============================================================" -ForegroundColor Cyan
