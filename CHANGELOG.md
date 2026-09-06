@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## v0.1.0 - 2026-09-06
+
 ### Breaking
 
 - Вход: `zapret.bat` → [`zapman.bat`](zapman.bat) (GUI) и [`cli.bat`](cli.bat). Продукт — **Zapret Manager**; служба `zapret`, exe `winws` / `winws2`.
