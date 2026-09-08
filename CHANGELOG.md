@@ -4,9 +4,13 @@
 
 ## Unreleased
 
+### Added
+
+- Макет главного окна в [`README.md`](README.md) ([`docs/ui/Main.svg`](docs/ui/Main.svg)).
+
 ### Changed
 
-- GitHub Release: архив с существующего git-тега; YAML job — с `main`. Повтор не трогает immutable-ассеты. См. [`docs/dev.md`](docs/dev.md).
+- GitHub Release: push тега `v*.*.*` собирает архивы в **черновик**; Publish — вручную. Повтор не трогает immutable-ассеты. См. [`docs/dev.md`](docs/dev.md).
 
 ## v0.1.1 - 2026-09-06
 

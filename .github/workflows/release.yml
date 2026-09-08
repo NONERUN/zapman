@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       tag:
@@ -12,19 +15,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
     steps:
-      # Pack the tagged tree. The workflow YAML comes from the branch
-      # selected in "Use workflow from" (use main). That branch may be newer.
+      # Tag push: this YAML is the copy in the tagged commit.
+      # Dispatch: Use workflow from main, then checkout the tag.
       - name: Checkout tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag }}
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Verify tag matches ModuleVersion
         run: |
           set -euo pipefail
-          TAG='${{ github.event.inputs.tag }}'
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Error: tag '$TAG' must be vMAJOR.MINOR.PATCH (example: v0.1.1)"
             exit 1
@@ -41,7 +45,6 @@ jobs:
       - name: Notes from CHANGELOG
         run: |
           set -euo pipefail
-          TAG='${{ github.event.inputs.tag }}'
           awk -v tag="$TAG" '
             $0 ~ "^## " tag "($|[ \t-])" { p=1; next }
             p && $0 ~ /^## / { exit }
@@ -59,7 +62,7 @@ jobs:
       - name: Prepare release bundle
         run: |
           set -euo pipefail
-          NAME="zapman-${{ github.event.inputs.tag }}"
+          NAME="zapman-${TAG}"
           mkdir "$NAME"
           cp zapman.bat cli.bat README.md LICENSE.txt CHANGELOG.md "$NAME/"
           cp -r bin lists strategies src docs "$NAME/"
@@ -67,7 +70,7 @@ jobs:
       - name: Create archives
         run: |
           set -euo pipefail
-          NAME="zapman-${{ github.event.inputs.tag }}"
+          NAME="zapman-${TAG}"
           zip -qr "${NAME}.zip" "$NAME"
           rar a -idq "${NAME}.rar" "$NAME"
           tar --owner=0 --group=0 -czf "${NAME}.tar.gz" "$NAME"
@@ -75,30 +78,29 @@ jobs:
       - name: Print SHA256 checksums
         run: |
           set -euo pipefail
-          NAME="zapman-${{ github.event.inputs.tag }}"
+          NAME="zapman-${TAG}"
           sha256sum \
             "${NAME}.zip" \
             "${NAME}.rar" \
             "${NAME}.tar.gz"
 
-      # Repo releases are immutable. Do not delete or replace assets.
-      - name: Create GitHub Release
+      # Draft until someone clicks Publish. Published releases in this repo are immutable.
+      - name: Create draft GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.inputs.tag }}
         run: |
           set -euo pipefail
           NAME="zapman-${TAG}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists. Immutable assets are not replaced."
+            echo "Release $TAG already exists. Assets are not replaced."
             gh release view "$TAG"
             exit 0
           fi
           gh release create "$TAG" \
             --verify-tag \
+            --draft \
             --title "$TAG" \
             --notes-file release-notes.md \
-            --latest \
             "${NAME}.zip" \
             "${NAME}.rar" \
             "${NAME}.tar.gz"

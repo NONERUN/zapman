@@ -122,7 +122,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 | `dev/lint.ps1` | 5.1/WPF + PSSA + Blinter; JSON через ZapretSpec; `-Check` макетов `docs/ui` |
 | `dev/export-gui-docs.ps1` | XAML + `Ui.ps1` → `docs/ui/*.svg` и `index.md` / `index.html` |
 | `dev/update-zapret.ps1` | Официальные zip zapret / zapret2 → `bin/` + [`bin/versions.json`](bin/versions.json). Fake `.bin` не трогает |
-| `.github/workflows/release.yml` | GitHub Release: dispatch, checkout **существующего** тега, zip с этого дерева. Шаги — [`docs/dev.md`](docs/dev.md) |
+| `.github/workflows/release.yml` | Push тега `v*.*.*` → черновик GitHub Release (zip с дерева тега). Publish вручную. Шаги — [`docs/dev.md`](docs/dev.md) |
 | `.githooks/commit-msg` | `Co-authored-by: Cursor` → `Assisted-by`. Включение: `git config core.hooksPath .githooks` |
 
 ## Служба и фильтры

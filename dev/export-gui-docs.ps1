@@ -31,10 +31,10 @@ $script:ZapmanGuiTitleKey = @{
 
 $script:ZapmanGuiIdleKey = @{
     'Main.xaml'       = @{
-        lblBypass    = 'StatusBypassOff'
-        lblService   = 'StatusServiceOff'
-        lblInstalled = 'StatusStrategyNone'
-        lblDivert    = 'StatusDivertNone'
+        lblBypass    = 'StatusBypassOn'
+        lblService   = 'StatusServiceOn'
+        lblInstalled = 'StatusStrategy'
+        lblDivert    = 'StatusDivertOn'
     }
     'Download.xaml'   = @{ lblStatus = 'DownloadConnecting' }
     'Hosts.xaml'      = @{ lblText = 'HostsNeed' }
@@ -46,6 +46,25 @@ $script:ZapmanGuiIdleKey = @{
         grpTestSum    = 'TestsGrpSum'
     }
     'TestsSetup.xaml' = @{ lblPick = 'TestsPick' }
+}
+
+$script:ZapmanGuiIdleArgs = @{
+    'Main.xaml' = @{
+        lblBypass    = @('winws')
+        lblService   = @('Running')
+        lblInstalled = @('general (ALT)')
+    }
+}
+
+$script:ZapmanGuiSampleLit = @{
+    'Main.xaml' = @{
+        cmbGame  = 'TCP and UDP'
+        cmbIpset = 'loaded'
+    }
+}
+
+$script:ZapmanGuiMarkOn = @{
+    'Main.xaml' = @('rbRu', 'chkAuto', 'chkTray')
 }
 
 $script:ZapmanGuiCaption = @{
@@ -218,6 +237,16 @@ function Get-ZapmanControlLabel {
     }
     if ($idle -and $idle.ContainsKey($Name)) {
         $key = [string]$idle[$Name]
+        $fmt = @()
+        if ($script:ZapmanGuiIdleArgs.ContainsKey($FileName)) {
+            $argMap = $script:ZapmanGuiIdleArgs[$FileName]
+            if ($argMap.ContainsKey($Name)) {
+                $fmt = @($argMap[$Name])
+            }
+        }
+        if ($fmt.Count -gt 0) {
+            return (Get-ZapmanUiString -Key $key -FormatArgs $fmt)
+        }
         if ($key -eq 'TestsPick') {
             return (Get-ZapmanUiString -Key $key -FormatArgs @('winws'))
         }
@@ -250,6 +279,32 @@ function Get-ZapmanControlTip {
         return (Get-ZapmanUiString -Key ([string]$slot.Tip[$Name]))
     }
     return ''
+}
+
+function Test-ZapmanSvgMarkOn {
+    param([string]$FileName, [string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        return $false
+    }
+    if (-not $script:ZapmanGuiMarkOn.ContainsKey($FileName)) {
+        return $false
+    }
+    return (@($script:ZapmanGuiMarkOn[$FileName]) -contains $Name)
+}
+
+function Get-ZapmanSvgSampleLit {
+    param([string]$FileName, [string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        return ''
+    }
+    if (-not $script:ZapmanGuiSampleLit.ContainsKey($FileName)) {
+        return ''
+    }
+    $map = $script:ZapmanGuiSampleLit[$FileName]
+    if (-not $map.ContainsKey($Name)) {
+        return ''
+    }
+    return [string]$map[$Name]
 }
 
 function Add-ZapmanSvgRect {
@@ -557,7 +612,11 @@ function Add-ZapmanSvgControl {
         if ($w -lt 1) { $w = 90 }
         if ($h -lt 1) { $h = 24 }
         $cy = $y + ($h / 2)
-        [void]$Parts.Add(('  <circle cx="{0}" cy="{1}" r="6" fill="#fff" stroke="#666"/>' -f ([int]($x + 8)), ([int]$cy)))
+        $cx = $x + 8
+        [void]$Parts.Add(('  <circle cx="{0}" cy="{1}" r="6" fill="#fff" stroke="#666"/>' -f ([int]$cx), ([int]$cy)))
+        if (Test-ZapmanSvgMarkOn -FileName $FileName -Name $name) {
+            [void]$Parts.Add(('  <circle cx="{0}" cy="{1}" r="3" fill="#222" stroke="none"/>' -f ([int]$cx), ([int]$cy)))
+        }
         Add-ZapmanSvgText -Parts $Parts -X ($x + 20) -Y ($cy + 4) -Text $label -Size 12
         return
     }
@@ -565,6 +624,15 @@ function Add-ZapmanSvgControl {
         if ($w -lt 1) { $w = 220 }
         if ($h -lt 1) { $h = 22 }
         Add-ZapmanSvgRect -Parts $Parts -X $x -Y ($y + 3) -W 13 -H 13 -Fill '#fff' -Stroke '#666'
+        if (Test-ZapmanSvgMarkOn -FileName $FileName -Name $name) {
+            $x1 = [int]($x + 3)
+            $y1 = [int]($y + 9)
+            $x2 = [int]($x + 6)
+            $y2 = [int]($y + 13)
+            $x3 = [int]($x + 11)
+            $y3 = [int]($y + 5)
+            [void]$Parts.Add(('  <polyline points="{0},{1} {2},{3} {4},{5}" fill="none" stroke="#222" stroke-width="2"/>' -f $x1, $y1, $x2, $y2, $x3, $y3))
+        }
         Add-ZapmanSvgText -Parts $Parts -X ($x + 20) -Y ($y + 15) -Text $label -Size 12
         return
     }
@@ -574,6 +642,10 @@ function Add-ZapmanSvgControl {
         Add-ZapmanSvgRect -Parts $Parts -X $x -Y $y -W $w -H $h -Fill '#fff' -Stroke '#7a7a7a'
         Add-ZapmanSvgRect -Parts $Parts -X ($x + $w - 18) -Y $y -W 18 -H $h -Fill '#e1e1e1' -Stroke '#7a7a7a'
         Add-ZapmanSvgText -Parts $Parts -X ($x + $w - 9) -Y ($y + 16) -Text 'v' -Size 10 -Anchor 'middle' -Fill '#444'
+        $picked = Get-ZapmanSvgSampleLit -FileName $FileName -Name $name
+        if (-not [string]::IsNullOrWhiteSpace($picked)) {
+            Add-ZapmanSvgText -Parts $Parts -X ($x + 6) -Y ($y + 16) -Text $picked -Size 11
+        }
         return
     }
     if ($kind -eq 'ProgressBar') {
@@ -779,7 +851,7 @@ function New-ZapmanGuiIndexMarkdown {
     [void]$lines.Add('')
     [void]$lines.Add('Сгенерировано [`dev/export-gui-docs.ps1`](../../dev/export-gui-docs.ps1). Файлы в этой папке не править руками.')
     [void]$lines.Add('')
-    [void]$lines.Add('Макет в **покое** (служба не установлена). Списки стратегий и пункты диагностики заполняет код — на макете пустые рамки.')
+    [void]$lines.Add('Главное окно — образец «служба запущена». Остальные макеты в **покое**. Списки стратегий и пункты диагностики заполняет код — на тех макетах пустые рамки.')
     [void]$lines.Add('')
     [void]$lines.Add('Локально: откройте [`index.html`](index.html).')
     [void]$lines.Add('')

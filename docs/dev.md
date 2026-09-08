@@ -109,21 +109,21 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
 ```
 
-Файлы в [`docs/ui/`](ui/index.md) руками не править. Кириллица в `src/Zapman/Ui.ps1` — UTF-8 с BOM.
+Файлы в [`docs/ui/`](ui/index.md) руками не править. README показывает [`docs/ui/Main.svg`](ui/Main.svg). Кириллица в `src/Zapman/Ui.ps1` — UTF-8 с BOM.
 
 ## Релиз
 
-Push тега **не** собирает архив и **не** создаёт GitHub Release. Сначала тег уже на `origin`, потом workflow [Release](../.github/workflows/release.yml). Job checkout **этого** тега (не ветки из формы). Нет тега — checkout падает; новый тег job не ставит.
+Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` сам запускает [Release](../.github/workflows/release.yml) **с того коммита** (YAML в теге). Job собирает zip/rar/tar.gz и создаёт **черновик**. `/releases/latest` не меняется, пока не нажмёте **Publish release**.
 
 1. `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1). Если менялась схема JSON — ZapretSpec и `specVersion` в `strategies/*.json`.
-2. Секция в [`CHANGELOG.md`](../CHANGELOG.md) на этот тег, коммит.
+2. Секция в [`CHANGELOG.md`](../CHANGELOG.md) на этот тег, коммит **с актуальным** `release.yml`.
 3. Аннотированный тег `v` + ModuleVersion **на этом коммите**:
    `git tag -a v0.1.1 -m v0.1.1`
 4. `git push origin main` и `git push origin v0.1.1`. Не `git push --tags`: в клоне могут быть чужие теги вроде `1.10.2` без `v`.
-5. Дождаться Lint на `main`.
-6. Actions → **Release** → Run workflow:
-   - **Use workflow from:** `main` (YAML job; может быть новее тега)
-   - **tag:** уже существующий тег (`v0.1.1`)
+5. Дождаться Lint на `main` и зелёного job Release.
+6. Releases → черновик → проверить архивы → **Publish release**.
+
+Повтор без нового тега (тот же YAML с `main`):
 
 ```text
 gh workflow run Release --repo NONERUN/zapman --ref main -f tag=v0.1.1
@@ -131,4 +131,6 @@ gh workflow run Release --repo NONERUN/zapman --ref main -f tag=v0.1.1
 
 Всегда `--repo NONERUN/zapman`: `gh` в этой копии может смотреть на Flowseal. Не создавать Release вручную в UI без этого workflow — не будет zip/rar/tar.gz.
 
-Релизы в этом репозитории **immutable**: повторный прогон не удаляет и не подменяет zip/rar/tar.gz. Нет GitHub Release на тег — создаёт. Уже есть — job зелёный, файлы не трогает.
+Пока черновик — его можно удалить в UI и прогнать job снова. После Publish ассеты **immutable**, повтор job их не трогает.
+
+Auto-Update Check смотрит **git-теги**, не черновики: тег на origin уже виден клиенту. Скачать «latest» он зовёт на опубликованный релиз.

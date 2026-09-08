@@ -22,13 +22,24 @@
 > [!IMPORTANT]
 > Файлы в [`bin`](./bin) — официальные [zapret](https://github.com/bol-van/zapret) (`winws.exe`) и [zapret2](https://github.com/bol-van/zapret2) (`winws2.exe`). Тег и SHA256 — [`bin/versions.json`](./bin/versions.json).
 
+## Что это?
+
+**Zapret Manager** — GUI, чтобы запускать официальный zapret (winws) или zapret2 (winws2) на Windows, не собирая флаги руками. Служба, список стратегий, тесты, трей и другие функции. 
+
+Проект основан на базе <a href="https://github.com/Flowseal/zapret-discord-youtube">Flowseal/zapret-discord-youtube</a>
+
+
+<div align="center">
+<img src="docs/ui/Main.svg" alt="Zapret Manager" width="416">
+</div>
+
 ## Использование
 
-1. Включите [Secure DNS](docs/usage.md#secure-dns) (не поставщик «по умолчанию»).
+1. Включите [Secure DNS](docs/usage.md#secure-dns).
 2. Скачайте архив со [страницы релизов](https://github.com/NONERUN/zapman/releases/latest) **этого** репозитория.
 3. Свойства архива → «Разблокировать» (7-Zip / PeaZip часто не требуют).
-4. Распакуйте в путь без кириллицы, пробелов и спецсимволов. Обновление: скопируйте старую папку `user/` в новую распаковку.
-5. Запустите [`zapman.bat`](./zapman.bat) (права администратора).
+4. Распакуйте в путь без кириллицы, пробелов и спецсимволов. Для обновления скопируйте старую папку `user/` в новую распаковку.
+5. Запустите [`zapman.bat`](./zapman.bat) (права администратора будут запрошены автоматически).
 
 На **Windows 10 LTSC** и новее с рабочим столом ничего ставить не нужно. На **Windows 7 SP1 x64** — WMF 5.1 и .NET 4.5+.
 
@@ -45,6 +56,8 @@
 ## Разработка
 
 Интерпретатор продукта — `powershell.exe` **5.1**, не `pwsh`.
+
+Тестирование:
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
@@ -64,12 +77,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 
 ## Лицензия
 
-[MIT](LICENSE.txt). Иконка окон и трея — [`src/gui/app.LICENSE.txt`](src/gui/app.LICENSE.txt) (Heroicons, MIT).
+[MIT](LICENSE.txt).
+Иконка окон и трея — [`src/gui/app.LICENSE.txt`](src/gui/app.LICENSE.txt) (Heroicons, MIT).
 
 ## Благодарность
 
 [![Contributors](https://contrib.rocks/image?repo=NONERUN/zapman)](https://github.com/NONERUN/zapman/graphs/contributors)
 
 Оригинальный репозиторий: [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube).
+[![Contributors](https://contrib.rocks/image?repo=Flowseal/zapret-discord-youtube)](https://github.com/Flowseal/zapret-discord-youtube/graphs/contributors)
 
-Отдельная благодарность [bol-van](https://github.com/bol-van) за [zapret](https://github.com/bol-van/zapret).
+Отдельная благодарность [bol-van](https://github.com/bol-van) за [zapret](https://github.com/bol-van/zapret) и [zapret2](https://github.com/bol-van/zapret2).
