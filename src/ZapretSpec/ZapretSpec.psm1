@@ -384,6 +384,27 @@ function Get-ZapretSpecBadseqIncrement {
     return $inc
 }
 
+function Get-ZapretSpecTtl {
+    param($SpecProfile)
+    $value = Get-ZapretSpecProperty -Object $SpecProfile -Name 'ttl'
+    if ($null -eq $value) { return $null }
+    $ttl = 0
+    if (-not [int]::TryParse([string]$value, [ref]$ttl) -or $ttl -lt 1 -or $ttl -gt 255) {
+        throw 'ttl must be an integer from 1 to 255.'
+    }
+    return $ttl
+}
+
+function Get-ZapretSpecLuaPayloadArgs {
+    param($SpecProfile)
+    $value = [string](Get-ZapretSpecProperty -Object $SpecProfile -Name 'luaPayload')
+    if ([string]::IsNullOrWhiteSpace($value)) { return @() }
+    if ($value -notmatch '^[a-z0-9_]+(,[a-z0-9_]+)*$') {
+        throw 'luaPayload must contain comma-separated payload names.'
+    }
+    return @('payload=' + $value)
+}
+
 function ConvertTo-ZapretSpecLuaFoolingArgs {
     param($SpecProfile)
     $luaArgs = New-Object System.Collections.ArrayList
@@ -401,6 +422,8 @@ function ConvertTo-ZapretSpecLuaFoolingArgs {
             throw ("Unknown fooling '{0}'." -f $item)
         }
     }
+    $ttl = Get-ZapretSpecTtl -SpecProfile $SpecProfile
+    if ($null -ne $ttl) { [void]$luaArgs.Add(('ip_ttl={0}' -f $ttl)) }
     return @($luaArgs)
 }
 
@@ -484,7 +507,7 @@ function Register-ZapretSpecBlobs {
         $desync = @(Get-ZapretSpecDesyncList -SpecProfile $specProfile)
         if ($desync -contains 'fake') {
             foreach ($group in @(Get-ZapretSpecPayloadGroups -SpecProfile $specProfile)) {
-                foreach ($ref in @(Get-ZapretSpecFakeRefsForGroup -FakeMap $fakeMap -Group $group)) {
+                foreach ($ref in @(Get-ZapretSpecFakeRefsForGroup -FakeMap $fakeMap -Group $group -SpecProfile $specProfile)) {
                     Add-ZapretSpecBlobToRegistry -Ref $ref -Order $order -Names $names -Values $values -Bin $Bin -Lists $Lists -User $User
                 }
             }
@@ -536,7 +559,12 @@ function Get-ZapretSpecPayloadGroups {
 }
 
 function Test-ZapretSpecGroupUsesTlsFake {
-    param([string]$Group)
+    param([string]$Group, $SpecProfile)
+    $defaultFake = Get-ZapretSpecProperty -Object $SpecProfile -Name 'defaultTlsFake'
+    if ($null -ne $defaultFake) {
+        if ($defaultFake -isnot [bool]) { throw 'defaultTlsFake must be a boolean.' }
+        if (-not $defaultFake) { return $false }
+    }
     if ([string]::IsNullOrWhiteSpace($Group)) {
         return $false
     }
@@ -570,7 +598,8 @@ function Get-ZapretSpecTlsFakeRefs {
 function Get-ZapretSpecFakeRefsForGroup {
     param(
         $FakeMap,
-        [string]$Group
+        [string]$Group,
+        $SpecProfile
     )
     $slots = @($script:ZapretSpecFakeSlotOrder)
     if ($Group -eq 'tls_client_hello') {
@@ -600,7 +629,7 @@ function Get-ZapretSpecFakeRefsForGroup {
         }
     }
     # z1 uses a built-in '!' hello when fake.tls is absent. z2 has no built-in hello.
-    if ((Test-ZapretSpecGroupUsesTlsFake -Group $Group) -and (@(Get-ZapretSpecTlsFakeRefs -FakeMap $FakeMap).Count -lt 1)) {
+    if ((Test-ZapretSpecGroupUsesTlsFake -Group $Group -SpecProfile $SpecProfile) -and (@(Get-ZapretSpecTlsFakeRefs -FakeMap $FakeMap).Count -lt 1)) {
         if (-not $seen.ContainsKey('!')) {
             $seen['!'] = $true
             if ($refs.Count -lt 1) {
@@ -621,6 +650,7 @@ function Get-ZapretSpecFakeRefsForGroup {
 function Test-ZapretSpecNeedOutRange {
     param($SpecProfile)
     $cutoff = [string](Get-ZapretSpecProperty -Object $SpecProfile -Name 'cutoff')
+    if ($cutoff -eq 'none') { return $false }
     if ($cutoff -match '^n\d+$') {
         return $true
     }
@@ -680,12 +710,14 @@ function ConvertTo-ZapretSpecWinwsArgList {
         if ($null -ne $repeats) {
             [void]$parts.Add(('--dpi-desync-repeats={0}' -f $repeats))
         }
+        $ttl = Get-ZapretSpecTtl -SpecProfile $specProfile
+        if ($null -ne $ttl) { [void]$parts.Add(('--dpi-desync-ttl={0}' -f $ttl)) }
         $any = Get-ZapretSpecProperty -Object $specProfile -Name 'anyProtocol'
         if ([bool]$any) {
             [void]$parts.Add('--dpi-desync-any-protocol=1')
         }
         $cutoff = Get-ZapretSpecProperty -Object $specProfile -Name 'cutoff'
-        if (-not [string]::IsNullOrWhiteSpace([string]$cutoff)) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$cutoff) -and [string]$cutoff -ne 'none') {
             [void]$parts.Add(('--dpi-desync-cutoff={0}' -f [string]$cutoff))
         }
         $seqovl = Get-ZapretSpecProperty -Object $specProfile -Name 'seqovl'
@@ -812,8 +844,8 @@ function ConvertTo-ZapretSpecWinws2ArgList {
 
             foreach ($attack in $desync) {
                 if ($attack -eq 'fake') {
-                    $refs = @(Get-ZapretSpecFakeRefsForGroup -FakeMap $fakeMap -Group $group)
-                    if (@($refs).Count -lt 1 -and (Test-ZapretSpecGroupUsesTlsFake -Group $group)) {
+                    $refs = @(Get-ZapretSpecFakeRefsForGroup -FakeMap $fakeMap -Group $group -SpecProfile $specProfile)
+                    if (@($refs).Count -lt 1 -and (Test-ZapretSpecGroupUsesTlsFake -Group $group -SpecProfile $specProfile)) {
                         $refs = @('!')
                     }
                     if (@($refs).Count -lt 1) {
@@ -822,6 +854,9 @@ function ConvertTo-ZapretSpecWinws2ArgList {
                     foreach ($ref in $refs) {
                             $lua = New-Object System.Collections.ArrayList
                             [void]$lua.Add('fake')
+                            foreach ($extra in @(Get-ZapretSpecLuaPayloadArgs -SpecProfile $specProfile)) {
+                                [void]$lua.Add($extra)
+                            }
                             if (-not $blobs.Names.ContainsKey($ref)) {
                                 throw ("Strategy fake blob is missing: {0}" -f $ref)
                             }
@@ -847,6 +882,9 @@ function ConvertTo-ZapretSpecWinws2ArgList {
 
                 $lua = New-Object System.Collections.ArrayList
                 [void]$lua.Add($attack)
+                foreach ($extra in @(Get-ZapretSpecLuaPayloadArgs -SpecProfile $specProfile)) {
+                    [void]$lua.Add($extra)
+                }
                 foreach ($extra in @(Get-ZapretSpecLuaModArgs -Attack $attack -SpecProfile $specProfile -BlobNames $blobs.Names)) {
                     [void]$lua.Add($extra)
                 }

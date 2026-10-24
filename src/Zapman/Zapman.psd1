@@ -14,6 +14,7 @@
         'ConvertTo-ZapmanVersion'
         'Get-ZapmanVersionFromRemoteBody'
         'Initialize-ZapmanUserLists'
+        'Update-ZapmanSkyIpList'
         'Test-ZapmanHostReady'
         'Test-ZapretBinVersions'
         'Show-ZapmanHostReadyReport'

@@ -50,6 +50,7 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 |---|---|---|
 | `tcp` / `udp` / `l3` / `l7` | `--filter-tcp=` / `--filter-udp=` / `--filter-l3=` / `--filter-l7=` | то же |
 | `payload` | не пишется (фильтр из `l7`) | `--payload=` |
+| `luaPayload` | не пишется | `payload=` на каждой Lua-атаке; для неизвестных игровых пакетов нужен `all`, одного `--payload=all` недостаточно |
 | `hostlist` | `--hostlist=` | то же |
 | `hostlistExclude` | `--hostlist-exclude=` | то же |
 | `hostlistDomains` | `--hostlist-domains=` | то же |
@@ -60,6 +61,8 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 | `repeats` | `--dpi-desync-repeats=` | `repeats=` у Lua (не на `multisplit` / `multidisorder`) |
 | `anyProtocol` | `--dpi-desync-any-protocol=1` | `--payload=all` если нет явного `payload` |
 | `cutoff` | `--dpi-desync-cutoff=` как в JSON | `nN` → `--out-range=-dN`; иначе при TCP/QUIC → `--out-range=-d10` |
+| `cutoff: "none"` | cutoff не пишется | `--out-range` не пишется: обработка продолжается после TLS-handshake |
+| `ttl` | `--dpi-desync-ttl=` | `ip_ttl=` на атаках, принимающих fooling; число 1–255 |
 | `splitPos` | `--dpi-desync-split-pos=` | `pos=` у split-атак |
 | `seqovl` | `--dpi-desync-split-seqovl=` | `seqovl=` |
 | `seqovlPattern` | `--dpi-desync-split-seqovl-pattern=` (путь `bin:`/`lists:`/`user:`) | blob + `seqovl_pattern=` |
@@ -89,12 +92,17 @@ Fooling не вешается на Lua-атаку `multisplit`.
 | `fake.tls` / `http` / … | `--dpi-desync-fake-tls=` (и аналоги) | `--blob=name:@file` или `name:0xHEX`, затем `blob=` в `--lua-desync=fake` |
 | значение `!` | как в JSON (встроенный hello z1) | stock `bin:tls_clienthello_www_google_com.bin` |
 | TLS-профиль с `fake` в `desync`, слота `tls` нет | z1 подставляет встроенный `!` | то же, что `!` (google hello). Не `blob=empty` |
+| `defaultTlsFake: false` | не меняет встроенные defaults exe | не подставлять TLS hello для `payload: "all"`, например в UDP-профиле Sky |
 | hex `0x00000000` | как есть | имя blob `hex_00000000`, не `0x…` |
 | порядок | `fake-tls` **до** `fake-tls-mod` | `tls_mod` только на последний TLS-ref |
 
 На z2 в argv не должно быть `--dpi-desync`. На z1 не должно быть `--lua-desync`. `--blob=` только `name:value` (двоеточие).
 
 ## Линтер и макеты
+
+`general (ALT11 Photon)` содержит первые профили для Sky: UDP 5000–8000 с `user:ipset-sky.txt`, QUIC-fake, TTL 8 и cutoff n4; TCP 443 для `live.ws.radiance.thatgamecompany.com` с multisplit на позиции 1, `luaPayload: all` и без cutoff. Они не зависят от Game Filter. Список Sky создаётся из `lists/ipset-sky.default.txt`; трей дополняет его только конкретными IPv4 `/32`, найденными в `Sky.log`. DNS входа — отдельная настройка, стратегия `hosts` не меняет.
+
+Перед общим профилем Photon (UDP 5055–5058, 27000–27002) стоит профиль Sker Ritual с `user:ipset-sker.txt`: fake `ACTIVE_GAME_UDP`, `luaPayload: all`, `defaultTlsFake: false`, TTL 8, cutoff n4. Fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) через ~10 с после входа в матч. Список создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU) и не обновляется автоматически. Те же подсети использует PEAK в регионе EU: он тоже попадает в этот профиль.
 
 После правок `.ps1` / стратегий / `dev/`:
 

@@ -246,7 +246,12 @@ try {
 
     $timer = New-Object System.Windows.Forms.Timer
     $timer.Interval = 2000
-    $timer.Add_Tick({ Update-ZapmanTrayUi })
+    $timer.Add_Tick({
+        Update-ZapmanTrayUi
+        if ((Get-ZapretInstalledStrategyName) -eq 'general (ALT11 Photon)') {
+            try { Update-ZapmanSkyIpList } catch { Set-ZapmanLastError -Text $_.Exception.Message }
+        }
+    })
     $timer.Start()
 
     $script:trayCtx = New-Object System.Windows.Forms.ApplicationContext

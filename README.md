@@ -45,6 +45,8 @@
 
 Кнопки, служба, трей (`zapman-tray`), IPSet, консоль `cli.bat` — [использование](docs/usage.md).
 
+`general (ALT11 Photon)` включает обход для игроков, чата и заданий Sky: Children of the Light. Игровые IP хранит `user/ipset-sky.txt`, обновляет включённый трей. Проверено на `winws2`; подробнее — [Sky](docs/usage.md#sky-children-of-the-light). Там же отдельный профиль для Sker Ritual (подсети Photon в `user/ipset-sker.txt`): матч и голос проверены на `winws2`; подробнее — [Sker Ritual](docs/usage.md#sker-ritual).
+
 ## Документация
 
 - [Использование](docs/usage.md)

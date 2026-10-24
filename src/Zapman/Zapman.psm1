@@ -5,6 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
 . (Join-Path $PSScriptRoot 'Core.ps1')
+. (Join-Path $PSScriptRoot 'Sky.ps1')
 . (Join-Path $PSScriptRoot 'Ui.ps1')
 Import-Module -Force -DisableNameChecking (Join-Path (Split-Path -Parent $PSScriptRoot) 'ZapretSpec\ZapretSpec.psd1')
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'Zapret\Bypass.ps1')
@@ -40,6 +41,7 @@ Export-ModuleMember -Function @(
     'ConvertTo-ZapmanVersion'
     'Get-ZapmanVersionFromRemoteBody'
     'Initialize-ZapmanUserLists'
+    'Update-ZapmanSkyIpList'
     'Test-ZapmanHostReady'
     'Test-ZapretBinVersions'
     'Show-ZapmanHostReadyReport'

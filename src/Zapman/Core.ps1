@@ -258,6 +258,14 @@ function Initialize-ZapmanUserLists {
         Set-Content -LiteralPath $listExcludeUser -Value 'domain.example.abc' -Encoding ASCII
     }
     $ipsetAll = Join-Path $script:ZapmanUserDir 'ipset-all.txt'
+    $ipsetSky = Join-Path $script:ZapmanUserDir 'ipset-sky.txt'
+    if (-not (Test-Path -LiteralPath $ipsetSky)) {
+        Copy-Item -LiteralPath (Join-Path $script:ZapmanListsDir 'ipset-sky.default.txt') -Destination $ipsetSky
+    }
+    $ipsetSker = Join-Path $script:ZapmanUserDir 'ipset-sker.txt'
+    if (-not (Test-Path -LiteralPath $ipsetSker)) {
+        Copy-Item -LiteralPath (Join-Path $script:ZapmanListsDir 'ipset-sker.default.txt') -Destination $ipsetSker
+    }
     if (-not (Test-Path -LiteralPath $ipsetAll)) {
         $seed = Join-Path $script:ZapmanListsDir 'ipset-all.default.txt'
         if (Test-Path -LiteralPath $seed) {

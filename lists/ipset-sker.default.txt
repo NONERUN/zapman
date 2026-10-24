@@ -1,0 +1,3 @@
+# Photon Cloud EU (G-Core, AS199524) subnets of Sker Ritual game and voice servers observed on 2026-10-24.
+80.93.214.0/23
+45.67.208.0/22
