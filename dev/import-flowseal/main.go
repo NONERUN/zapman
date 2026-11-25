@@ -8,6 +8,10 @@
 // argv of the new rules and compares it with the .bat argv (the round
 // trip). A flag or a value that it cannot map is an error.
 //
+// The rules get our two additions for winws2 (see derive.go): the derived
+// --filter-l7 and the stock TLS hello "!". The compare adds them to the
+// .bat argv too; all other differences stay.
+//
 // The status of a .bat file is:
 //
 //	same     the winws argv of the strategy file is the same as the .bat argv
@@ -65,7 +69,7 @@ type result struct {
 	Name    string
 	Status  string
 	Tag     string   // upstream tag for a changed or new file
-	Diff    []string // ours against Flowseal, for a changed file
+	Diff    []string // ours against Flowseal with the derived args, for a changed file
 	Err     error
 	Written bool
 }
@@ -195,10 +199,12 @@ func importBat(repo upstream.Repo, cat *spec.Catalog, m *mapper, have map[string
 	if err != nil {
 		return fail(err)
 	}
-	rules, err := m.rules(theirs)
+	rules, derived, err := m.rules(theirs)
 	if err != nil {
 		return fail(err)
 	}
+	// The .bat argv with our derived additions (see derive).
+	want := withDerived(theirs, derived)
 
 	sf := spec.StrategyFile{Schema: "../schema/strategy.json", Spec: spec.Version, Rev: 1, Rules: rules}
 	var old *spec.Strategy
@@ -218,7 +224,7 @@ func importBat(repo upstream.Repo, cat *spec.Catalog, m *mapper, have map[string
 		if err != nil {
 			return fail(fmt.Errorf("build of %s/%s.json: %w", spec.OriginFlowseal, name, err))
 		}
-		r.Diff = diffArgv(ours, theirs)
+		r.Diff = diffArgv(ours, want)
 		r.Status = statusChanged
 		if len(r.Diff) == 0 {
 			r.Status = statusSame
@@ -247,7 +253,7 @@ func importBat(repo upstream.Repo, cat *spec.Catalog, m *mapper, have map[string
 	if err != nil {
 		return fail(fmt.Errorf("build of the new file: %w", err))
 	}
-	if d := diffArgv(ours, theirs); len(d) > 0 {
+	if d := diffArgv(ours, want); len(d) > 0 {
 		return fail(fmt.Errorf("round trip: the new file does not give the .bat argv:\n\t%s", strings.Join(d, "\n\t")))
 	}
 

@@ -119,7 +119,19 @@ go run ./dev/import-flowseal [-git .] [-ref upstream/main] [-dir strategies] [-w
 
 Статусы: `same` (argv текущего `flowseal/<имя>.json` = `.bat`), `changed` (ниже — строки различий «ours / Flowseal»), `new`, `removed` (файл есть, `.bat` нет; файл не удаляется), `error`. Код выхода: 1 при ошибке, 2 если есть не `same` и файл не записан или `removed`, иначе 0. `-write` пишет `flowseal/<имя>.json` для `changed` и `new`: `upstream` — тег `.bat`, `rev: 1`, `about` прежний; `same` не трогает (байт в байт). После записи — `go generate ./internal/spec` (и golden).
 
-Внимание: на 1.10.4 все 22 файла — `changed` только из-за наших добавок v0.1 для winws2: `--filter-l7` у целей и явный `--dpi-desync-fake-tls=!` при `fake-tls-mod` без файла (ALT3, ALT8, FAKE TLS AUTO ALT/ALT2/ALT3). `-write` их уберёт и сбросит `rev` на 1, поэтому сейчас `-write` по всему каталогу не запускать — смотреть отчёт и переносить вручную. `TestImport` (пропуск без git или тега `1.10.4`) проверяет, что других различий нет.
+Две наши добавки v0.1 для winws2 импорт выводит сам ([`derive.go`](../dev/import-flowseal/derive.go)) и пишет в правила; при сравнении они добавляются и к argv `.bat`, любое другое различие — как раньше. На winws результат тот же.
+
+`--filter-l7` — только если в профиле `.bat` нет ни `--filter-l7`, ни `--dpi-desync-any-protocol`. Должно подойти ровно одно правило, иначе ошибка с именем `.bat` и номером профиля:
+
+| Фильтр | Порты | `fake.http` | `--filter-l7` |
+|---|---|---|---|
+| только `--filter-udp` | `443` | — | `quic` |
+| только `--filter-tcp` | из `80, 443, 2053, 2083, 2087, 2096, 8443` | нет | `tls` |
+| только `--filter-tcp` | те же, есть `80` | есть | `tls,http` |
+
+`--dpi-desync-fake-tls=!` (встроенный hello) — если есть `--dpi-desync-fake-tls-mod`, нет `--dpi-desync-fake-tls` и нет `--dpi-desync-any-protocol`: winws берёт этот hello неявно, у winws2 неявного TLS fake нет. Профили Game Filter с `any-protocol` hello не получают (иначе он уйдёт на все payload).
+
+На 1.10.4 и `flowseal/processed` все 22 файла — `same`; `TestImport` (пропуск без git или тега `1.10.4`) это проверяет.
 
 ### Цель и действие (поля профиля)
 

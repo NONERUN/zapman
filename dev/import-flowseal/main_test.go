@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -17,16 +16,10 @@ var root = filepath.Join("..", "..")
 // testTag is the upstream tag of the import test.
 const testTag = "1.10.4"
 
-// knownDiff are the differences of the flowseal/ files from the .bat files
-// of testTag. They come from v0.1: the targets have --filter-l7 for the
-// winws2 payload groups, and a fake-tls-mod with no fake-tls file has the
-// stock hello "!", because winws2 has no implicit TLS fake.
-var knownDiff = regexp.MustCompile(`^profile \d+: only ours: (--filter-l7=[a-z,]+|--dpi-desync-fake-tls=!)$`)
-
 // TestImport imports the .bat files of testTag from git. Each file must
-// map and pass the round trip, and each flowseal/ file must be the same
-// as its .bat file but for knownDiff. The test is skipped when git or the
-// tag is not available.
+// map, pass the round trip and be the same as its flowseal/ file (with
+// the derived additions). The test is skipped when git or the tag is not
+// available.
 func TestImport(t *testing.T) {
 	if err := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", testTag+"^{commit}").Run(); err != nil {
 		t.Skipf("git or the upstream tag %s is not available: %v", testTag, err)
@@ -41,14 +34,12 @@ func TestImport(t *testing.T) {
 		t.Errorf("got %d results, want 22", len(res))
 	}
 	for _, r := range res {
-		if r.Status != statusSame && r.Status != statusChanged {
-			t.Errorf("%s: status %s: %v", r.Name, r.Status, r.Err)
+		if r.Status != statusSame {
+			t.Errorf("%s: status %s: %v %v", r.Name, r.Status, r.Err, r.Diff)
 		}
-		for _, d := range r.Diff {
-			if !knownDiff.MatchString(d) {
-				t.Errorf("%s: %s", r.Name, d)
-			}
-		}
+	}
+	if c := exitCode(res); c != 0 {
+		t.Errorf("exit code %d, want 0", c)
 	}
 }
 
@@ -105,7 +96,7 @@ func TestMapRule(t *testing.T) {
 		return a.Groups[0]
 	}
 
-	r, err := m.rule(words("--filter-udp=19294-19344,50000-50100 --filter-l7=discord,stun --dpi-desync=fake " +
+	r, _, err := m.rule(words("--filter-udp=19294-19344,50000-50100 --filter-l7=discord,stun --dpi-desync=fake " +
 		"--dpi-desync-fake-discord=bin/ACTIVE_DISCORD_UDP.bin --dpi-desync-fake-stun=bin/ACTIVE_DISCORD_UDP.bin --dpi-desync-repeats=6"))
 	if err != nil {
 		t.Fatal(err)
@@ -114,17 +105,42 @@ func TestMapRule(t *testing.T) {
 		t.Errorf("got %s / %s, want discord-voice / fake-discord-6", mustJSON(r.Target), mustJSON(r.Action))
 	}
 
-	r, err = m.rule(words("--filter-tcp=%GameFilterTCP% --ipset=lists/ipset-all.txt --ipset-exclude=lists/ipset-exclude.txt " +
+	r, d, err := m.rule(words("--filter-tcp=%GameFilterTCP% --dpi-desync-any-protocol=1 --ipset=lists/ipset-all.txt --ipset-exclude=lists/ipset-exclude.txt " +
 		"--ipset-exclude=lists/ipset-exclude-user.txt --hostlist=lists/list-general.txt --hostlist=lists/list-general-user.txt " +
-		"--dpi-desync=fake --dpi-desync-fake-tls=0x00 --dpi-desync-cutoff=n3"))
+		"--dpi-desync=fake --dpi-desync-fake-tls-mod=none --dpi-desync-cutoff=n3"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := mustJSON(r.Target); got != `{"tcp":["$gameFilter"],"lists":["general","ipset-all"],"exclude":["exclude-ips"]}` {
+	if got := mustJSON(r.Target); !strings.Contains(got, `"tcp":["$gameFilter"]`) ||
+		!strings.Contains(got, `"lists":["general","ipset-all"],"exclude":["exclude-ips"]`) || strings.Contains(got, "l7") {
 		t.Errorf("target: %s", got)
 	}
-	if got := mustJSON(r.Action); got != `{"desync":["fake"],"cutoff":3,"fake":{"tls":["0x00"]}}` {
+	if got := mustJSON(r.Action); got != `{"desync":["fake"],"cutoff":3,"tlsMod":"none"}` {
 		t.Errorf("action: %s", got)
+	}
+	if len(d) > 0 {
+		t.Errorf("any-protocol: derived %s", argsText(d))
+	}
+
+	// The derived additions.
+	for _, tc := range []struct{ args, l7, derived string }{
+		{"--filter-udp=443 --dpi-desync=fake --dpi-desync-fake-quic=0x00", `"l7":["quic"]`, "--filter-l7=quic"},
+		{"--filter-tcp=443,2053 --dpi-desync=fake", `"l7":["tls"]`, "--filter-l7=tls"},
+		{"--filter-tcp=80,443 --dpi-desync=fake --dpi-desync-fake-http=0x00", `"l7":["tls","http"]`, "--filter-l7=tls,http"},
+		{"--filter-tcp=443 --dpi-desync=fake --dpi-desync-fake-tls-mod=none", `"l7":["tls"]`, "--filter-l7=tls --dpi-desync-fake-tls=!"},
+		{"--filter-tcp=443 --filter-l7=tls --dpi-desync=fake --dpi-desync-fake-tls=0x00 --dpi-desync-fake-tls-mod=none", `"l7":["tls"]`, ""},
+	} {
+		r, d, err := m.rule(words(tc.args))
+		if err != nil {
+			t.Errorf("%s: %v", tc.args, err)
+			continue
+		}
+		if got := mustJSON(r.Target); r.Target.Name == "" && !strings.Contains(got, tc.l7) {
+			t.Errorf("%s: target %s, want %s", tc.args, got, tc.l7)
+		}
+		if got := argsText(d); got != tc.derived {
+			t.Errorf("%s: derived %q, want %q", tc.args, got, tc.derived)
+		}
 	}
 
 	for _, tc := range []struct{ args, want string }{
@@ -136,8 +152,12 @@ func TestMapRule(t *testing.T) {
 		{"--filter-tcp=443 --dpi-desync=fake --dpi-desync-fake-tls=bin/none.bin", "none.bin is not in"},
 		{"--filter-tcp=443 --dpi-desync=fake --dpi-desync-fake-quic=bin/ACTIVE_NONE.bin", "active fake NONE"},
 		{"--filter-tcp=443 --hostlist=lists/list-google.txt --hostlist=lists/other.txt --dpi-desync=fake", "no bundles"},
+		{"--filter-tcp=%GameFilterTCP% --dpi-desync=fake", "0 rules of the derived --filter-l7"},
+		{"--filter-udp=443,50000 --dpi-desync=fake", "0 rules of the derived --filter-l7"},
+		{"--filter-tcp=443 --dpi-desync=fake --dpi-desync-fake-http=0x00", "0 rules of the derived --filter-l7"},
+		{"--filter-tcp=443 --filter-udp=443 --dpi-desync=fake", "0 rules of the derived --filter-l7"},
 	} {
-		_, err := m.rule(words(tc.args))
+		_, _, err := m.rule(words(tc.args))
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: got %v, want %q", tc.args, err, tc.want)
 		}

@@ -79,22 +79,26 @@ var listFlags = map[string]int{
 	"--hostlist": 0, "--ipset": 1, "--hostlist-exclude": 2, "--ipset-exclude": 3,
 }
 
-// rules gives the rules of the profiles.
-func (m *mapper) rules(a *argv) ([]spec.Rule, error) {
+// rules gives the rules of the profiles, and the derived args of each
+// profile (see derive).
+func (m *mapper) rules(a *argv) ([]spec.Rule, [][]arg, error) {
 	out := make([]spec.Rule, 0, len(a.Groups))
+	derived := make([][]arg, 0, len(a.Groups))
 	for i, g := range a.Groups {
-		r, err := m.rule(g)
+		r, d, err := m.rule(g)
 		if err != nil {
-			return nil, fmt.Errorf("profile %d: %w", i+1, err)
+			return nil, nil, fmt.Errorf("profile %d: %w", i+1, err)
 		}
 		out = append(out, r)
+		derived = append(derived, d)
 	}
-	return out, nil
+	return out, derived, nil
 }
 
-// rule gives the rule of one profile. A flag that the build does not make
-// or a value that the v2 format cannot hold is an error.
-func (m *mapper) rule(g []arg) (spec.Rule, error) {
+// rule gives the rule of one profile with the derived additions, and the
+// derived args. A flag that the build does not make or a value that the v2
+// format cannot hold is an error.
+func (m *mapper) rule(g []arg) (spec.Rule, []arg, error) {
 	var t spec.Target
 	var a spec.Action
 	var f spec.Fakes
@@ -107,28 +111,32 @@ func (m *mapper) rule(g []arg) (spec.Rule, error) {
 		}
 		if !multi {
 			if seen[x.Flag] {
-				return spec.Rule{}, fmt.Errorf("%s is two times", x.Flag)
+				return spec.Rule{}, nil, fmt.Errorf("%s is two times", x.Flag)
 			}
 			seen[x.Flag] = true
 		}
 		if !x.HasValue {
-			return spec.Rule{}, fmt.Errorf("%s has no value", x.Flag)
+			return spec.Rule{}, nil, fmt.Errorf("%s has no value", x.Flag)
 		}
 		if err := m.apply(x, &t, &a, &f, &lists); err != nil {
-			return spec.Rule{}, fmt.Errorf("%s: %w", x, err)
+			return spec.Rule{}, nil, fmt.Errorf("%s: %w", x, err)
 		}
+	}
+	derived, err := derive(&t, &a, &f)
+	if err != nil {
+		return spec.Rule{}, nil, err
 	}
 	if mustJSON(f) != mustJSON(spec.Fakes{}) {
 		a.Fake = &f
 	}
 	var ok bool
 	if t.Lists, ok = decompose([2][]string{lists[0], lists[1]}, m.include); !ok {
-		return spec.Rule{}, fmt.Errorf("no bundles of %s give --hostlist %s and --ipset %s", spec.ListsFile, listText(lists[0]), listText(lists[1]))
+		return spec.Rule{}, nil, fmt.Errorf("no bundles of %s give --hostlist %s and --ipset %s", spec.ListsFile, listText(lists[0]), listText(lists[1]))
 	}
 	if t.Exclude, ok = decompose([2][]string{lists[2], lists[3]}, m.exclude); !ok {
-		return spec.Rule{}, fmt.Errorf("no bundles of %s give --hostlist-exclude %s and --ipset-exclude %s", spec.ListsFile, listText(lists[2]), listText(lists[3]))
+		return spec.Rule{}, nil, fmt.Errorf("no bundles of %s give --hostlist-exclude %s and --ipset-exclude %s", spec.ListsFile, listText(lists[2]), listText(lists[3]))
 	}
-	return spec.Rule{Target: m.targetRef(t), Action: m.actionRef(a)}, nil
+	return spec.Rule{Target: m.targetRef(t), Action: m.actionRef(a)}, derived, nil
 }
 
 // apply puts one arg into the target or the action.
