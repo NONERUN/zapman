@@ -81,7 +81,7 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 | `desync` | `--dpi-desync=` | `--lua-desync=<атака>:…` на каждую атаку |
 | `repeats` | `--dpi-desync-repeats=` | `repeats=` у Lua (не на `multisplit` / `multidisorder`) |
 | `anyProtocol` | `--dpi-desync-any-protocol=1` | `--payload=all` если нет явного `payload` |
-| `cutoff` | `nN` → `--dpi-desync-cutoff=nN` | `nN` → `--out-range=-dN`; иначе при TCP/QUIC → `--out-range=-d10` |
+| `cutoff` | `nN` → `--dpi-desync-cutoff=nN` | `nN` → `--out-range=-nN`; иначе при TCP/QUIC → `--out-range=-d10` |
 | `cutoff: "none"` | cutoff не пишется | `--out-range` не пишется: обработка продолжается после TLS-handshake |
 | `ttl` | `--dpi-desync-ttl=` | `ip_ttl=` на атаках, принимающих fooling; число 1–255 |
 | `splitPos` | `--dpi-desync-split-pos=` | `pos=` у split-атак |
@@ -91,6 +91,8 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 | `tlsMod` | `--dpi-desync-fake-tls-mod=` после `fake-tls` | `tls_mod=` на последнем ref слота `tls`, только на вызове для `tls_client_hello`. Без слота `tls` — не пишется |
 | `hostfakesplitMod` | `--dpi-desync-hostfakesplit-mod=` как в JSON | куски через запятую; **`altorder=*` не писать** (в stock Lua нет) |
 | `fakedsplitPattern` | `--dpi-desync-fakedsplit-pattern=` (путь, не сырой `bin:`) | `pattern=` / blob |
+
+Cutoff на winws2 — `-nN` (счёт пакетов), как `--dpi-desync-cutoff=nN` у winws. На UDP счёт тот же. На TCP winws2 по умолчанию не перехватывает пустые ACK (`--wf-tcp-empty=0`, zapret2 `manual.en.md:1071`, `readme.md:314`), поэтому cutoff наступает на 1–2 пакета с данными позже, чем у winws, но раньше прежнего `-dN`. Точное совпадение требует глобального `--wf-tcp-empty=1` — это примерно 2× CPU на загрузках при Game Filter; его не пишем и не предупреждаем. Неявный `-d10` для TCP/QUIC остаётся.
 
 ### Fooling
 

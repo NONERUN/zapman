@@ -519,8 +519,11 @@ func buildWinws2(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 // winws2Parts gives the winws2 argv items of the profile.
 func (pr *V01Profile) winws2Parts(p Paths, gf GameFilter, reg *blobRegistry) ([]string, error) {
 	parts := pr.commonFilters(p, gf)
+	// The cutoff nN counts packets (-nN), as winws --dpi-desync-cutoff=nN.
+	// winws2 does not see empty ACK by default (--wf-tcp-empty=0). Thus on
+	// TCP the cutoff comes 1-2 data packets later than on winws.
 	if n, ok := matchCutoffN(pr.Cutoff); ok {
-		parts = append(parts, "--out-range=-d"+n)
+		parts = append(parts, "--out-range=-n"+n)
 	} else if pr.needOutRange() {
 		parts = append(parts, "--out-range=-d10")
 	}
