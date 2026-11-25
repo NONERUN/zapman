@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-31",
+  "updated": "2026-11-26",
   "sources": [
     {
       "id": "zapret",
@@ -11,9 +11,9 @@
     {
       "id": "zapret2",
       "repo": "https://github.com/bol-van/zapret2",
-      "tag": "v1.0.4",
-      "published": "2026-07-31T07:38:17Z",
-      "url": "https://github.com/bol-van/zapret2/releases/tag/v1.0.4"
+      "tag": "v1.0.8",
+      "published": "2026-11-25T08:32:59Z",
+      "url": "https://github.com/bol-van/zapret2/releases/tag/v1.0.8"
     }
   ],
   "files": [
@@ -21,11 +21,6 @@
       "path": "winws.exe",
       "sha256": "a14bff1df6234ea555d2e0c61b589f0707c0b12d6c9b7eeccda76012154996e8",
       "source": "zapret"
-    },
-    {
-      "path": "winws2.exe",
-      "sha256": "31702b09b424893be881116f3fe9257721d9795e8c570aa27c66a900fe384bfb",
-      "source": "zapret2"
     },
     {
       "path": "cygwin1.dll",
@@ -43,13 +38,18 @@
       "source": "zapret"
     },
     {
+      "path": "winws2.exe",
+      "sha256": "9118b6b67c9f666f22c86f79323937b8f0d79f4358f1eec96f6c00cbdd61bed6",
+      "source": "zapret2"
+    },
+    {
       "path": "lua/zapret-lib.lua",
-      "sha256": "b272d207cca145a3b6174793b7d335489519f6d4299418ff2b870765cea24d5a",
+      "sha256": "79046853613128d8fcba19921a90ec91187f877ead6b893b155c1d7f7804e74e",
       "source": "zapret2"
     },
     {
       "path": "lua/zapret-antidpi.lua",
-      "sha256": "31c9dd75b0bd55e98e5306293f2be81e9d2ecadcbbf9157394ff37dcff7dc85a",
+      "sha256": "ff6165a12d37915a98caef6462fe5bdd0138e567e447d1f65e33b5bb4e398424",
       "source": "zapret2"
     }
   ]
