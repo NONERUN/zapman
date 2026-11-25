@@ -63,8 +63,8 @@ strategies/
 | `lists.json` | именованные наборы списков: `hostlist`, `hostlistExclude`, `ipset`, `ipsetExclude` (пути `lists:`/`user:`/`bin:`) |
 | `targets.json` | именованные цели: `tcp`, `udp`, `l3`, `l7`, `lists` (имена наборов с `hostlist`/`ipset`), `exclude` (наборы с `*Exclude`), `domains`, `excludeDomains`, `anyProtocol`, `payload` |
 | `actions.json` | именованные действия: `desync` и поля атаки из таблиц ниже; `cutoff` — число N (= `nN`) или `"none"` |
-| `flowseal/<имя>.json`, `zapman/<имя>.json` | стратегия: `"spec": 2`, `about`, `rules[]` — пары `{ "target", "action" }` в порядке winws (первое совпадение выигрывает) |
-| `games/<id>.json` | игровой модуль: `id` (= имя файла), `title`, `order`, `updater`, свои `lists` (с `seed`), `rules[]` |
+| `flowseal/<имя>.json`, `zapman/<имя>.json` | стратегия: `"spec": 2`, версия (`upstream` + `rev` или `version`, см. «Версии»), `about`, `rules[]` — пары `{ "target", "action" }` в порядке winws (первое совпадение выигрывает) |
+| `games/<id>.json` | игровой модуль: `id` (= имя файла), `title`, `version`, `order`, `updater`, свои `lists` (с `seed`), `rules[]` |
 
 `target` и `action` в правиле — имя из каталога или объект прямо в правиле. Цель выносится в `targets.json`, если используется 2+ раза. Действие выносится в `actions.json` (пресет), если используется 3+ раза; остальные действия — прямо в правиле. Пресет с одним-двумя пользователями не заводить: при правке такой стратегии действие возвращается в правило. Имена — `a-z`, `0-9`, `-`. Загрузка строгая: неизвестное поле, имя, порт или отсутствующий файл `bin:` — ошибка. Набор игры не может повторять имя из `lists.json`; `seed` — путь `lists:`, из него создаётся `user:`-список, если его нет.
 
@@ -74,7 +74,29 @@ strategies/
 
 Игры идут **до** правил стратегии (они уже, чем общие правила на тех же портах), по `order`, затем по `id`. Сейчас: `sky` (10), `sker` (20), `photon` (30).
 
-Одноразовый конвертер v0.1 → v2 — [`dev/convert-v2`](../dev/convert-v2/); он сверяет argv до записи. Модель v0.1 (`V01Spec`) осталась внутри Go как промежуточная.
+Одноразовый конвертер v0.1 → v2 — [`dev/convert-v2`](../dev/convert-v2/); он сверяет argv до записи. Модель v0.1 (`V01Spec`) осталась внутри Go как промежуточная. Конвертер берёт `upstream` из git (`-git`, `-ref`, по умолчанию `upstream/main`) и пишет `rev: 1`, игре — `version: 1`; его тест сравнивает вывод с `strategies/` при `rev` = 1 и пропускается без `upstream/main`.
+
+### Версии
+
+Версия говорит, чей argv и с какой правки. Go: `Strategy.Version()` / `Game.Version()` — строка для людей (`Flowseal 1.10.4 r2`, `Zapman 3`), `Origin()` — `flowseal` / `zapman` (у игр всегда `zapman`).
+
+| Где | Поля | Смысл |
+|---|---|---|
+| `flowseal/` | `upstream`, `rev` (оба обязательны, `version` нельзя) | `upstream` — первый по дате тег Flowseal, в котором есть последний коммит upstream, менявший `<имя>.bat`. `rev` — 1 + число наших изменений argv с этого тега; новый тег `upstream` → `rev` снова 1 |
+| `zapman/` | `version` (обязательно, `upstream`/`rev` нельзя) | целое ≥ 1, +1 при каждом изменении argv |
+| `games/` | `version` (обязательно) | целое ≥ 1, +1 при каждом изменении argv модуля |
+
+Когда поднимать: argv стратегии или игры поменялся (правка JSON, кирпича, который она использует, или генератора) → `rev` / `version` +1. Без изменения argv — не трогать (переименование пресета, вынос в кирпич, `about`). Изменение генератора поднимает версию каждой затронутой стратегии.
+
+Страж — первая строка каждого golden-файла: `# version: flowseal 1.10.4 r2` или `# version: zapman 3`; у `general (ALT11)+games` после стратегии — игры в порядке сборки (`; sky 1; sker 1; photon 1`). `go test ./internal/spec -run Golden -update` пишет строку заново. Без `-update` тест падает с `argv changed: bump rev/version`, если argv другой, а строка версии та же; любое другое расхождение (или нет строки версии) — тоже ошибка. Порядок: поднять версию → `-update` → проверить diff.
+
+Синхронизация с upstream — [`dev/upstream-versions`](../dev/upstream-versions/) (нужен `git fetch upstream`):
+
+```text
+go run ./dev/upstream-versions [-git .] [-ref upstream/main] [-dir strategies] [-write]
+```
+
+Печатает таблицу: имя, тег в файле, вычисленный тег, статус (`ok`, `outdated`, `no .bat upstream`, `no tag yet`); код выхода 2, если есть не `ok`. `-write` ставит вычисленный `upstream` и `rev: 1` только там, где тег сменился; затем перенести изменения `.bat` в JSON и обновить golden. Теги — только из `-ref` (`--merged`), наши `v*` не считаются.
 
 ### Цель и действие (поля профиля)
 

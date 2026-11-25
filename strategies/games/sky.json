@@ -2,6 +2,7 @@
   "$schema": "../schema/game.json",
   "id": "sky",
   "title": "Sky: Children of the Light",
+  "version": 1,
   "order": 10,
   "lists": { "ipset-sky": { "ipset": ["user:ipset-sky.txt"], "seed": "lists:ipset-sky.default.txt" } },
   "updater": "sky-log",

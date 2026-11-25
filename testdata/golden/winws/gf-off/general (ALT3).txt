@@ -1,3 +1,4 @@
+# version: flowseal 1.10.4 r2
 --wf-tcp=80,443,2053,2083,2087,2096,8443,12 --wf-udp=443,19294-19344,50000-50100,12
 --filter-udp=443 --filter-l7=quic --hostlist="C:\zapman\lists\list-general.txt" --hostlist="C:\zapman\user\list-general-user.txt" --hostlist-exclude="C:\zapman\lists\list-exclude.txt" --hostlist-exclude="C:\zapman\user\list-exclude-user.txt" --ipset-exclude="C:\zapman\lists\ipset-exclude.txt" --ipset-exclude="C:\zapman\user\ipset-exclude-user.txt" --dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-fake-quic="C:\zapman\bin\quic_initial_www_google_com.bin" --new
 --filter-udp=19294-19344,50000-50100 --filter-l7=discord,stun --dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-fake-discord="C:\zapman\bin\ACTIVE_DISCORD_UDP.bin" --dpi-desync-fake-stun="C:\zapman\bin\ACTIVE_DISCORD_UDP.bin" --new

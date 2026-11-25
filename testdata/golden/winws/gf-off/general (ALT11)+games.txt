@@ -1,3 +1,4 @@
+# version: flowseal 1.10.4 r2; sky 1; sker 1; photon 1
 --wf-tcp=80,443,2053,2083,2087,2096,8443,12 --wf-udp=443,5000-8000,5055-5058,19294-19344,27000-27002,50000-50100,12
 --filter-udp=5000-8000 --ipset="C:\zapman\user\ipset-sky.txt" --dpi-desync=fake --dpi-desync-repeats=6 --dpi-desync-ttl=8 --dpi-desync-any-protocol=1 --dpi-desync-cutoff=n4 --dpi-desync-fake-unknown-udp="C:\zapman\bin\quic_initial_www_google_com.bin" --new
 --filter-tcp=443 --hostlist-domains=live.ws.radiance.thatgamecompany.com --dpi-desync=multisplit --dpi-desync-any-protocol=1 --dpi-desync-split-pos=1 --new

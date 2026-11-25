@@ -2,6 +2,7 @@
   "$schema": "../schema/game.json",
   "id": "sker",
   "title": "Sker Ritual, Hazard Levels",
+  "version": 1,
   "order": 20,
   "lists": { "ipset-sker": { "ipset": ["user:ipset-sker.txt"], "seed": "lists:ipset-sker.default.txt" } },
   "rules": [

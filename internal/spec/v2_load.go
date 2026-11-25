@@ -249,6 +249,9 @@ func (c *Catalog) Strategy(name string) (*Strategy, error) {
 	if s.Spec != Version {
 		return nil, fmt.Errorf("%s: spec must be %d, not %d", file, Version, s.Spec)
 	}
+	if err := s.checkVersion(); err != nil {
+		return nil, err
+	}
 	if len(s.Rules) == 0 {
 		return nil, fmt.Errorf("%s: Strategy has no rules.", file)
 	}
@@ -276,6 +279,9 @@ func (c *Catalog) loadGame(path string) (*Game, error) {
 	}
 	if isBlank(g.Title) {
 		return nil, fmt.Errorf("%s: title is empty", file)
+	}
+	if g.GameFile.Version < 1 {
+		return nil, fmt.Errorf("%s: version must be 1 or more", file)
 	}
 	if g.Updater != "" && !gameUpdaters[g.Updater] {
 		return nil, fmt.Errorf("%s: unknown updater %q", file, g.Updater)

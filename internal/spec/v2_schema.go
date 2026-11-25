@@ -55,7 +55,14 @@ func Schemas() map[string][]byte {
 	g.reset()
 	put("catalog.json", "zapman catalog", g.object(reflect.TypeOf(CatalogInfo{})))
 	g.reset()
-	put("strategy.json", "zapman strategy (spec 2)", g.object(reflect.TypeOf(StrategyFile{})))
+	st := g.object(reflect.TypeOf(StrategyFile{}))
+	// A flowseal/ strategy has upstream and rev. A zapman/ strategy has
+	// version. The schema cannot see the folder: it accepts one of the two.
+	flowseal, zapman := &jsonObj{}, &jsonObj{}
+	flowseal.set("required", []string{"upstream", "rev"})
+	zapman.set("required", []string{"version"})
+	st.set("oneOf", []any{flowseal, zapman})
+	put("strategy.json", "zapman strategy (spec 2)", st)
 	g.reset()
 	put("game.json", "zapman game module", g.object(reflect.TypeOf(GameFile{})))
 	g.reset()
@@ -71,6 +78,7 @@ func Schemas() map[string][]byte {
 var schemaPatterns = map[string]string{
 	"name": namePattern,
 	"port": `^(\$gameFilter|[0-9]+(-[0-9]+)?)$`,
+	"tag":  tagPattern,
 }
 
 // schemaEnums are the value lists for the enum and items struct tags.

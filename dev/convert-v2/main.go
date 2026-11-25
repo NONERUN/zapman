@@ -5,14 +5,16 @@
 // the list bundles, targets and actions, the game modules sky, sker and
 // photon from "general (ALT11 Photon)", and the v2 strategy files in
 // flowseal/. An action is a named preset only when 3 or more rules use it.
-// It writes the files to a
-// temporary folder and checks that the argv is the same as the v0.1 argv
-// for each strategy, engine and Game Filter. Then it writes the files to
-// the strategies folder and deletes the v0.1 files.
+// Each strategy gets the upstream tag of its .bat file (from the upstream
+// ref in git, see dev/upstream-versions) and rev 1. Each game gets
+// version 1. It writes the files to a temporary folder and checks that the
+// argv is the same as the v0.1 argv for each strategy, engine and Game
+// Filter. Then it writes the files to the strategies folder and deletes the
+// v0.1 files.
 //
 // This program is only for the migration. Delete it after the migration.
 //
-//	go run ./dev/convert-v2 [-dir strategies] [-bin bin] [-lists lists] [-dry]
+//	go run ./dev/convert-v2 [-dir strategies] [-bin bin] [-lists lists] [-git .] [-ref upstream/main] [-dry]
 package main
 
 import (
@@ -24,6 +26,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/NONERUN/zapman/dev/internal/upstream"
 	"github.com/NONERUN/zapman/internal/spec"
 )
 
@@ -32,6 +35,8 @@ type options struct {
 	Dir   string // strategies folder
 	Bin   string // bin folder for the bin: check; empty: no check
 	Lists string // lists folder for the seed files
+	Git   string // git folder with the upstream ref
+	Ref   string // upstream ref for the upstream tags
 	Dry   bool   // do not write and do not delete
 }
 
@@ -40,6 +45,8 @@ func main() {
 	flag.StringVar(&o.Dir, "dir", "strategies", "strategies folder")
 	flag.StringVar(&o.Bin, "bin", "bin", "bin folder (empty: no bin: check)")
 	flag.StringVar(&o.Lists, "lists", "lists", "lists folder (seed files)")
+	flag.StringVar(&o.Git, "git", ".", "git folder with the upstream ref")
+	flag.StringVar(&o.Ref, "ref", upstream.DefaultRef, "upstream ref for the upstream tags")
 	flag.BoolVar(&o.Dry, "dry", false, "check and show the report; do not write")
 	flag.Parse()
 	if err := run(o, os.Stdout); err != nil {
@@ -54,7 +61,11 @@ func run(o options, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	res, err := convert(old, names, o.Lists)
+	tags, err := upstreamTags(upstream.Repo{Dir: o.Git, Ref: o.Ref}, names)
+	if err != nil {
+		return err
+	}
+	res, err := convert(old, names, o.Lists, tags)
 	if err != nil {
 		return err
 	}
@@ -86,6 +97,23 @@ func run(o options, w io.Writer) error {
 	}
 	fmt.Fprintf(w, "wrote %d files to %s\n", len(res.files), o.Dir)
 	return nil
+}
+
+// upstreamTags gives the upstream tag of each strategy. The Photon strategy
+// becomes game modules: it gets no tag.
+func upstreamTags(repo upstream.Repo, names []string) (map[string]string, error) {
+	tags := map[string]string{}
+	for _, n := range names {
+		if n == photonName {
+			continue
+		}
+		tag, _, err := repo.Tag(n)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", n, err)
+		}
+		tags[n] = tag
+	}
+	return tags, nil
 }
 
 // readV01 reads the v0.1 strategy files of dir. The names are sorted.

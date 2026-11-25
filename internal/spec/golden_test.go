@@ -1,7 +1,9 @@
 package spec
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -85,7 +87,7 @@ func TestGolden(t *testing.T) {
 					t.Errorf("%s %s %s: %v", s.name, eng, c.name, err)
 					continue
 				}
-				got := strings.Join(lines, "\n") + "\n"
+				got := goldenHeader(s.st, s.games) + strings.Join(lines, "\n") + "\n"
 				if *update {
 					writeGolden(t, golden, got)
 					n++
@@ -96,8 +98,8 @@ func TestGolden(t *testing.T) {
 					t.Errorf("%s: %v", golden, err)
 					continue
 				}
-				if got != string(want) {
-					t.Errorf("%s %s %s: argv differs\n%s", s.name, eng, c.name, firstDiff(got, string(want)))
+				if err := checkGolden(got, string(want)); err != nil {
+					t.Errorf("%s %s %s: %v", s.name, eng, c.name, err)
 				}
 				n++
 			}
@@ -109,6 +111,90 @@ func TestGolden(t *testing.T) {
 	}
 	t.Logf("%d golden files match", n)
 }
+
+// versionPrefix starts the first line of a golden file.
+const versionPrefix = "# version: "
+
+// errBump tells that the argv changed, but the version did not change.
+var errBump = errors.New("argv changed: bump rev/version")
+
+// goldenHeader gives the first line of a golden file: the version of the
+// strategy and of each game, for example
+// "# version: flowseal 1.10.4 r2; sky 1; sker 1".
+func goldenHeader(st *Strategy, games []*Game) string {
+	h := versionPrefix + strings.ToLower(st.Version())
+	for _, g := range games {
+		h += "; " + g.ID + " " + strconv.Itoa(g.GameFile.Version)
+	}
+	return h + "\n"
+}
+
+// splitGolden gives the version line and the argv of a golden text. The
+// version line is empty when the text has no version line.
+func splitGolden(text string) (header, argv string) {
+	if !strings.HasPrefix(text, versionPrefix) {
+		return "", text
+	}
+	header, argv, _ = strings.Cut(text, "\n")
+	return header, argv
+}
+
+// checkGolden compares the Go output got with the golden text want. When
+// the argv is different and the version line is the same, the error is
+// errBump: a person must increase rev or version. Other differences are
+// also an error.
+func checkGolden(got, want string) error {
+	if got == want {
+		return nil
+	}
+	gh, ga := splitGolden(got)
+	wh, wa := splitGolden(want)
+	switch {
+	case wh == "":
+		return errors.New("the golden file has no version line; run the test with -update")
+	case ga != wa && gh == wh:
+		return fmt.Errorf("%w\n%s", errBump, firstDiff(got, want))
+	case ga != wa:
+		return fmt.Errorf("argv and version changed; run the test with -update and examine the diff\n%s", firstDiff(got, want))
+	default:
+		return fmt.Errorf("version changed (%s, golden %s); run the test with -update", gh, wh)
+	}
+}
+
+func TestCheckGolden(t *testing.T) {
+	const (
+		v1 = versionPrefix + "flowseal 1.10.4 r1\n"
+		v2 = versionPrefix + "flowseal 1.10.4 r2\n"
+		a  = "--wf-udp=443\n--filter-udp=443\n"
+		b  = "--wf-udp=443\n--filter-udp=444\n"
+	)
+	cases := []struct {
+		name, got, want string
+		wantErr         string // empty: no error
+	}{
+		{"same", v1 + a, v1 + a, ""},
+		{"argv changed, version same", v1 + b, v1 + a, errBump.Error()},
+		{"argv and version changed", v2 + b, v1 + a, "argv and version changed"},
+		{"version changed only", v2 + a, v1 + a, "version changed"},
+		{"no version line", v1 + a, a, "no version line"},
+	}
+	for _, c := range cases {
+		err := checkGolden(c.got, c.want)
+		switch {
+		case c.wantErr == "" && err != nil:
+			t.Errorf("%s: %v", c.name, err)
+		case c.wantErr != "" && (err == nil || !strings.Contains(err.Error(), c.wantErr)):
+			t.Errorf("%s: error %v, want %q", c.name, err, c.wantErr)
+		}
+	}
+	if err := checkGolden(v1+b, v1+a); !errors.Is(err, errBump) {
+		t.Errorf("error %v is not errBump", err)
+	}
+	if !strings.Contains(checkGolden(v1+b, v1+a).Error(), "line 3") {
+		t.Error("the bump error does not show the line")
+	}
+}
+
 func firstDiff(got, want string) string {
 	g := strings.Split(got, "\n")
 	w := strings.Split(want, "\n")

@@ -176,10 +176,13 @@ type CatalogInfo struct {
 
 // StrategyFile is the JSON of strategies/<origin>/<name>.json.
 type StrategyFile struct {
-	Schema string `json:"$schema,omitempty"`
-	Spec   int    `json:"spec" doc:"format version: 2" schema:"required,const=2"`
-	About  string `json:"about,omitempty" doc:"a short text for people"`
-	Rules  []Rule `json:"rules" doc:"rules in winws order (the first match wins)" schema:"required"`
+	Schema   string `json:"$schema,omitempty"`
+	Spec     int    `json:"spec" doc:"format version: 2" schema:"required,const=2"`
+	Upstream string `json:"upstream,omitempty" doc:"flowseal/ only: the first upstream tag with the last change of the .bat file" schema:"pattern=tag"`
+	Rev      int    `json:"rev,omitempty" doc:"flowseal/ only: 1 + the number of zapman changes of the argv since the upstream tag" schema:"min=1"`
+	Version  int    `json:"version,omitempty" doc:"zapman/ only: the version of the strategy; add 1 when the argv changes" schema:"min=1"`
+	About    string `json:"about,omitempty" doc:"a short text for people"`
+	Rules    []Rule `json:"rules" doc:"rules in winws order (the first match wins)" schema:"required"`
 }
 
 // GameFile is the JSON of strategies/games/<id>.json.
@@ -187,6 +190,7 @@ type GameFile struct {
 	Schema  string                `json:"$schema,omitempty"`
 	ID      string                `json:"id" doc:"same as the file name" schema:"required"`
 	Title   string                `json:"title" doc:"name in the UI" schema:"required"`
+	Version int                   `json:"version" doc:"the version of the game module; add 1 when the argv changes" schema:"required,min=1"`
 	Order   int                   `json:"order" doc:"games with a lower order go first" schema:"required"`
 	Lists   map[string]GameBundle `json:"lists,omitempty" doc:"bundles of this game"`
 	Updater string                `json:"updater,omitempty" doc:"list updater" schema:"enum=updater"`

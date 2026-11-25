@@ -15,6 +15,7 @@
 - Sker Ritual в `general (ALT11 Photon)`: профиль UDP Photon с fake TTL 8 для подсетей из `user/ipset-sker.txt` (копия `lists/ipset-sker.default.txt`) перед общим профилем Photon. Общий профиль выкидывал из матча по `ClientTimeout`. Матч и голос проверены на winws2. Тот же профиль и подсеть Vultr `95.179.160.0/20` — для Hazard Levels.
 - Поля ZapretSpec `luaPayload`, `ttl` и `cutoff: "none"` для переноса проверенных профилей Sky без ручной правки ImagePath службы.
 - Макет главного окна в [`README.md`](README.md) ([`docs/ui/Main.svg`](docs/ui/Main.svg)).
+- Версии стратегий и игр: у `flowseal/*.json` — `upstream` (тег Flowseal, из которого взят `.bat`: general, ALT2, ALT5, ALT6, ALT7, ALT9 — 1.10.0; ALT13 — 1.10.2; остальные — 1.10.4) и `rev` (сейчас 2); у `zapman/*.json` и `games/*.json` — `version` (sky, sker, photon — 1). Go: `Version()` / `Origin()` у стратегии и игры. Golden-файлы начинаются со строки `# version: …`; тест падает, если argv поменялся без новой версии. Сверка тегов с upstream — [`dev/upstream-versions`](dev/upstream-versions/). См. [`docs/dev.md`](docs/dev.md).
 - Fake из upstream в `bin/` (видны в **Fake…**): `tls_clienthello_www_sferum_ru`, `tls_clienthello_awswaf_com`, `tls_clienthello_steam_chat_com`, `tls_clienthello_steamstatic_com`, `tls_clienthello_teamspeak_com`, `quic_initial_lemana_pro`, `quic_initial_steam_chat_com`, `quic_initial_steamstatic_com`.
 
 ### Changed

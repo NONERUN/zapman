@@ -15,6 +15,11 @@
       "description": "name in the UI",
       "type": "string"
     },
+    "version": {
+      "description": "the version of the game module; add 1 when the argv changes",
+      "type": "integer",
+      "minimum": 1
+    },
     "order": {
       "description": "games with a lower order go first",
       "type": "integer",
@@ -49,6 +54,7 @@
   "required": [
     "id",
     "title",
+    "version",
     "order",
     "rules"
   ],

@@ -91,11 +91,15 @@ type converter struct {
 	bundleKey map[string]*bundleUse
 	targetKey map[string]*use[spec.Target]
 	actionKey map[string]*use[spec.Action]
+	tags      map[string]string // upstream tag by strategy name
 }
 
-// convert makes the v2 files from the v0.1 strategies.
-func convert(old map[string]*spec.V01Spec, names []string, listsDir string) (*result, error) {
+// convert makes the v2 files from the v0.1 strategies. The tags are the
+// upstream tags of the strategies. Each strategy gets rev 1 and each game
+// gets version 1.
+func convert(old map[string]*spec.V01Spec, names []string, listsDir string, tags map[string]string) (*result, error) {
 	c := &converter{
+		tags:      tags,
 		res:       &result{files: map[string][]byte{}},
 		bundleKey: map[string]*bundleUse{},
 		targetKey: map[string]*use[spec.Target]{},
@@ -690,11 +694,16 @@ func (c *converter) render(listsDir string) error {
 			}
 		}
 		if f.game == nil {
-			res.files[strategyPath(f.name)] = pretty(mustJSON(spec.StrategyFile{Schema: "../schema/strategy.json", Spec: spec.Version, Rules: rules}))
+			tag := c.tags[f.name]
+			if tag == "" {
+				return fmt.Errorf("%s: no upstream tag", f.name)
+			}
+			sf := spec.StrategyFile{Schema: "../schema/strategy.json", Spec: spec.Version, Upstream: tag, Rev: 1, Rules: rules}
+			res.files[strategyPath(f.name)] = pretty(mustJSON(sf))
 			continue
 		}
 		file := path.Join(spec.GamesDir, f.name+".json")
-		gf := spec.GameFile{Schema: "../schema/game.json", ID: f.game.id, Title: f.game.title, Order: f.game.order, Updater: f.game.updater, Rules: rules}
+		gf := spec.GameFile{Schema: "../schema/game.json", ID: f.game.id, Title: f.game.title, Version: 1, Order: f.game.order, Updater: f.game.updater, Rules: rules}
 		for _, b := range local[file] {
 			if gf.Lists == nil {
 				gf.Lists = map[string]spec.GameBundle{}

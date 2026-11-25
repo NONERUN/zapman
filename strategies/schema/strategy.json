@@ -12,6 +12,21 @@
       "type": "integer",
       "const": 2
     },
+    "upstream": {
+      "description": "flowseal/ only: the first upstream tag with the last change of the .bat file",
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z._-]*$"
+    },
+    "rev": {
+      "description": "flowseal/ only: 1 + the number of zapman changes of the argv since the upstream tag",
+      "type": "integer",
+      "minimum": 1
+    },
+    "version": {
+      "description": "zapman/ only: the version of the strategy; add 1 when the argv changes",
+      "type": "integer",
+      "minimum": 1
+    },
     "about": {
       "description": "a short text for people",
       "type": "string"
@@ -30,6 +45,19 @@
     "rules"
   ],
   "additionalProperties": false,
+  "oneOf": [
+    {
+      "required": [
+        "upstream",
+        "rev"
+      ]
+    },
+    {
+      "required": [
+        "version"
+      ]
+    }
+  ],
   "$defs": {
     "action": {
       "type": "object",

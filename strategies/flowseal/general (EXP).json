@@ -1,6 +1,8 @@
 {
   "$schema": "../schema/strategy.json",
   "spec": 2,
+  "upstream": "1.10.4",
+  "rev": 2,
   "rules": [
     {
       "target": { "l7": ["quic"], "lists": ["general"], "exclude": ["exclude-hosts", "exclude-ips"] },

@@ -35,13 +35,21 @@ func v2Tree(t *testing.T, files map[string]string) string {
 	return dir
 }
 
-const okStrategy = `{"spec":2,"rules":[{"target":"quic-general","action":"fake-quic"},{"target":"gf-udp","action":"fake-game"}]}`
+const okStrategy = `{"spec":2,"upstream":"1.10.4","rev":1,"rules":[{"target":"quic-general","action":"fake-quic"},{"target":"gf-udp","action":"fake-game"}]}`
+
+// zapStrategy is okStrategy for the zapman/ folder.
+var zapStrategy = withVersion(`"version":3`)
+
+// withVersion gives the rules of okStrategy with the version fields vf.
+func withVersion(vf string) string {
+	return `{"spec":2,` + vf + `,"rules":[{"target":"quic-general","action":"fake-quic"},{"target":"gf-udp","action":"fake-game"}]}`
+}
 
 func TestV2Build(t *testing.T) {
 	dir := v2Tree(t, map[string]string{
 		"flowseal/s.json": okStrategy,
-		"games/b.json":    `{"id":"b","title":"B","order":2,"rules":[{"target":{"udp":["5000-6000"],"anyProtocol":true},"action":"fake-game"}]}`,
-		"games/a.json": `{"id":"a","title":"A","order":2,"lists":{"ipset-a":{"ipset":["user:ipset-a.txt"],"seed":"lists:ipset-a.default.txt"}},
+		"games/b.json":    `{"id":"b","title":"B","version":1,"order":2,"rules":[{"target":{"udp":["5000-6000"],"anyProtocol":true},"action":"fake-game"}]}`,
+		"games/a.json": `{"id":"a","title":"A","version":1,"order":2,"lists":{"ipset-a":{"ipset":["user:ipset-a.txt"],"seed":"lists:ipset-a.default.txt"}},
 			"rules":[{"target":{"udp":["443","27000"],"lists":["ipset-a"]},"action":{"desync":["fake"],"ttl":8,"cutoff":"none","luaPayload":"all","fake":{"unknownUdp":["bin:g.bin"]}}}]}`,
 	})
 	c, err := LoadCatalog(dir, "")
@@ -50,6 +58,9 @@ func TestV2Build(t *testing.T) {
 	}
 	if len(c.Games) != 2 || c.Games[0].ID != "a" || c.Games[1].ID != "b" {
 		t.Fatalf("games are not in order: %v", c.Games)
+	}
+	if g := c.Games[0]; g.Origin() != OriginZapman || g.Version() != "Zapman 1" {
+		t.Errorf("game a: origin %s, version %q", g.Origin(), g.Version())
 	}
 	st, err := c.Strategy("s")
 	if err != nil {
@@ -87,7 +98,7 @@ func TestV2Build(t *testing.T) {
 
 func TestV2Errors(t *testing.T) {
 	rule := func(target, action string) string {
-		return `{"spec":2,"rules":[{"target":"quic-general","action":"fake-quic"},{"target":` + target + `,"action":` + action + `}]}`
+		return `{"spec":2,"upstream":"1.10.4","rev":1,"rules":[{"target":"quic-general","action":"fake-quic"},{"target":` + target + `,"action":` + action + `}]}`
 	}
 	cases := []struct {
 		name    string
@@ -95,9 +106,9 @@ func TestV2Errors(t *testing.T) {
 		wantErr string
 	}{
 		{"spec 1", map[string]string{"flowseal/s.json": `{"spec":1,"rules":[]}`}, "s.json: spec must be 2, not 1"},
-		{"no rules", map[string]string{"flowseal/s.json": `{"spec":2,"rules":[]}`}, "s.json: Strategy has no rules."},
-		{"unknown root field", map[string]string{"flowseal/s.json": `{"spec":2,"wf":{},"rules":[]}`}, `unknown field "wf"`},
-		{"unknown rule field", map[string]string{"flowseal/s.json": `{"spec":2,"rules":[{"target":"gf-udp","action":"fake-game","note":1}]}`}, `unknown field "note"`},
+		{"no rules", map[string]string{"flowseal/s.json": `{"spec":2,"upstream":"1.10.4","rev":1,"rules":[]}`}, "s.json: Strategy has no rules."},
+		{"unknown root field", map[string]string{"flowseal/s.json": `{"spec":2,"upstream":"1.10.4","rev":1,"wf":{},"rules":[]}`}, `unknown field "wf"`},
+		{"unknown rule field", map[string]string{"flowseal/s.json": `{"spec":2,"upstream":"1.10.4","rev":1,"rules":[{"target":"gf-udp","action":"fake-game","note":1}]}`}, `unknown field "note"`},
 		{"unknown target", map[string]string{"flowseal/s.json": rule(`"quic"`, `"fake-quic"`)}, `s.json: rules[1]: unknown target "quic"`},
 		{"unknown action", map[string]string{"flowseal/s.json": rule(`"gf-udp"`, `"fake"`)}, `s.json: rules[1]: unknown action "fake"`},
 		{"empty name", map[string]string{"flowseal/s.json": rule(`""`, `"fake-quic"`)}, "name is empty"},
@@ -120,12 +131,12 @@ func TestV2Errors(t *testing.T) {
 		{"empty bundle", map[string]string{ListsFile: `{"x":{}}`, "flowseal/s.json": okStrategy}, `lists.json: "x": bundle has no refs`},
 		{"bundle prefix", map[string]string{ListsFile: `{"x":{"ipset":["ipset.txt"]}}`, "flowseal/s.json": okStrategy}, `lists.json: "x": Path prefix is not lists:/user:/bin: : ipset.txt`},
 		{"unknown bundle field", map[string]string{ListsFile: `{"x":{"hostlistDomains":["a.com"]}}`, "flowseal/s.json": okStrategy}, `unknown field "hostlistDomains"`},
-		{"game id", map[string]string{"games/g.json": `{"id":"h","title":"G","order":1,"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: id must be "g"`},
-		{"game no title", map[string]string{"games/g.json": `{"id":"g","title":"","order":1,"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: title is empty`},
-		{"game updater", map[string]string{"games/g.json": `{"id":"g","title":"G","order":1,"updater":"x","rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `unknown updater "x"`},
-		{"game bundle clash", map[string]string{"games/g.json": `{"id":"g","title":"G","order":1,"lists":{"general":{"ipset":["user:x.txt"]}},"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: lists: "general" is also in lists.json`},
-		{"game seed", map[string]string{"games/g.json": `{"id":"g","title":"G","order":1,"lists":{"x":{"ipset":["user:x.txt"],"seed":"user:x.txt"}},"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `seed must be a lists: path: user:x.txt`},
-		{"game rule", map[string]string{"games/g.json": `{"id":"g","title":"G","order":1,"rules":[{"target":"gf-udp","action":"nope"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: rules[0]: unknown action "nope"`},
+		{"game id", map[string]string{"games/g.json": `{"id":"h","title":"G","version":1,"order":1,"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: id must be "g"`},
+		{"game no title", map[string]string{"games/g.json": `{"id":"g","title":"","version":1,"order":1,"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: title is empty`},
+		{"game updater", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"updater":"x","rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `unknown updater "x"`},
+		{"game bundle clash", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"lists":{"general":{"ipset":["user:x.txt"]}},"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: lists: "general" is also in lists.json`},
+		{"game seed", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"lists":{"x":{"ipset":["user:x.txt"],"seed":"user:x.txt"}},"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `seed must be a lists: path: user:x.txt`},
+		{"game rule", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"rules":[{"target":"gf-udp","action":"nope"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: rules[0]: unknown action "nope"`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -166,7 +177,7 @@ func TestV2Bin(t *testing.T) {
 }
 
 func TestV2Layout(t *testing.T) {
-	dir := v2Tree(t, map[string]string{"flowseal/a.json": okStrategy, "zapman/b.json": okStrategy})
+	dir := v2Tree(t, map[string]string{"flowseal/a.json": okStrategy, "zapman/b.json": zapStrategy})
 	c, err := LoadCatalog(dir, "")
 	if err != nil {
 		t.Fatal(err)
@@ -181,13 +192,23 @@ func TestV2Layout(t *testing.T) {
 	if strings.Join(names, ",") != "a,b" {
 		t.Errorf("names: %v", names)
 	}
-	for name, want := range map[string]Origin{"a": OriginFlowseal, "b": OriginZapman} {
-		st, err := c.Strategy(name)
+	for _, w := range []struct {
+		name    string
+		origin  Origin
+		version string
+	}{
+		{"a", OriginFlowseal, "Flowseal 1.10.4 r1"},
+		{"b", OriginZapman, "Zapman 3"},
+	} {
+		st, err := c.Strategy(w.name)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if st.Origin() != want {
-			t.Errorf("%s: origin %s, want %s", name, st.Origin(), want)
+		if st.Origin() != w.origin {
+			t.Errorf("%s: origin %s, want %s", w.name, st.Origin(), w.origin)
+		}
+		if st.Version() != w.version {
+			t.Errorf("%s: version %q, want %q", w.name, st.Version(), w.version)
 		}
 	}
 	if _, err := c.Strategy("c"); err == nil || !strings.Contains(err.Error(), `strategy "c" not found`) {
@@ -210,7 +231,15 @@ func TestV2Layout(t *testing.T) {
 		{"catalog title", map[string]string{CatalogFile: `{"id":"stock","title":" ","spec":2}`}, "catalog.json: title is empty"},
 		{"catalog field", map[string]string{CatalogFile: `{"id":"stock","title":"Z","spec":2,"x":1}`}, `unknown field "x"`},
 		{"strategy in root", map[string]string{"s.json": okStrategy}, "s.json: unknown file in the catalog root"},
-		{"name in two folders", map[string]string{"flowseal/s.json": okStrategy, "zapman/s.json": okStrategy}, `strategy "s" is in flowseal/ and in zapman/`},
+		{"name in two folders", map[string]string{"flowseal/s.json": okStrategy, "zapman/s.json": zapStrategy}, `strategy "s" is in flowseal/ and in zapman/`},
+		{"flowseal no upstream", map[string]string{"flowseal/s.json": withVersion(`"rev":1`)}, `upstream must be an upstream tag`},
+		{"flowseal bad upstream", map[string]string{"flowseal/s.json": withVersion(`"upstream":"v 1","rev":1`)}, `upstream must be an upstream tag`},
+		{"flowseal no rev", map[string]string{"flowseal/s.json": withVersion(`"upstream":"1.10.4"`)}, "flowseal/s.json: rev must be 1 or more"},
+		{"flowseal version", map[string]string{"flowseal/s.json": withVersion(`"upstream":"1.10.4","rev":1,"version":1`)}, "version is for zapman/ strategies"},
+		{"zapman no version", map[string]string{"zapman/s.json": withVersion(`"about":"x"`)}, "zapman/s.json: version must be 1 or more"},
+		{"zapman upstream", map[string]string{"zapman/s.json": withVersion(`"upstream":"1.10.4","version":1`)}, "upstream and rev are for flowseal/ strategies"},
+		{"zapman rev", map[string]string{"zapman/s.json": withVersion(`"rev":1,"version":1`)}, "upstream and rev are for flowseal/ strategies"},
+		{"game no version", map[string]string{"flowseal/s.json": okStrategy, "games/g.json": `{"id":"g","title":"G","order":1,"rules":[{"target":"gf-udp","action":"fake-game"}]}`}, "games/g.json: version must be 1 or more"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
