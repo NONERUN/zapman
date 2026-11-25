@@ -4,3 +4,7 @@
 .githooks/* text eol=lf
 bin/lua/*.lua text eol=lf
 testdata/golden/** text eol=lf
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+internal/spec/testdata/** text eol=lf
