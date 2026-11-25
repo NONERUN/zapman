@@ -1,5 +1,5 @@
 {
-  "$schema": "./schema/strategy.json",
+  "$schema": "../schema/strategy.json",
   "spec": 2,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-11" },
@@ -7,12 +7,11 @@
     {
       "target": "discord-media",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake", "fakedsplit"],
         "repeats": 8,
         "splitPos": "1",
-        "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
-        "fooling": ["ts"],
+        "fooling": ["badseq"],
+        "badseqIncrement": 2,
         "tlsMod": "rnd,dupsid,sni=www.google.com",
         "fake": { "tls": ["!"] }
       }
@@ -20,12 +19,11 @@
     {
       "target": "google",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake", "fakedsplit"],
         "repeats": 8,
         "splitPos": "1",
-        "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
-        "fooling": ["ts"],
+        "fooling": ["badseq"],
+        "badseqIncrement": 2,
         "ipId": "zero",
         "tlsMod": "rnd,dupsid,sni=www.google.com",
         "fake": { "tls": ["!"] }
@@ -34,12 +32,11 @@
     {
       "target": "tls-general",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake", "fakedsplit"],
         "repeats": 8,
         "splitPos": "1",
-        "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
-        "fooling": ["ts"],
+        "fooling": ["badseq"],
+        "badseqIncrement": 2,
         "tlsMod": "rnd,dupsid,sni=www.google.com",
         "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
       }
@@ -48,12 +45,11 @@
     {
       "target": "tls-ipset",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake", "fakedsplit"],
         "repeats": 8,
         "splitPos": "1",
-        "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
-        "fooling": ["ts"],
+        "fooling": ["badseq"],
+        "badseqIncrement": 2,
         "tlsMod": "rnd,dupsid,sni=www.google.com",
         "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
       }
@@ -61,13 +57,12 @@
     {
       "target": "gf-tcp",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake", "fakedsplit"],
         "repeats": 8,
-        "cutoff": 4,
+        "cutoff": 3,
         "splitPos": "1",
-        "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
-        "fooling": ["ts"],
+        "fooling": ["badseq"],
+        "badseqIncrement": 2,
         "tlsMod": "rnd,dupsid,sni=www.google.com",
         "fake": {
           "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
@@ -75,14 +70,6 @@
         }
       }
     },
-    {
-      "target": "gf-udp",
-      "action": {
-        "desync": ["fake"],
-        "repeats": 10,
-        "cutoff": 3,
-        "fake": { "unknownUdp": ["bin:ACTIVE_GAME_UDP.bin"] }
-      }
-    }
+    { "target": "gf-udp", "action": "fake-game-10-n2" }
   ]
 }

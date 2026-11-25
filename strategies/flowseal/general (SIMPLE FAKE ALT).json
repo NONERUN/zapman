@@ -1,5 +1,5 @@
 {
-  "$schema": "./schema/strategy.json",
+  "$schema": "../schema/strategy.json",
   "spec": 2,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-6" },
@@ -7,20 +7,20 @@
     {
       "target": "discord-media",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake"],
         "repeats": 6,
         "fooling": ["badseq"],
-        "badseqIncrement": 1000,
+        "badseqIncrement": 2,
         "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
       }
     },
     {
       "target": "google",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake"],
         "repeats": 6,
         "fooling": ["badseq"],
-        "badseqIncrement": 1000,
+        "badseqIncrement": 2,
         "ipId": "zero",
         "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
       }
@@ -28,12 +28,12 @@
     {
       "target": "tls-general",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake"],
         "repeats": 6,
         "fooling": ["badseq"],
-        "badseqIncrement": 1000,
+        "badseqIncrement": 2,
         "fake": {
-          "tls": ["bin:stun.bin", "bin:tls_clienthello_www_google_com.bin"],
+          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"],
           "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
         }
       }
@@ -42,12 +42,12 @@
     {
       "target": "tls-ipset",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake"],
         "repeats": 6,
         "fooling": ["badseq"],
-        "badseqIncrement": 1000,
+        "badseqIncrement": 2,
         "fake": {
-          "tls": ["bin:stun.bin", "bin:tls_clienthello_www_google_com.bin"],
+          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"],
           "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
         }
       }
@@ -55,15 +55,15 @@
     {
       "target": "gf-tcp",
       "action": {
-        "desync": ["fake", "multisplit"],
+        "desync": ["fake"],
         "repeats": 6,
         "cutoff": 3,
         "fooling": ["badseq"],
-        "badseqIncrement": 1000,
+        "badseqIncrement": 2,
         "fake": {
-          "tls": ["bin:stun.bin", "bin:tls_clienthello_www_google_com.bin"],
+          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"],
           "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
-          "unknown": ["bin:stun.bin", "bin:tls_clienthello_www_google_com.bin"]
+          "unknown": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"]
         }
       }
     },

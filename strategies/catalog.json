@@ -1,0 +1,6 @@
+{
+  "$schema": "./schema/catalog.json",
+  "id": "stock",
+  "title": "Zapman",
+  "spec": 2
+}

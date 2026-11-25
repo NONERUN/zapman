@@ -166,7 +166,15 @@ type Rule struct {
 	Action Ref[Action] `json:"action" doc:"action name or inline action" schema:"required"`
 }
 
-// StrategyFile is the JSON of strategies/<name>.json.
+// CatalogInfo is the JSON of catalog.json, in the root of a catalog folder.
+type CatalogInfo struct {
+	Schema string `json:"$schema,omitempty"`
+	ID     string `json:"id" doc:"catalog id: stock for the catalog of zapman" schema:"required,pattern=name"`
+	Title  string `json:"title" doc:"name in the UI" schema:"required"`
+	Spec   int    `json:"spec" doc:"format version: 2" schema:"required,const=2"`
+}
+
+// StrategyFile is the JSON of strategies/<origin>/<name>.json.
 type StrategyFile struct {
 	Schema string `json:"$schema,omitempty"`
 	Spec   int    `json:"spec" doc:"format version: 2" schema:"required,const=2"`

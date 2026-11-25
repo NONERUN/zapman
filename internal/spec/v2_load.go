@@ -12,20 +12,49 @@ import (
 	"strings"
 )
 
-// The files of a strategies folder.
+// The files of a catalog folder.
 const (
+	CatalogFile = "catalog.json"
 	ListsFile   = "lists.json"
 	TargetsFile = "targets.json"
 	ActionsFile = "actions.json"
 	GamesDir    = "games"
 )
 
+// Origin tells where a strategy comes from. It is also the name of the
+// folder of the strategy in the catalog.
+type Origin string
+
+// The origins of strategies.
+const (
+	// OriginFlowseal is a port of a .bat file of Flowseal/zapret-discord-youtube.
+	OriginFlowseal Origin = "flowseal"
+	// OriginZapman is a strategy of zapman.
+	OriginZapman Origin = "zapman"
+)
+
+// Origins are the strategy folders of a catalog, in search order.
+var Origins = []Origin{OriginFlowseal, OriginZapman}
+
+// Title gives the origin name for people: Flowseal or Zapman.
+func (o Origin) Title() string {
+	switch o {
+	case OriginFlowseal:
+		return "Flowseal"
+	case OriginZapman:
+		return "Zapman"
+	}
+	return string(o)
+}
+
 // gameUpdaters are the known values of GameFile.Updater.
 var gameUpdaters = map[string]bool{"sky-log": true}
 
-// Catalog is a loaded strategies folder: the named bundles, targets and
-// actions, and the game modules. Strategies refer to these names.
+// Catalog is a loaded catalog folder: the catalog.json data, the named
+// bundles, targets and actions, and the game modules. Strategies refer to
+// these names.
 type Catalog struct {
+	CatalogInfo
 	Dir     string
 	Bin     string
 	Lists   map[string]Bundle
@@ -38,10 +67,14 @@ type Catalog struct {
 // Strategy is a loaded strategy file. Its rules refer to the catalog.
 type Strategy struct {
 	StrategyFile
-	Name  string
-	file  string
-	rules []resolvedRule
+	Name   string
+	origin Origin
+	file   string
+	rules  []resolvedRule
 }
+
+// Origin gives the origin of the strategy: the name of its folder.
+func (s *Strategy) Origin() Origin { return s.origin }
 
 // Game is a loaded game module.
 type Game struct {
@@ -58,11 +91,17 @@ type resolvedRule struct {
 	origin   string
 }
 
-// LoadCatalog reads lists.json, targets.json, actions.json and games/*.json
-// of the strategies folder dir. When bin is not empty, each bin: ref must be
-// a file in bin.
+// LoadCatalog reads catalog.json, lists.json, targets.json, actions.json and
+// games/*.json of the catalog folder dir. When bin is not empty, each bin:
+// ref must be a file in bin.
 func LoadCatalog(dir, bin string) (*Catalog, error) {
 	c := &Catalog{Dir: dir, Bin: bin}
+	if err := c.loadInfo(); err != nil {
+		return nil, err
+	}
+	if err := checkRootFiles(dir); err != nil {
+		return nil, err
+	}
 	var err error
 	if c.Lists, err = loadNamed[Bundle](filepath.Join(dir, ListsFile)); err != nil {
 		return nil, err
@@ -116,36 +155,94 @@ func (c *Catalog) Game(id string) *Game {
 	return nil
 }
 
-// StrategyNames gives the names of the strategy files in the folder,
-// sorted.
-func (c *Catalog) StrategyNames() ([]string, error) {
-	files, err := filepath.Glob(filepath.Join(c.Dir, "*.json"))
+// loadInfo reads catalog.json.
+func (c *Catalog) loadInfo() error {
+	data, err := readJSON(filepath.Join(c.Dir, CatalogFile))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var out []string
+	if err := decodeStrict(data, &c.CatalogInfo); err != nil {
+		return fmt.Errorf("%s: %w", CatalogFile, err)
+	}
+	if c.Spec != Version {
+		return fmt.Errorf("%s: spec must be %d, not %d", CatalogFile, Version, c.Spec)
+	}
+	if !isName(c.ID) {
+		return fmt.Errorf("%s: id %q is not valid. Use a-z, 0-9 and -.", CatalogFile, c.ID)
+	}
+	if isBlank(c.Title) {
+		return fmt.Errorf("%s: title is empty", CatalogFile)
+	}
+	return nil
+}
+
+// checkRootFiles tells if the root of the catalog has a JSON file that is
+// not a catalog file. A strategy file in the root is an error: it must be
+// in a folder of its origin.
+func checkRootFiles(dir string) error {
+	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil {
+		return err
+	}
 	for _, f := range files {
-		base := filepath.Base(f)
-		if base == ListsFile || base == TargetsFile || base == ActionsFile {
+		switch filepath.Base(f) {
+		case CatalogFile, ListsFile, TargetsFile, ActionsFile:
 			continue
 		}
-		out = append(out, strings.TrimSuffix(base, ".json"))
+		return fmt.Errorf("%s: unknown file in the catalog root. Put a strategy in %s/ or %s/.", filepath.Base(f), OriginFlowseal, OriginZapman)
 	}
-	sort.Strings(out)
+	return nil
+}
+
+// strategyFiles gives the strategy files of the catalog by name. A name in
+// two origin folders is an error.
+func (c *Catalog) strategyFiles() (map[string]Origin, error) {
+	out := map[string]Origin{}
+	for _, o := range Origins {
+		files, err := filepath.Glob(filepath.Join(c.Dir, string(o), "*.json"))
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range files {
+			name := strings.TrimSuffix(filepath.Base(f), ".json")
+			if prev, ok := out[name]; ok {
+				return nil, fmt.Errorf("strategy %q is in %s/ and in %s/", name, prev, o)
+			}
+			out[name] = o
+		}
+	}
 	return out, nil
 }
 
-// Strategy reads the strategy file <name>.json of the folder.
+// StrategyNames gives the names of the strategy files in all origin
+// folders, sorted.
+func (c *Catalog) StrategyNames() ([]string, error) {
+	files, err := c.strategyFiles()
+	if err != nil {
+		return nil, err
+	}
+	return sortedKeys(files), nil
+}
+
+// Strategy reads the strategy file <origin>/<name>.json of the catalog.
 func (c *Catalog) Strategy(name string) (*Strategy, error) {
 	if isBlank(name) {
 		return nil, errors.New("Strategy name is empty.")
 	}
-	file := name + ".json"
-	data, err := readJSON(filepath.Join(c.Dir, file))
+	files, err := c.strategyFiles()
 	if err != nil {
 		return nil, err
 	}
-	s := &Strategy{Name: name, file: file}
+	o, ok := files[name]
+	if !ok {
+		return nil, fmt.Errorf("strategy %q not found in %s", name, c.Dir)
+	}
+	file := string(o) + "/" + name + ".json"
+	data, err := readJSON(filepath.Join(c.Dir, string(o), name+".json"))
+	if err != nil {
+		return nil, err
+	}
+	s := &Strategy{Name: name, origin: o, file: file}
 	if err := decodeStrict(data, &s.StrategyFile); err != nil {
 		return nil, fmt.Errorf("%s: %w", file, err)
 	}

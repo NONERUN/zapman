@@ -1,5 +1,5 @@
 {
-  "$schema": "./schema/strategy.json",
+  "$schema": "../schema/strategy.json",
   "spec": 2,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-6" },
@@ -9,10 +9,8 @@
       "action": {
         "desync": ["fake"],
         "repeats": 6,
-        "fooling": ["badseq"],
-        "badseqIncrement": 2,
-        "tlsMod": "none",
-        "fake": { "tls": ["!"] }
+        "fooling": ["ts"],
+        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
       }
     },
     {
@@ -20,11 +18,9 @@
       "action": {
         "desync": ["fake"],
         "repeats": 6,
-        "fooling": ["badseq"],
-        "badseqIncrement": 2,
+        "fooling": ["ts"],
         "ipId": "zero",
-        "tlsMod": "none",
-        "fake": { "tls": ["!"] }
+        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
       }
     },
     {
@@ -32,10 +28,11 @@
       "action": {
         "desync": ["fake"],
         "repeats": 6,
-        "fooling": ["badseq"],
-        "badseqIncrement": 2,
-        "tlsMod": "none",
-        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fooling": ["ts"],
+        "fake": {
+          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
+          "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
+        }
       }
     },
     { "target": "quic-ipset", "action": "fake-quic-google-6" },
@@ -44,10 +41,11 @@
       "action": {
         "desync": ["fake"],
         "repeats": 6,
-        "fooling": ["badseq"],
-        "badseqIncrement": 2,
-        "tlsMod": "none",
-        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fooling": ["ts"],
+        "fake": {
+          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
+          "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
+        }
       }
     },
     {
@@ -55,16 +53,15 @@
       "action": {
         "desync": ["fake"],
         "repeats": 6,
-        "cutoff": 3,
-        "fooling": ["badseq"],
-        "badseqIncrement": 2,
-        "tlsMod": "none",
+        "cutoff": 5,
+        "fooling": ["ts"],
         "fake": {
+          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
           "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
-          "unknown": ["bin:tls_clienthello_www_sferum_ru.bin"]
+          "unknown": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },
-    { "target": "gf-udp", "action": "fake-game-12-n2" }
+    { "target": "gf-udp", "action": "fake-game-12-n3" }
   ]
 }

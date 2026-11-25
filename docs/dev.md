@@ -43,14 +43,27 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 
 ### Формат v2
 
-Файлы в `strategies/` (JSON Schema — `strategies/schema/`, генерируется из структур Go: `go generate ./internal/spec`; у каждого файла `$schema`):
+`strategies/` — сток-каталог (JSON Schema — `strategies/schema/`, генерируется из структур Go: `go generate ./internal/spec`; у каждого файла `$schema` с относительным путём). Каталоги пользователя и внешние будут с той же раскладкой (пока не сделано):
+
+```text
+strategies/
+  catalog.json        { "id": "stock", "title": "Zapman", "spec": 2 }
+  lists.json  targets.json  actions.json   кирпичи: общие для всех стратегий каталога
+  flowseal/<имя>.json  порты .bat из Flowseal/zapret-discord-youtube
+  zapman/<имя>.json    свои стратегии (папки пока нет: создать с первой стратегией)
+  games/<id>.json      игровые модули
+  schema/              JSON Schema
+```
+
+Происхождение стратегии (`Origin`: `flowseal` / `zapman`) — папка, не поле JSON. Имя стратегии — имя файла без `.json`; одно имя в двух папках — ошибка загрузки. Другой `*.json` в корне каталога (кроме `catalog.json` и кирпичей) — ошибка: стратегия должна лежать в папке своего происхождения.
 
 | Файл | Что внутри |
 |---|---|
+| `catalog.json` | `id` (имя `a-z`, `0-9`, `-`), `title`, `spec` = 2 |
 | `lists.json` | именованные наборы списков: `hostlist`, `hostlistExclude`, `ipset`, `ipsetExclude` (пути `lists:`/`user:`/`bin:`) |
 | `targets.json` | именованные цели: `tcp`, `udp`, `l3`, `l7`, `lists` (имена наборов с `hostlist`/`ipset`), `exclude` (наборы с `*Exclude`), `domains`, `excludeDomains`, `anyProtocol`, `payload` |
 | `actions.json` | именованные действия: `desync` и поля атаки из таблиц ниже; `cutoff` — число N (= `nN`) или `"none"` |
-| `<имя>.json` | стратегия: `"spec": 2`, `about`, `rules[]` — пары `{ "target", "action" }` в порядке winws (первое совпадение выигрывает) |
+| `flowseal/<имя>.json`, `zapman/<имя>.json` | стратегия: `"spec": 2`, `about`, `rules[]` — пары `{ "target", "action" }` в порядке winws (первое совпадение выигрывает) |
 | `games/<id>.json` | игровой модуль: `id` (= имя файла), `title`, `order`, `updater`, свои `lists` (с `seed`), `rules[]` |
 
 `target` и `action` в правиле — имя из каталога или объект прямо в правиле. Цель выносится в `targets.json`, если используется 2+ раза. Действие выносится в `actions.json` (пресет), если используется 3+ раза; остальные действия — прямо в правиле. Пресет с одним-двумя пользователями не заводить: при правке такой стратегии действие возвращается в правило. Имена — `a-z`, `0-9`, `-`. Загрузка строгая: неизвестное поле, имя, порт или отсутствующий файл `bin:` — ошибка. Набор игры не может повторять имя из `lists.json`; `seed` — путь `lists:`, из него создаётся `user:`-список, если его нет.

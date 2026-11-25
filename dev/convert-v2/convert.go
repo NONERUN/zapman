@@ -21,6 +21,18 @@ const (
 	alt11Name  = "general (ALT11)"
 )
 
+// The catalog.json data of the stock catalog.
+const (
+	catalogID    = "stock"
+	catalogTitle = "Zapman"
+)
+
+// strategyPath gives the slash path of a converted strategy in the catalog.
+// All v0.1 strategies are ports of Flowseal .bat files.
+func strategyPath(name string) string {
+	return string(spec.OriginFlowseal) + "/" + name + ".json"
+}
+
 // gameDef tells which Photon profiles make a game module.
 type gameDef struct {
 	id, title string
@@ -628,6 +640,7 @@ func joinName(parts ...string) string {
 // render makes the JSON files.
 func (c *converter) render(listsDir string) error {
 	res := c.res
+	res.files[spec.CatalogFile] = pretty(mustJSON(spec.CatalogInfo{Schema: "./schema/catalog.json", ID: catalogID, Title: catalogTitle, Spec: spec.Version}))
 	// A bundle that only one game uses goes into that game file.
 	local := map[string][]*bundleUse{}
 	var global []*bundleUse
@@ -677,7 +690,7 @@ func (c *converter) render(listsDir string) error {
 			}
 		}
 		if f.game == nil {
-			res.files[f.name+".json"] = pretty(mustJSON(spec.StrategyFile{Schema: "./schema/strategy.json", Spec: spec.Version, Rules: rules}))
+			res.files[strategyPath(f.name)] = pretty(mustJSON(spec.StrategyFile{Schema: "../schema/strategy.json", Spec: spec.Version, Rules: rules}))
 			continue
 		}
 		file := path.Join(spec.GamesDir, f.name+".json")

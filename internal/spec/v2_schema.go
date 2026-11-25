@@ -53,6 +53,8 @@ func Schemas() map[string][]byte {
 	}
 
 	g.reset()
+	put("catalog.json", "zapman catalog", g.object(reflect.TypeOf(CatalogInfo{})))
+	g.reset()
 	put("strategy.json", "zapman strategy (spec 2)", g.object(reflect.TypeOf(StrategyFile{})))
 	g.reset()
 	put("game.json", "zapman game module", g.object(reflect.TypeOf(GameFile{})))
@@ -225,6 +227,9 @@ func (g *schemaGen) field(t reflect.Type, tags map[string]string) *jsonObj {
 		s.set("type", "string")
 		if e, ok := tags["enum"]; ok {
 			s.set("enum", schemaEnums(e))
+		}
+		if p, ok := tags["pattern"]; ok {
+			s.set("pattern", schemaPatterns[p])
 		}
 	case t.Kind() == reflect.Int:
 		s.set("type", "integer")

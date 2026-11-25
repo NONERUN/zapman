@@ -1,9 +1,11 @@
 // Command convert-v2 converts the v0.1 strategy files to the strategy
 // format v2 one time.
 //
-// It reads strategies/*.json (specVersion 0.1.0). It makes the list
-// bundles, targets and actions, the game modules sky, sker and photon from
-// "general (ALT11 Photon)", and the v2 strategy files. It writes them to a
+// It reads strategies/*.json (specVersion 0.1.0). It makes catalog.json,
+// the list bundles, targets and actions, the game modules sky, sker and
+// photon from "general (ALT11 Photon)", and the v2 strategy files in
+// flowseal/. An action is a named preset only when 3 or more rules use it.
+// It writes the files to a
 // temporary folder and checks that the argv is the same as the v0.1 argv
 // for each strategy, engine and Game Filter. Then it writes the files to
 // the strategies folder and deletes the v0.1 files.
@@ -75,10 +77,8 @@ func run(o options, w io.Writer) error {
 	if err := writeFiles(o.Dir, res.files); err != nil {
 		return err
 	}
+	// The v2 strategies are in flowseal/. Delete all v0.1 files of the root.
 	for _, n := range names {
-		if _, ok := res.files[n+".json"]; ok {
-			continue
-		}
 		if err := os.Remove(filepath.Join(o.Dir, n+".json")); err != nil {
 			return err
 		}
@@ -98,7 +98,7 @@ func readV01(dir string) (map[string]*spec.V01Spec, []string, error) {
 	var names []string
 	for _, f := range files {
 		base := filepath.Base(f)
-		if base == spec.ListsFile || base == spec.TargetsFile || base == spec.ActionsFile {
+		if base == spec.CatalogFile || base == spec.ListsFile || base == spec.TargetsFile || base == spec.ActionsFile {
 			return nil, nil, fmt.Errorf("%s is in %s: the folder is v2 already", base, dir)
 		}
 		s, err := spec.LoadFile(f)

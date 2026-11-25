@@ -19,6 +19,7 @@
 
 ### Changed
 
+- Раскладка каталога: `strategies/catalog.json` (`id` `stock`, `title`, `spec`); стратегии Flowseal — `strategies/<имя>.json` → `strategies/flowseal/<имя>.json` (имена те же); свои стратегии — в `strategies/zapman/`. Кирпичи (`lists.json`, `targets.json`, `actions.json`) и `games/` — в корне каталога. Стратегия в корне — ошибка загрузки.
 - Стратегии v2: в `strategies/actions.json` только действия, которые используются 3+ раза (11 пресетов вместо 32); остальные — прямо в правиле стратегии. Argv не меняется.
 - ZapretSpec (Go), winws2: `cutoff` N → `--out-range=-nN` (было `-dN`), счёт пакетов как у winws. Меняется argv winws2 всех стратегий с cutoff. Почему на TCP не точно как winws — [`docs/dev.md`](docs/dev.md).
 - GitHub Release: push тега `v*.*.*` собирает архивы в **черновик**; Publish — вручную. Повтор не трогает immutable-ассеты. См. [`docs/dev.md`](docs/dev.md).
