@@ -285,11 +285,20 @@ func (c *Catalog) Strategy(name string) (*Strategy, error) {
 	if !ok {
 		return nil, fmt.Errorf("strategy %q not found in %s", name, c.Dir)
 	}
-	file := string(o) + "/" + name + ".json"
 	data, err := readJSON(filepath.Join(c.Dir, string(o), name+".json"))
 	if err != nil {
 		return nil, err
 	}
+	return c.ParseStrategy(name, o, data)
+}
+
+// ParseStrategy reads the JSON data of the strategy name in the origin
+// folder, as Strategy does with the file <origin>/<name>.json. The file
+// need not be on the disk. The dev tools use it to check a strategy before
+// they write it.
+func (c *Catalog) ParseStrategy(name string, o Origin, data []byte) (*Strategy, error) {
+	file := string(o) + "/" + name + ".json"
+	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 	s := &Strategy{Name: name, origin: o, file: file, active: c.Active}
 	if err := decodeStrict(data, &s.StrategyFile); err != nil {
 		return nil, fmt.Errorf("%s: %w", file, err)
@@ -303,6 +312,7 @@ func (c *Catalog) Strategy(name string) (*Strategy, error) {
 	if len(s.Rules) == 0 {
 		return nil, fmt.Errorf("%s: Strategy has no rules.", file)
 	}
+	var err error
 	if s.rules, err = c.resolveRules(file, s.Rules, nil); err != nil {
 		return nil, err
 	}

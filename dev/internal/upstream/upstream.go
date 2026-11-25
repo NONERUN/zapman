@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path"
+	"sort"
 	"strings"
 )
 
@@ -33,10 +35,7 @@ type Repo struct {
 // that has the commit and that is in the ref. A tag that is not in the
 // ref (for example a zapman release tag) is not an upstream tag.
 func (r Repo) Tag(name string) (tag, commit string, err error) {
-	ref := r.Ref
-	if ref == "" {
-		ref = DefaultRef
-	}
+	ref := r.ref()
 	commit, err = r.git("log", "-1", "--format=%H", ref, "--", name+".bat")
 	if err != nil {
 		return "", "", err
@@ -55,6 +54,48 @@ func (r Repo) Tag(name string) (tag, commit string, err error) {
 	return strings.TrimSpace(tag), commit, nil
 }
 
+// ref gives r.Ref, or DefaultRef when it is empty.
+func (r Repo) ref() string {
+	if r.Ref == "" {
+		return DefaultRef
+	}
+	return r.Ref
+}
+
+// Bats gives the strategy names of the general*.bat files in the root of
+// the ref, sorted. A name has no .bat extension.
+func (r Repo) Bats() ([]string, error) {
+	// ls-tree has no glob pathspecs: list the root and select the names.
+	out, err := r.git("ls-tree", "--name-only", r.ref())
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	// Names have spaces: read the lines.
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if ok, _ := path.Match("general*.bat", line); !ok {
+			continue
+		}
+		names = append(names, strings.TrimSuffix(line, ".bat"))
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// Show gives the bytes of the file (a path with /) in the ref.
+func (r Repo) Show(file string) ([]byte, error) {
+	args := []string{"show", r.ref() + ":" + file}
+	if r.Dir != "" {
+		args = append([]string{"-C", r.Dir}, args...)
+	}
+	out, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return nil, gitError(args, err)
+	}
+	return out, nil
+}
+
 // git runs git in r.Dir and gives the output without the last line break.
 func (r Repo) git(args ...string) (string, error) {
 	if r.Dir != "" {
@@ -63,11 +104,16 @@ func (r Repo) git(args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	out, err := cmd.Output()
 	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) && len(ee.Stderr) > 0 {
-			return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), strings.TrimSpace(string(ee.Stderr)))
-		}
-		return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+		return "", gitError(args, err)
 	}
 	return strings.TrimRight(string(out), "\r\n"), nil
+}
+
+// gitError gives the error of a git run with the stderr text of git.
+func gitError(args []string, err error) error {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && len(ee.Stderr) > 0 {
+		return fmt.Errorf("git %s: %s", strings.Join(args, " "), strings.TrimSpace(string(ee.Stderr)))
+	}
+	return fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 }
