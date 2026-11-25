@@ -1,4 +1,9 @@
-package main
+// Package jsonfmt formats the JSON files of the catalog: an object or an
+// array that fits in a line stays on one line, and the key order does not
+// change.
+//
+// The dev tools use this package. The product does not use it.
+package jsonfmt
 
 import (
 	"bytes"
@@ -10,8 +15,8 @@ import (
 // line.
 const lineWidth = 120
 
-// marshal is json.Marshal without the HTML escapes.
-func marshal(v any) ([]byte, error) {
+// Marshal is json.Marshal without the HTML escapes.
+func Marshal(v any) ([]byte, error) {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
@@ -29,9 +34,9 @@ type node struct {
 	raw  string
 }
 
-// pretty formats a JSON text. An object or an array that fits in lineWidth
+// Pretty formats a JSON text. An object or an array that fits in lineWidth
 // stays on one line. The key order does not change.
-func pretty(text string) []byte {
+func Pretty(text string) []byte {
 	dec := json.NewDecoder(strings.NewReader(text))
 	dec.UseNumber()
 	n, err := parseNode(dec)
@@ -72,7 +77,7 @@ func parseNode(dec *json.Decoder) (*node, error) {
 	case nil:
 		return &node{raw: "null"}, nil
 	default:
-		b, err := marshal(t)
+		b, err := Marshal(t)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +90,7 @@ func compact(n *node) string {
 	case '{':
 		parts := make([]string, len(n.vals))
 		for i := range n.vals {
-			k, _ := marshal(n.keys[i])
+			k, _ := Marshal(n.keys[i])
 			parts[i] = string(k) + ": " + compact(n.vals[i])
 		}
 		return "{ " + strings.Join(parts, ", ") + " }"
@@ -122,7 +127,7 @@ func format(n *node, indent, prefix int, root bool) string {
 		b.WriteString(pad)
 		p := 0
 		if n.kind == '{' {
-			k, _ := marshal(n.keys[i])
+			k, _ := Marshal(n.keys[i])
 			b.Write(k)
 			b.WriteString(": ")
 			p = len(k) + 2

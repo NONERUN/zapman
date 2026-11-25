@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/NONERUN/zapman/dev/internal/jsonfmt"
 	"github.com/NONERUN/zapman/internal/spec"
 )
 
@@ -644,7 +645,7 @@ func joinName(parts ...string) string {
 // render makes the JSON files.
 func (c *converter) render(listsDir string) error {
 	res := c.res
-	res.files[spec.CatalogFile] = pretty(mustJSON(spec.CatalogInfo{Schema: "./schema/catalog.json", ID: catalogID, Title: catalogTitle, Spec: spec.Version}))
+	res.files[spec.CatalogFile] = jsonfmt.Pretty(mustJSON(spec.CatalogInfo{Schema: "./schema/catalog.json", ID: catalogID, Title: catalogTitle, Spec: spec.Version}))
 	// A bundle that only one game uses goes into that game file.
 	local := map[string][]*bundleUse{}
 	var global []*bundleUse
@@ -661,21 +662,21 @@ func (c *converter) render(listsDir string) error {
 	for _, b := range global {
 		obj = append(obj, mustJSON(b.name)+":"+mustJSON(bundleOf(b)))
 	}
-	res.files[spec.ListsFile] = pretty(namedJSON("./schema/lists.json", obj))
+	res.files[spec.ListsFile] = jsonfmt.Pretty(namedJSON("./schema/lists.json", obj))
 	obj = nil
 	for _, t := range res.targets {
 		if t.name != "" {
 			obj = append(obj, mustJSON(t.name)+":"+t.key)
 		}
 	}
-	res.files[spec.TargetsFile] = pretty(namedJSON("./schema/targets.json", obj))
+	res.files[spec.TargetsFile] = jsonfmt.Pretty(namedJSON("./schema/targets.json", obj))
 	obj = nil
 	for _, a := range res.actions {
 		if a.name != "" {
 			obj = append(obj, mustJSON(a.name)+":"+a.key)
 		}
 	}
-	res.files[spec.ActionsFile] = pretty(namedJSON("./schema/actions.json", obj))
+	res.files[spec.ActionsFile] = jsonfmt.Pretty(namedJSON("./schema/actions.json", obj))
 
 	for _, f := range res.out {
 		rules := make([]spec.Rule, len(f.rules))
@@ -699,7 +700,7 @@ func (c *converter) render(listsDir string) error {
 				return fmt.Errorf("%s: no upstream tag", f.name)
 			}
 			sf := spec.StrategyFile{Schema: "../schema/strategy.json", Spec: spec.Version, Upstream: tag, Rev: 1, Rules: rules}
-			res.files[strategyPath(f.name)] = pretty(mustJSON(sf))
+			res.files[strategyPath(f.name)] = jsonfmt.Pretty(mustJSON(sf))
 			continue
 		}
 		file := path.Join(spec.GamesDir, f.name+".json")
@@ -718,7 +719,7 @@ func (c *converter) render(listsDir string) error {
 			}
 			gf.Lists[b.name] = gb
 		}
-		res.files[file] = pretty(mustJSON(gf))
+		res.files[file] = jsonfmt.Pretty(mustJSON(gf))
 	}
 	return nil
 }
@@ -750,7 +751,7 @@ func namedJSON(schema string, items []string) string {
 }
 
 func mustJSON(v any) string {
-	b, err := marshal(v)
+	b, err := jsonfmt.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
