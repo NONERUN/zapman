@@ -77,22 +77,43 @@ func TestErrors(t *testing.T) {
 		{"parse: ttl not int", specWith(okProfile + `,"ttl":"8"`), both, nil, "Strategy JSON is not valid"},
 
 		{"no wf", `{"specVersion":"0.1.0","profiles":[]}`, both, nil, "Strategy JSON has no wf."},
-		{"no profiles", `{"specVersion":"0.1.0","wf":{}}`, both, nil, "Strategy profile has no desync attacks."},
+		{"no profiles", `{"specVersion":"0.1.0","wf":{}}`, both, nil, "Strategy has no profiles."},
+		{"empty profiles", `{"specVersion":"0.1.0","wf":{},"profiles":[]}`, both, nil, "Strategy has no profiles."},
+		{"null profile", `{"specVersion":"0.1.0","wf":{},"profiles":[null]}`, both, nil, "Strategy profile has no desync attacks."},
 		{"empty desync", specWith(`"udp":"443","desync":[]`), both, nil, "Strategy profile has no desync attacks."},
 		{"unknown desync", specWith(`"udp":"443","desync":["fake","disorder2"]`), both, nil, "Unknown desync attack 'disorder2'."},
-		{"bad fooling", specWith(okProfile + `,"fooling":["datanoack"]`), z2, z1, "Unknown fooling 'datanoack'."},
+		{"desync case", specWith(`"udp":"443","l7":"quic","desync":["Fake"],"fake":{"quic":["bin:q.bin"]}`), both, nil, "Unknown desync attack 'Fake'."},
+		{"bad fooling", specWith(okProfile + `,"fooling":["datanoack"]`), both, nil, "Unknown fooling 'datanoack'."},
+		{"fooling case", specWith(okProfile + `,"fooling":["TS"]`), both, nil, "Unknown fooling 'TS'."},
+		{"cutoff case", specWith(okProfile + `,"cutoff":"N3"`), both, nil, "cutoff must be nN or none: N3"},
+		{"cutoff d", specWith(okProfile + `,"cutoff":"d4"`), both, nil, "cutoff must be nN or none: d4"},
+		{"cutoff None", specWith(okProfile + `,"cutoff":"None"`), both, nil, "cutoff must be nN or none: None"},
+		{"l7 case", specWith(`"udp":"443","l7":"QUIC","desync":["fake"],"fake":{"quic":["bin:q.bin"]}`), both, nil, "Unknown l7 'QUIC'."},
+		{"l7 quic and tls", specWith(`"udp":"443","l7":"quic,tls","desync":["fake"],"fake":{"quic":["bin:q.bin"],"tls":["!"]}`), both, nil, "l7 cannot have both quic and tls."},
+		{"empty domain", specWith(okProfile + `,"hostlistDomains":["a.com",""]`), both, nil, "Domain list has an empty item."},
+		{"blank exclude domain", specWith(okProfile + `,"hostlistExcludeDomains":" "`), both, nil, "Domain list has an empty item."},
+		{"fake text", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":["Hello"]}`), both, nil, "Fake value is not valid: 'Hello'."},
+		{"fake hex without 0x", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":["9abc"]}`), both, nil, "Fake value is not valid: '9abc'."},
+		{"fake bad hex", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":["0xZZ"]}`), both, nil, "Fake value is not valid: '0xZZ'."},
+		{"fake 0X", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":["0XAB"]}`), both, nil, "Fake value is not valid: '0XAB'."},
+		{"fake !!", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":["!!"]}`), both, nil, "Fake value is not valid: '!!'."},
+		{"fake empty", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":[""]}`), both, nil, "Fake value is not valid: ''."},
+		{"fake path space", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":["bin:a b.bin"]}`), both, nil, "Fake value is not valid: 'bin:a b.bin'."},
+		{"fake prefix case", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":["BIN:q.bin"]}`), both, nil, "Fake value is not valid: 'BIN:q.bin'."},
+		{"fake values ok", specWith(`"udp":"443","l7":"quic","desync":["fake"],"fake":{"quic":["!","0xAb09","lists:a.bin","user:b.bin","bin:c.bin"]}`), nil, both, ""},
 		{"ttl 0", specWith(okProfile + `,"ttl":0`), both, nil, "ttl must be an integer from 1 to 255."},
 		{"ttl 256", specWith(okProfile + `,"ttl":256`), both, nil, "ttl must be an integer from 1 to 255."},
 		{"luaPayload space", specWith(okProfile + `,"luaPayload":"all, quic"`), z2, z1, "luaPayload must contain comma-separated payload names."},
 		{"luaPayload empty item", specWith(okProfile + `,"luaPayload":"all,,quic"`), z2, z1, "luaPayload must contain comma-separated payload names."},
 		{"missing prefix", specWith(okProfile + `,"hostlist":["list-general.txt"]`), both, nil, "Path prefix is not lists:/user:/bin: : list-general.txt"},
-		{"prefix case", specWith(okProfile + `,"ipset":["Bin:ipset.txt"]`), nil, both, ""},
-		{"seqovlPattern no prefix", specWith(`"tcp":"443","desync":["multisplit"],"seqovl":1,"seqovlPattern":"0x00"`), z1, z2, "seqovlPattern must be a bin:/lists:/user: path: 0x00"},
+		{"prefix case", specWith(okProfile + `,"ipset":["Bin:ipset.txt"]`), both, nil, "Path prefix is not lists:/user:/bin: : Bin:ipset.txt"},
+		{"prefix without name", specWith(okProfile + `,"hostlist":["lists:"]`), both, nil, "Path prefix is not lists:/user:/bin: : lists:"},
+		{"seqovlPattern no prefix", specWith(`"tcp":"443","desync":["multisplit"],"seqovl":1,"seqovlPattern":"0x00"`), both, nil, "seqovlPattern must be a bin:/lists:/user: path: 0x00"},
 		{"fake without blob", specWith(`"tcp":"80","payload":"http_req","desync":["fake"]`), z2, z1, "Strategy fake has no blob for payload group 'http_req'."},
 		{"tls fake without tls slot", specWith(`"tcp":"443","l7":"tls","desync":["fake"]`), z2, z1, "Strategy fake has no blob for payload group 'tls_client_hello'."},
 		{"parse: defaultTlsFake removed", specWith(okProfile + `,"defaultTlsFake":false`), both, nil, `unknown field "defaultTlsFake"`},
 		{"unknown fake with tcp and udp", specWith(`"tcp":"443","udp":"443","payload":"all","desync":["fake"],"fake":{"unknown":["bin:u.bin"]}`), z2, z1, "Fake slot 'unknown' needs a profile with only tcp or only udp."},
-		{"blob ref without file", specWith(`"tcp":"80","payload":"http_req","desync":["fake"],"fake":{"http":["bin:"]}`), z2, z1, "Blob ref has no file name: bin:"},
+		{"blob ref without file", specWith(`"tcp":"80","payload":"http_req","desync":["fake"],"fake":{"http":["bin:"]}`), both, nil, "Fake value is not valid: 'bin:'."},
 	}
 	p := goldenPaths
 	gf := GameFilter{TCP: "12", UDP: "12"}
@@ -232,10 +253,13 @@ func TestEngine(t *testing.T) {
 	if _, err := Build(nil, Winws, p, gf); err == nil {
 		t.Error("nil spec: no error")
 	}
-	a, _ := Build(s, "WINWS2", p, gf)
-	b, _ := Build(s, Winws2, p, gf)
-	if strings.Join(a, "\n") != strings.Join(b, "\n") {
-		t.Error("engine name must ignore case")
+	if _, err := Build(s, "WINWS2", p, gf); err == nil || err.Error() != "Unknown engine 'WINWS2'. Use winws or winws2." {
+		t.Errorf("WINWS2: %v", err)
+	}
+	for _, eng := range []Engine{Winws, Winws2} {
+		if _, err := Build(s, eng, p, gf); err != nil {
+			t.Errorf("%s: %v", eng, err)
+		}
 	}
 }
 

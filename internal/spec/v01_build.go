@@ -26,7 +26,7 @@ type attackCaps struct {
 	fakedsplit    bool // pattern=
 }
 
-// v01Attacks are the allowed desync names. Lookup ignores case.
+// v01Attacks are the allowed desync names. Lookup is case-sensitive.
 var v01Attacks = map[string]attackCaps{
 	"fake":          {repeats: true, fooling: true},
 	"multisplit":    {split: true},
@@ -52,46 +52,19 @@ func Build(s *V01Spec, engine Engine, p Paths, gf GameFilter) ([]string, error) 
 	if s == nil {
 		return nil, errors.New("Strategy spec is empty.")
 	}
-	// ValidateSet of the module ignores case.
-	switch Engine(strings.ToLower(string(engine))) {
-	case Winws:
-		return buildWinws(s, p, gf)
-	case Winws2:
-		return buildWinws2(s, p, gf)
-	case "":
+	if engine == "" {
 		return nil, errors.New("Engine is empty.")
 	}
-	return nil, fmt.Errorf("Unknown engine '%s'.", engine)
-}
-
-// profiles is @($spec.profiles): a missing or null list is one null profile.
-func (s *V01Spec) profiles() []V01Profile {
-	if s.Profiles == nil {
-		return []V01Profile{{}}
+	if engine != Winws && engine != Winws2 {
+		return nil, fmt.Errorf("Unknown engine '%s'. Use winws or winws2.", engine)
 	}
-	return s.Profiles
-}
-
-func (pr *V01Profile) desync() ([]string, error) {
-	if len(pr.Desync) < 1 {
-		return nil, errors.New("Strategy profile has no desync attacks.")
+	if err := s.validate(); err != nil {
+		return nil, err
 	}
-	for _, n := range pr.Desync {
-		if _, ok := v01Attacks[strings.ToLower(n)]; !ok {
-			return nil, fmt.Errorf("Unknown desync attack '%s'.", n)
-		}
+	if engine == Winws {
+		return buildWinws(s, p, gf)
 	}
-	return pr.Desync, nil
-}
-
-func (pr *V01Profile) ttl() (int, bool, error) {
-	if pr.TTL == nil {
-		return 0, false, nil
-	}
-	if *pr.TTL < 1 || *pr.TTL > 255 {
-		return 0, false, errors.New("ttl must be an integer from 1 to 255.")
-	}
-	return *pr.TTL, true, nil
+	return buildWinws2(s, p, gf)
 }
 
 // winws badseq defaults (nfq/params.h): when the increment flags are not
@@ -111,25 +84,15 @@ func (pr *V01Profile) badseqIncrement() (int, bool) {
 
 func (pr *V01Profile) slot(name string) *FakeSlot {
 	for _, d := range v01FakeSlots {
-		if strings.EqualFold(d.name, name) {
+		if d.name == name {
 			return d.get(&pr.Fake)
 		}
 	}
 	return nil
 }
 
-// tlsRefs is Get-ZapretSpecTlsFakeRefs.
-func (pr *V01Profile) tlsRefs() []string {
-	var out []string
-	for _, r := range pr.Fake.TLS.Refs {
-		if !isBlank(r) {
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
-// payloadGroups is Get-ZapretSpecPayloadGroups.
+// payloadGroups gives the winws2 --payload= groups of the profile: payload,
+// "all" for anyProtocol, else the groups of l7.
 func (pr *V01Profile) payloadGroups() []string {
 	if !isBlank(pr.Payload) {
 		return []string{pr.Payload}
@@ -137,17 +100,16 @@ func (pr *V01Profile) payloadGroups() []string {
 	if pr.AnyProtocol {
 		return []string{"all"}
 	}
-	l7 := pr.L7
 	switch {
-	case containsFold(l7, "tls") && containsFold(l7, "http"):
+	case pr.hasL7("tls") && pr.hasL7("http"):
 		return []string{"tls_client_hello", "http_req"}
-	case containsFold(l7, "quic"):
+	case pr.hasL7("quic"):
 		return []string{"quic_initial"}
-	case containsFold(l7, "discord") || containsFold(l7, "stun"):
+	case pr.hasL7("discord") || pr.hasL7("stun"):
 		return []string{"discord_ip_discovery,stun"}
-	case containsFold(l7, "tls"):
+	case pr.hasL7("tls"):
 		return []string{"tls_client_hello"}
-	case containsFold(l7, "http"):
+	case pr.hasL7("http"):
 		return []string{"http_req"}
 	}
 	return []string{""}
@@ -209,7 +171,7 @@ func (pr *V01Profile) l4() string {
 func (pr *V01Profile) fakeCallsForGroup(group string) ([]fakeCall, error) {
 	var slots []string
 	for g, s := range payloadSlots {
-		if strings.EqualFold(group, g) {
+		if group == g {
 			slots = s
 		}
 	}
@@ -221,7 +183,7 @@ func (pr *V01Profile) fakeCallsForGroup(group string) ([]fakeCall, error) {
 	}
 	l4 := pr.l4()
 	tlsLast := ""
-	if refs := pr.tlsRefs(); len(refs) > 0 && !isBlank(pr.TLSMod) {
+	if refs := pr.Fake.TLS.Refs; len(refs) > 0 && !isBlank(pr.TLSMod) {
 		tlsLast = refs[len(refs)-1]
 	}
 	var calls []fakeCall
@@ -244,13 +206,13 @@ func (pr *V01Profile) fakeCallsForGroup(group string) ([]fakeCall, error) {
 		}
 		seen := foldSet{}
 		for _, r := range sl.Refs {
-			if isBlank(r) || seen.has(r) {
+			if seen.has(r) {
 				continue
 			}
 			seen.add(r)
 			key := strings.ToLower(r)
 			if name == "tls" && tlsLast != "" && strings.EqualFold(r, tlsLast) &&
-				(strings.EqualFold(group, "tls_client_hello") || payload == "tls_client_hello") {
+				(group == "tls_client_hello" || payload == "tls_client_hello") {
 				calls = append(calls, fakeCall{ref: r, payload: payload, tlsMod: true})
 				continue
 			}
@@ -295,19 +257,20 @@ func sameItems(a, b string) bool {
 	return true
 }
 
-// needOutRange is Test-ZapretSpecNeedOutRange.
+// needOutRange tells if the winws2 profile gets --out-range.
 func (pr *V01Profile) needOutRange() bool {
-	if strings.EqualFold(pr.Cutoff, "none") {
+	if pr.Cutoff == "none" {
 		return false
 	}
 	if _, ok := matchCutoffN(pr.Cutoff); ok {
 		return true
 	}
-	return !isBlank(pr.TCP) || containsFold(pr.L7, "quic") || containsFold(pr.Payload, "quic") || pr.Fake.QUIC.Set
+	return !isBlank(pr.TCP) || pr.hasL7("quic") || strings.Contains(pr.Payload, "quic") || pr.Fake.QUIC.Set
 }
 
-// commonFilters is Add-ZapretSpecCommonFilters.
-func (pr *V01Profile) commonFilters(p Paths, gf GameFilter) ([]string, error) {
+// commonFilters gives the filter flags of the profile. They are the same
+// for both engines.
+func (pr *V01Profile) commonFilters(p Paths, gf GameFilter) []string {
 	var parts []string
 	if !isBlank(pr.L3) {
 		parts = append(parts, "--filter-l3="+pr.L3)
@@ -331,10 +294,7 @@ func (pr *V01Profile) commonFilters(p Paths, gf GameFilter) ([]string, error) {
 		{pr.IpsetExclude, "--ipset-exclude"},
 	} {
 		for _, ref := range l.refs {
-			path, ok := resolveRef(ref, p)
-			if !ok {
-				return nil, fmt.Errorf("Path prefix is not lists:/user:/bin: : %s", ref)
-			}
+			path, _ := resolveRef(ref, p)
 			parts = append(parts, l.flag+"="+quote(path))
 		}
 	}
@@ -344,14 +304,11 @@ func (pr *V01Profile) commonFilters(p Paths, gf GameFilter) ([]string, error) {
 	if len(pr.HostlistExcludeDomains) > 0 {
 		parts = append(parts, "--hostlist-exclude-domains="+strings.Join(pr.HostlistExcludeDomains, ","))
 	}
-	return parts, nil
+	return parts
 }
 
-func wfLine(s *V01Spec, tcpFlag, udpFlag string, gf GameFilter) (string, error) {
-	if s.WF == nil {
-		return "", errors.New("Strategy JSON has no wf.")
-	}
-	return tcpFlag + "=" + csv(s.WF.TCP, gf) + " " + udpFlag + "=" + csv(s.WF.UDP, gf), nil
+func wfLine(s *V01Spec, tcpFlag, udpFlag string, gf GameFilter) string {
+	return tcpFlag + "=" + csv(s.WF.TCP, gf) + " " + udpFlag + "=" + csv(s.WF.UDP, gf)
 }
 
 func finishProfiles(lines []string, profiles [][]string) []string {
@@ -365,41 +322,26 @@ func finishProfiles(lines []string, profiles [][]string) []string {
 	return lines
 }
 
-// buildWinws is ConvertTo-ZapretSpecWinwsArgList.
+// buildWinws gives the winws argv lines. The spec is valid.
 func buildWinws(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
-	wf, err := wfLine(s, "--wf-tcp", "--wf-udp", gf)
-	if err != nil {
-		return nil, err
-	}
 	var out [][]string
-	for i := range s.profiles() {
-		pr := &s.profiles()[i]
-		parts, err := pr.commonFilters(p, gf)
-		if err != nil {
-			return nil, err
-		}
+	for i := range s.Profiles {
+		pr := &s.Profiles[i]
+		parts := pr.commonFilters(p, gf)
 		if !isBlank(pr.IPID) {
 			parts = append(parts, "--ip-id="+pr.IPID)
 		}
-		desync, err := pr.desync()
-		if err != nil {
-			return nil, err
-		}
-		parts = append(parts, "--dpi-desync="+strings.Join(desync, ","))
+		parts = append(parts, "--dpi-desync="+strings.Join(pr.Desync, ","))
 		if pr.Repeats != nil {
 			parts = append(parts, "--dpi-desync-repeats="+strconv.Itoa(*pr.Repeats))
 		}
-		ttl, hasTTL, err := pr.ttl()
-		if err != nil {
-			return nil, err
-		}
-		if hasTTL {
-			parts = append(parts, "--dpi-desync-ttl="+strconv.Itoa(ttl))
+		if pr.TTL != nil {
+			parts = append(parts, "--dpi-desync-ttl="+strconv.Itoa(*pr.TTL))
 		}
 		if pr.AnyProtocol {
 			parts = append(parts, "--dpi-desync-any-protocol=1")
 		}
-		if !isBlank(pr.Cutoff) && !strings.EqualFold(pr.Cutoff, "none") {
+		if pr.Cutoff != "" && pr.Cutoff != "none" {
 			parts = append(parts, "--dpi-desync-cutoff="+pr.Cutoff)
 		}
 		if pr.Seqovl != nil {
@@ -411,14 +353,11 @@ func buildWinws(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 		if len(pr.Fooling) > 0 {
 			parts = append(parts, "--dpi-desync-fooling="+strings.Join(pr.Fooling, ","))
 		}
-		if inc, set := pr.badseqIncrement(); set && hasFold(pr.Fooling, "badseq") {
+		if inc, set := pr.badseqIncrement(); set && has(pr.Fooling, "badseq") {
 			parts = append(parts, "--dpi-desync-badseq-increment="+strconv.Itoa(inc))
 		}
-		if !isBlank(pr.SeqovlPattern) {
-			path, ok := resolveRef(pr.SeqovlPattern, p)
-			if !ok {
-				return nil, fmt.Errorf("seqovlPattern must be a bin:/lists:/user: path: %s", pr.SeqovlPattern)
-			}
+		if pr.SeqovlPattern != "" {
+			path, _ := resolveRef(pr.SeqovlPattern, p)
 			parts = append(parts, "--dpi-desync-split-seqovl-pattern="+quote(path))
 		}
 		if !isBlank(pr.HostfakesplitMod) {
@@ -432,9 +371,6 @@ func buildWinws(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 		}
 		for _, d := range v01FakeSlots {
 			for _, ref := range d.get(&pr.Fake).Refs {
-				if isBlank(ref) {
-					continue
-				}
 				if path, ok := resolveRef(ref, p); ok {
 					ref = quote(path)
 				}
@@ -446,14 +382,14 @@ func buildWinws(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 		}
 		out = append(out, parts)
 	}
-	return finishProfiles([]string{wf}, out), nil
+	return finishProfiles([]string{wfLine(s, "--wf-tcp", "--wf-udp", gf)}, out), nil
 }
 
-// registerBlobs is Register-ZapretSpecBlobs.
+// registerBlobs gives the winws2 blobs of the fakes and patterns.
 func registerBlobs(s *V01Spec, p Paths) (*blobRegistry, error) {
 	reg := newBlobRegistry(p)
-	for i := range s.profiles() {
-		pr := &s.profiles()[i]
+	for i := range s.Profiles {
+		pr := &s.Profiles[i]
 		for _, d := range v01FakeSlots {
 			for _, ref := range d.get(&pr.Fake).Refs {
 				if err := reg.add(ref); err != nil {
@@ -461,10 +397,7 @@ func registerBlobs(s *V01Spec, p Paths) (*blobRegistry, error) {
 				}
 			}
 		}
-		if _, err := pr.desync(); err != nil {
-			return nil, err
-		}
-		if !isBlank(pr.SeqovlPattern) {
+		if pr.SeqovlPattern != "" {
 			if err := reg.add(pr.SeqovlPattern); err != nil {
 				return nil, err
 			}
@@ -478,11 +411,11 @@ func registerBlobs(s *V01Spec, p Paths) (*blobRegistry, error) {
 	return reg, nil
 }
 
-// luaFoolingArgs is ConvertTo-ZapretSpecLuaFoolingArgs.
-func (pr *V01Profile) luaFoolingArgs() ([]string, error) {
+// luaFoolingArgs gives the winws2 fooling args of the profile.
+func (pr *V01Profile) luaFoolingArgs() []string {
 	var out []string
 	for _, f := range pr.Fooling {
-		switch strings.ToLower(f) {
+		switch f {
 		case "ts":
 			out = append(out, "tcp_ts=-600000")
 		case "md5sig":
@@ -494,18 +427,12 @@ func (pr *V01Profile) luaFoolingArgs() ([]string, error) {
 				out = append(out, "tcp_seq="+strconv.Itoa(inc))
 			}
 			out = append(out, "tcp_ack="+strconv.Itoa(badackDefault))
-		default:
-			return nil, fmt.Errorf("Unknown fooling '%s'.", f)
 		}
 	}
-	ttl, hasTTL, err := pr.ttl()
-	if err != nil {
-		return nil, err
+	if pr.TTL != nil {
+		out = append(out, "ip_ttl="+strconv.Itoa(*pr.TTL))
 	}
-	if hasTTL {
-		out = append(out, "ip_ttl="+strconv.Itoa(ttl))
-	}
-	return out, nil
+	return out
 }
 
 // luaPayloadArgs is Get-ZapretSpecLuaPayloadArgs.
@@ -561,13 +488,9 @@ func (pr *V01Profile) luaModArgs(caps attackCaps, reg *blobRegistry) ([]string, 
 	return out, nil
 }
 
-// buildWinws2 is ConvertTo-ZapretSpecWinws2ArgList.
+// buildWinws2 gives the winws2 argv lines. The spec is valid.
 func buildWinws2(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
-	wf, err := wfLine(s, "--wf-tcp-out", "--wf-udp-out", gf)
-	if err != nil {
-		return nil, err
-	}
-	lines := []string{wf, fmt.Sprintf("--lua-init=@%s --lua-init=@%s",
+	lines := []string{wfLine(s, "--wf-tcp-out", "--wf-udp-out", gf), fmt.Sprintf("--lua-init=@%s --lua-init=@%s",
 		quote(joinPath(p.Bin, `lua\zapret-lib.lua`)), quote(joinPath(p.Bin, `lua\zapret-antidpi.lua`)))}
 
 	reg, err := registerBlobs(s, p)
@@ -583,38 +506,28 @@ func buildWinws2(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 	}
 
 	var out [][]string
-	for i := range s.profiles() {
-		pr := &s.profiles()[i]
-		parts, err := pr.commonFilters(p, gf)
-		if err != nil {
-			return nil, err
-		}
+	for i := range s.Profiles {
+		pr := &s.Profiles[i]
+		parts := pr.commonFilters(p, gf)
 		if n, ok := matchCutoffN(pr.Cutoff); ok {
 			parts = append(parts, "--out-range=-d"+n)
 		} else if pr.needOutRange() {
 			parts = append(parts, "--out-range=-d10")
 		}
 
-		desync, err := pr.desync()
-		if err != nil {
-			return nil, err
-		}
-		foolArgs, err := pr.luaFoolingArgs()
-		if err != nil {
-			return nil, err
-		}
+		foolArgs := pr.luaFoolingArgs()
 
 		for _, group := range pr.payloadGroups() {
 			if !isBlank(group) {
 				parts = append(parts, "--payload="+group)
 			}
-			for _, attack := range desync {
-				caps := v01Attacks[strings.ToLower(attack)]
+			for _, attack := range pr.Desync {
+				caps := v01Attacks[attack]
 				payloadArgs, err := pr.luaPayloadArgs()
 				if err != nil {
 					return nil, err
 				}
-				if strings.EqualFold(attack, "fake") {
+				if attack == "fake" {
 					calls, err := pr.fakeCallsForGroup(group)
 					if err != nil {
 						return nil, err

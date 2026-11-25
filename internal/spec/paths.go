@@ -1,9 +1,6 @@
 package spec
 
-import (
-	"strings"
-	"unicode"
-)
+import "strings"
 
 // Paths are the folders for the lists:, user: and bin: prefixes.
 type Paths struct {
@@ -38,54 +35,47 @@ func quote(p string) string {
 	return `"` + p + `"`
 }
 
-// resolveRef is ConvertFrom-ZapretSpecPathRef. The prefix test ignores case.
+// resolveRef gives the path of a lists:, user: or bin: ref. The prefix test
+// is case-sensitive. The name after the prefix must not be empty.
 func resolveRef(ref string, p Paths) (string, bool) {
 	for _, pre := range []struct {
 		name string
 		dir  string
 	}{{"lists:", p.Lists}, {"user:", p.User}, {"bin:", p.Bin}} {
-		if len(ref) >= len(pre.name) && strings.EqualFold(ref[:len(pre.name)], pre.name) {
+		if len(ref) > len(pre.name) && strings.HasPrefix(ref, pre.name) {
 			return joinPath(pre.dir, ref[len(pre.name):]), true
 		}
 	}
 	return "", false
 }
 
-// isFileRef is Test-ZapretSpecFileRef. The prefix test is case-sensitive.
+// isFileRef tells if ref is a lists:, user: or bin: path.
 func isFileRef(ref string) bool {
-	if isBlank(ref) {
-		return false
-	}
-	return strings.HasPrefix(ref, "lists:") || strings.HasPrefix(ref, "user:") || strings.HasPrefix(ref, "bin:")
+	_, ok := resolveRef(ref, Paths{})
+	return ok
 }
 
-// psEnd removes one final "\n". The .NET regex anchor $ also matches before it.
-func psEnd(s string) string {
-	return strings.TrimSuffix(s, "\n")
-}
-
-// matchCutoffN is $cutoff -match '^n(\d+)$'. It gives the digits.
+// matchCutoffN tells if cutoff is n and decimal digits. It gives the digits.
 func matchCutoffN(cutoff string) (string, bool) {
-	s := psEnd(cutoff)
-	if len(s) < 2 || (s[0] != 'n' && s[0] != 'N') {
+	if len(cutoff) < 2 || cutoff[0] != 'n' {
 		return "", false
 	}
-	for _, r := range s[1:] {
-		if !unicode.Is(unicode.Nd, r) {
+	for _, r := range cutoff[1:] {
+		if r < '0' || r > '9' {
 			return "", false
 		}
 	}
-	return s[1:], true
+	return cutoff[1:], true
 }
 
 func isASCIIAlnum(r rune) bool {
 	return r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z'
 }
 
-// matchLuaPayload is $v -match '^[a-z0-9_]+(,[a-z0-9_]+)*$' (ignore case).
+// matchLuaPayload tells if v is a comma list of payload names
+// ([a-zA-Z0-9_]+).
 func matchLuaPayload(v string) bool {
-	s := psEnd(v)
-	for _, part := range strings.Split(s, ",") {
+	for _, part := range strings.Split(v, ",") {
 		if part == "" {
 			return false
 		}
@@ -98,13 +88,9 @@ func matchLuaPayload(v string) bool {
 	return true
 }
 
-func containsFold(s, sub string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
-}
-
-func hasFold(list []string, v string) bool {
+func has(list []string, v string) bool {
 	for _, x := range list {
-		if strings.EqualFold(x, v) {
+		if x == v {
 			return true
 		}
 	}

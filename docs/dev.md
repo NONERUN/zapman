@@ -30,6 +30,15 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 
 Неизвестный `desync` — throw. Не добавлять имя атаки вне таблицы.
 
+Проверка JSON одна для обоих движков. Имена `desync`, `fooling`, `l7`, `cutoff` и префиксы путей — с учётом регистра (`fake`, не `FAKE`; `lists:`, не `LISTS:`). `engine` — ровно `winws` или `winws2`. Ошибка сборки:
+
+- нет `profiles` или список пуст;
+- в `l7` имя не из `http`, `tls`, `quic`, `wireguard`, `dht`, `discord`, `stun`, `unknown`, или вместе `quic` и `tls`;
+- `cutoff` не `nN` и не `none`;
+- путь без префикса или без имени файла после префикса;
+- пустой элемент в `hostlistDomains` / `hostlistExcludeDomains`;
+- значение fake не `!`, не `0x<hex>` и не путь с префиксом, или в нём пробел.
+
 Префиксы путей: `lists:` → `lists/`, `user:` → `user/`, `bin:` → `bin/`. Регистр префикса как в таблице.
 
 ### Корень файла
@@ -60,12 +69,12 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 | `desync` | `--dpi-desync=` | `--lua-desync=<атака>:…` на каждую атаку |
 | `repeats` | `--dpi-desync-repeats=` | `repeats=` у Lua (не на `multisplit` / `multidisorder`) |
 | `anyProtocol` | `--dpi-desync-any-protocol=1` | `--payload=all` если нет явного `payload` |
-| `cutoff` | `--dpi-desync-cutoff=` как в JSON | `nN` → `--out-range=-dN`; иначе при TCP/QUIC → `--out-range=-d10` |
+| `cutoff` | `nN` → `--dpi-desync-cutoff=nN` | `nN` → `--out-range=-dN`; иначе при TCP/QUIC → `--out-range=-d10` |
 | `cutoff: "none"` | cutoff не пишется | `--out-range` не пишется: обработка продолжается после TLS-handshake |
 | `ttl` | `--dpi-desync-ttl=` | `ip_ttl=` на атаках, принимающих fooling; число 1–255 |
 | `splitPos` | `--dpi-desync-split-pos=` | `pos=` у split-атак |
 | `seqovl` | `--dpi-desync-split-seqovl=` | `seqovl=` |
-| `seqovlPattern` | `--dpi-desync-split-seqovl-pattern=` (путь `bin:`/`lists:`/`user:`) | blob + `seqovl_pattern=` |
+| `seqovlPattern` | `--dpi-desync-split-seqovl-pattern=` | blob + `seqovl_pattern=`. На обоих движках только путь `bin:`/`lists:`/`user:` |
 | `ipId` | `--ip-id=` | `ip_id=` |
 | `tlsMod` | `--dpi-desync-fake-tls-mod=` после `fake-tls` | `tls_mod=` на последнем ref слота `tls`, только на вызове для `tls_client_hello`. Без слота `tls` — не пишется |
 | `hostfakesplitMod` | `--dpi-desync-hostfakesplit-mod=` как в JSON | куски через запятую; **`altorder=*` не писать** (в stock Lua нет) |

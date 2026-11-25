@@ -33,9 +33,6 @@ func (r *blobRegistry) name(ref string) (string, bool) {
 }
 
 func (r *blobRegistry) add(ref string) error {
-	if isBlank(ref) {
-		return nil
-	}
 	if ref == "!" {
 		if err := r.add(defaultTLSFake); err != nil {
 			return err
@@ -66,37 +63,16 @@ func (r *blobRegistry) add(ref string) error {
 	return nil
 }
 
-// blobStem is Get-ZapretSpecBlobStem.
+// blobStem gives the blob name of a 0x<hex> ref or of a path ref: hex_<hex>
+// or the file name without the extension.
 func blobStem(ref string) (string, error) {
-	if s := psEnd(ref); len(s) > 2 && (s[:2] == "0x" || s[:2] == "0X") && isHex(s[2:]) {
-		return "hex_" + s[2:], nil
+	if isHexRef(ref) {
+		return "hex_" + ref[2:], nil
 	}
 	if !isFileRef(ref) {
-		var b strings.Builder
-		run := false
-		for _, r := range ref {
-			if isASCIIAlnum(r) {
-				b.WriteRune(r)
-				run = false
-			} else if !run {
-				b.WriteByte('_')
-				run = true
-			}
-		}
-		safe := strings.Trim(b.String(), "_")
-		if isBlank(safe) {
-			return "blob", nil
-		}
-		if safe[0] >= '0' && safe[0] <= '9' {
-			return "b_" + safe, nil
-		}
-		return safe, nil
+		return "", fmt.Errorf("Blob ref is not 0x<hex> or a bin:/lists:/user: path: %s", ref)
 	}
-	name := ref[strings.Index(ref, ":")+1:]
-	if name == "" {
-		return "", fmt.Errorf("Blob ref has no file name: %s", ref)
-	}
-	file := leafName(name)
+	file := leafName(ref[strings.Index(ref, ":")+1:])
 	if dot := strings.LastIndex(file, "."); dot > 0 {
 		return file[:dot], nil
 	}
