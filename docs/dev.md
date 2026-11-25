@@ -206,6 +206,27 @@ Fooling не вешается на Lua-атаку `multisplit`.
 
 Проверки перед коммитом (golangci-lint и govulncheck из [`tools/go.mod`](../tools/go.mod), `go vet ./...`, `go test ./...`) — [`AGENTS.md`](../AGENTS.md). Макеты [`docs/ui/`](ui/index.md) сделаны PowerShell-версией (`main`); на ветке `go` генератора нет.
 
+## Пакеты среды выполнения
+
+Библиотеки для будущих CLI и GUI (Wails). Своего `main` у них нет.
+
+### `internal/config`
+
+`user/config.json`. `Load`: нет файла — `Default()`; не JSON — дефолты и ошибка; поле с плохим значением остаётся дефолтным, ошибка (`FieldError`) называет поле. `Save` проверяет поля (`Validate`) и пишет атомарно: временный файл в `user/`, затем rename. Неизвестные поля сохраняются и пишутся после известных.
+
+| Поле | Значения | Дефолт |
+|---|---|---|
+| `language` | `ru`, `en`, `""` (язык Windows) | `""` |
+| `engine` | `winws`, `winws2` | `winws` |
+| `strategy` | имя стратегии каталога, `""` — не выбрана | `""` |
+| `games` | ID игровых модулей, которые включены (`sky`, `sker`, `photon`) | `[]` |
+| `gameFilter` | `disabled`, `all`, `tcp`, `udp` | `disabled` |
+| `autoUpdateCheck` | bool | `true` |
+| `trayWatch` | bool | `true` |
+| `autoUpdateBricks` | bool: свои стратегии берут новые сток-кирпичи после обновления | `true` |
+
+Файл PowerShell-версии (`language`, `engine`, `gameFilter`, `autoUpdateCheck`, `trayWatch`) читается как есть. Строки `"yes"` / `"1"` вместо bool PowerShell принимал, Go — нет (ошибка поля); сам PowerShell всегда писал bool.
+
 ## Релиз
 
 Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` сам запускает [Release](../.github/workflows/release.yml) **с того коммита** (YAML в теге). Job собирает zip/rar/tar.gz и создаёт **черновик**. `/releases/latest` не меняется, пока не нажмёте **Publish release**.
