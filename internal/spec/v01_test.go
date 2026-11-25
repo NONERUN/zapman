@@ -7,24 +7,28 @@ import (
 	"testing"
 )
 
-// TestEdge checks rare cases against the output of ZapretSpec.psm1.
-// testdata/edge.*.txt is the psm1 output for testdata/edge.json with
-// Game Filter 12 / 13.
+// TestEdge checks rare cases. testdata/edge.*.txt is the argv for
+// testdata/edge.json with Game Filter 12 / 13. -update writes it.
 func TestEdge(t *testing.T) {
 	s, err := LoadFile(filepath.Join("testdata", "edge.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, eng := range []Engine{Winws, Winws2} {
-		want, err := os.ReadFile(filepath.Join("testdata", "edge."+string(eng)+".txt"))
-		if err != nil {
-			t.Fatal(err)
-		}
+		path := filepath.Join("testdata", "edge."+string(eng)+".txt")
 		lines, err := Build(s, eng, goldenPaths, GameFilter{TCP: "12", UDP: "13"})
 		if err != nil {
 			t.Fatalf("%s: %v", eng, err)
 		}
 		got := strings.Join(lines, "\n") + "\n"
+		if *update {
+			writeGolden(t, path, got)
+			continue
+		}
+		want, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
 		w := strings.ReplaceAll(string(want), "\r\n", "\n")
 		if got != w {
 			t.Errorf("%s: argv differs\n%s", eng, firstDiff(got, w))

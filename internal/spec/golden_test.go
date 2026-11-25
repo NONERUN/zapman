@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"flag"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -8,7 +9,22 @@ import (
 	"testing"
 )
 
-// goldenPaths are the folders of dev/export-golden.ps1.
+// update makes TestGolden and TestEdge write the Go output to the golden
+// files. Use: go test ./internal/spec -run "Golden|Edge" -update
+var update = flag.Bool("update", false, "write testdata/golden and testdata/edge.*.txt from the Go builder")
+
+// writeGolden writes text to path and makes the folder if necessary.
+func writeGolden(t *testing.T, path, text string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// goldenPaths are the fixed folders of the golden files.
 var goldenPaths = Paths{Bin: `C:\zapman\bin`, Lists: `C:\zapman\lists`, User: `C:\zapman\user`}
 
 var goldenCases = []struct {
@@ -45,23 +61,32 @@ func TestGolden(t *testing.T) {
 		for _, eng := range []Engine{Winws, Winws2} {
 			for _, c := range goldenCases {
 				golden := filepath.Join(root, "testdata", "golden", string(eng), c.name, base+".txt")
-				want, err := os.ReadFile(golden)
-				if err != nil {
-					t.Errorf("%s: %v", golden, err)
-					continue
-				}
 				lines, err := Build(s, eng, goldenPaths, c.gf)
 				if err != nil {
 					t.Errorf("%s %s %s: %v", base, eng, c.name, err)
 					continue
 				}
 				got := strings.Join(lines, "\n") + "\n"
+				if *update {
+					writeGolden(t, golden, got)
+					n++
+					continue
+				}
+				want, err := os.ReadFile(golden)
+				if err != nil {
+					t.Errorf("%s: %v", golden, err)
+					continue
+				}
 				if got != string(want) {
 					t.Errorf("%s %s %s: argv differs\n%s", base, eng, c.name, firstDiff(got, string(want)))
 				}
 				n++
 			}
 		}
+	}
+	if *update {
+		t.Logf("%d golden files written", n)
+		return
 	}
 	t.Logf("%d golden files match", n)
 }

@@ -1,8 +1,10 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-Writes the ZapretSpec argv of each strategies\*.json to testdata\golden.
-The Go spec builder must give the same text. Use -Check to compare only.
+Writes the ZapretSpec.psm1 argv of each strategies\*.json to testdata\golden.
+The Go builder owns testdata\golden now: write it with
+go test ./internal/spec -run "Golden|Edge" -update.
+Use this script with -Check to compare the PowerShell module with the Go output.
 #>
 param([switch]$Check)
 
