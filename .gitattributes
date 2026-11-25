@@ -3,3 +3,4 @@
 *.txt text eol=crlf
 .githooks/* text eol=lf
 bin/lua/*.lua text eol=lf
+testdata/golden/** text eol=lf
