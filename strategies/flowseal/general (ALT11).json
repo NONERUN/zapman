@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.4",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-11" },
     { "target": "discord-voice", "action": "fake-discord-6" },
@@ -14,10 +14,10 @@
         "repeats": 8,
         "splitPos": "1",
         "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "fooling": ["ts"],
         "ipId": "zero",
-        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
       }
     },
     {
@@ -27,11 +27,11 @@
         "repeats": 8,
         "splitPos": "1",
         "seqovl": 664,
-        "seqovlPattern": "bin:tls_clienthello_www_sferum_ru.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_sferum_ru.bin",
         "fooling": ["ts"],
         "fake": {
-          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
+          "tls": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },
@@ -43,11 +43,11 @@
         "repeats": 8,
         "splitPos": "1",
         "seqovl": 664,
-        "seqovlPattern": "bin:tls_clienthello_www_sferum_ru.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_sferum_ru.bin",
         "fooling": ["ts"],
         "fake": {
-          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
+          "tls": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },
@@ -59,12 +59,12 @@
         "cutoff": 4,
         "splitPos": "1",
         "seqovl": 664,
-        "seqovlPattern": "bin:tls_clienthello_www_sferum_ru.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_sferum_ru.bin",
         "fooling": ["ts"],
         "fake": {
-          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
-          "unknown": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"]
+          "tls": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "unknown": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },

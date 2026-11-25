@@ -2,7 +2,7 @@
   "$schema": "../schema/game.json",
   "id": "photon",
   "title": "Photon (UDP 5055-5058, 27000-27002)",
-  "version": 1,
+  "version": 2,
   "order": 30,
   "rules": [{ "target": { "udp": ["5055-5058", "27000-27002"], "anyProtocol": true }, "action": "fake-game-10-n4" }]
 }

@@ -77,6 +77,12 @@ func run(o options, w io.Writer) error {
 	if err := writeFiles(tmp, res.files); err != nil {
 		return err
 	}
+	// The loader checks that the catalog has the file of the winws2 '!'
+	// blob. The converter output refers to bin:, so put an empty file in
+	// the temporary copy only. The parity argv has the path, not the bytes.
+	if err := writeFiles(tmp, map[string][]byte{spec.DefaultTLSFakeFile: nil}); err != nil {
+		return err
+	}
 	if err := checkParity(tmp, o.Bin, old, names, res, w); err != nil {
 		return fmt.Errorf("parity: %w (nothing is written)", err)
 	}

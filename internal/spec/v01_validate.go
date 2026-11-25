@@ -69,7 +69,7 @@ func (pr *V01Profile) validate() error {
 	for _, refs := range []StringList{pr.Hostlist, pr.HostlistExclude, pr.Ipset, pr.IpsetExclude} {
 		for _, ref := range refs {
 			if !isFileRef(ref) {
-				return fmt.Errorf("Path prefix is not lists:/user:/bin: : %s", ref)
+				return fmt.Errorf("Path prefix is not %s : %s", refPrefixText, ref)
 			}
 		}
 	}
@@ -81,12 +81,12 @@ func (pr *V01Profile) validate() error {
 		}
 	}
 	if pr.SeqovlPattern != "" && !isFileRef(pr.SeqovlPattern) {
-		return fmt.Errorf("seqovlPattern must be a bin:/lists:/user: path: %s", pr.SeqovlPattern)
+		return fmt.Errorf("seqovlPattern must be a %s path: %s", refPrefixText, pr.SeqovlPattern)
 	}
 	for _, d := range v01FakeSlots {
 		for _, ref := range d.get(&pr.Fake).Refs {
 			if !isFakeValue(ref) {
-				return fmt.Errorf("Fake value is not valid: '%s'. Use !, 0x<hex> or a bin:/lists:/user: path without spaces.", ref)
+				return fmt.Errorf("Fake value is not valid: '%s'. Use !, 0x<hex> or a %s path without spaces.", ref, refPrefixText)
 			}
 		}
 	}

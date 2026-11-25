@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.4",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-6" },
     { "target": "discord-voice", "action": "fake-discord-6" },
@@ -37,7 +37,7 @@
         "fooling": ["badseq"],
         "badseqIncrement": 2,
         "tlsMod": "none",
-        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fake": { "tls": ["!"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
       }
     },
     { "target": "quic-ipset", "action": "fake-quic-google-6" },
@@ -49,7 +49,7 @@
         "fooling": ["badseq"],
         "badseqIncrement": 2,
         "tlsMod": "none",
-        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fake": { "tls": ["!"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
       }
     },
     {
@@ -62,8 +62,8 @@
         "badseqIncrement": 2,
         "tlsMod": "none",
         "fake": {
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
-          "unknown": ["bin:tls_clienthello_www_sferum_ru.bin"]
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "unknown": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },

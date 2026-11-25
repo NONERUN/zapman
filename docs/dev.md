@@ -6,9 +6,9 @@
 
 ## Движки
 
-В `bin/` лежат оба exe, общий WinDivert / `cygwin1.dll`, Lua рядом с winws2. Теги и SHA256 — [`bin/versions.json`](../bin/versions.json).
+В `bin/` лежат только файлы движков: оба exe, общий WinDivert / `cygwin1.dll`, Lua рядом с winws2. Теги и SHA256 — [`bin/versions.json`](../bin/versions.json). Fake и паттерны `.bin` — в каталоге стратегий, `strategies/fakes/` (см. «Формат v2»).
 
-Обновить exe (fake `.bin` не трогает):
+Обновить exe:
 
 ```text
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\update-zapret.ps1
@@ -39,7 +39,15 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 - пустой элемент в `hostlistDomains` / `hostlistExcludeDomains`;
 - значение fake не `!`, не `0x<hex>` и не путь с префиксом, или в нём пробел.
 
-Префиксы путей: `lists:` → `lists/`, `user:` → `user/`, `bin:` → `bin/`. Регистр префикса как в таблице.
+Префиксы путей (регистр как здесь):
+
+| Префикс | Куда |
+|---|---|
+| `lists:` | `lists/` |
+| `user:` | `user/` |
+| `cat:` | корень каталога стратегий (сток — `strategies/`); путь через `/`, без `..`, например `cat:fakes/stun.bin` |
+| `active:<ИМЯ>` | fake, который пользователь может подменить: `user\fakes\ACTIVE_<ИМЯ>.bin`, если сборке сказано, что файл есть (`Paths.ActiveFiles`; сборщик сам диск не читает), иначе дефолт из `active` в `catalog.json`. Имя — `A-Z`, `0-9`, `_`. Имя blob winws2 — `ACTIVE_<ИМЯ>` |
+| `bin:` | `bin/` — только файлы движка; в сток-каталоге не используется (тест `TestCatalogSelfContained`) |
 
 ### Формат v2
 
@@ -47,7 +55,8 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 
 ```text
 strategies/
-  catalog.json        { "id": "stock", "title": "Zapman", "spec": 2 }
+  catalog.json        { "id", "title", "spec": 2, "active": {...}, "files": {...} }
+  fakes/*.bin          fake и паттерны (cat:fakes/<файл>)
   lists.json  targets.json  actions.json   кирпичи: общие для всех стратегий каталога
   flowseal/<имя>.json  порты .bat из Flowseal/zapret-discord-youtube
   zapman/<имя>.json    свои стратегии (папки пока нет: создать с первой стратегией)
@@ -59,14 +68,14 @@ strategies/
 
 | Файл | Что внутри |
 |---|---|
-| `catalog.json` | `id` (имя `a-z`, `0-9`, `-`), `title`, `spec` = 2 |
-| `lists.json` | именованные наборы списков: `hostlist`, `hostlistExclude`, `ipset`, `ipsetExclude` (пути `lists:`/`user:`/`bin:`) |
+| `catalog.json` | `id` (имя `a-z`, `0-9`, `-`), `title`, `spec` = 2; `active` — `{ "<ИМЯ>": "cat:fakes/<файл>" }`, дефолт каждого `active:<ИМЯ>`; `files` — `{ "<путь через />": "<sha256 hex>" }` для каждого файла каталога, кроме `catalog.json` и `schema/` (генерируется, см. ниже) |
+| `lists.json` | именованные наборы списков: `hostlist`, `hostlistExclude`, `ipset`, `ipsetExclude` (пути `lists:`/`user:`/`cat:`) |
 | `targets.json` | именованные цели: `tcp`, `udp`, `l3`, `l7`, `lists` (имена наборов с `hostlist`/`ipset`), `exclude` (наборы с `*Exclude`), `domains`, `excludeDomains`, `anyProtocol`, `payload` |
 | `actions.json` | именованные действия: `desync` и поля атаки из таблиц ниже; `cutoff` — число N (= `nN`) или `"none"` |
 | `flowseal/<имя>.json`, `zapman/<имя>.json` | стратегия: `"spec": 2`, версия (`upstream` + `rev` или `version`, см. «Версии»), `about`, `rules[]` — пары `{ "target", "action" }` в порядке winws (первое совпадение выигрывает) |
 | `games/<id>.json` | игровой модуль: `id` (= имя файла), `title`, `version`, `order`, `updater`, свои `lists` (с `seed`), `rules[]` |
 
-`target` и `action` в правиле — имя из каталога или объект прямо в правиле. Цель выносится в `targets.json`, если используется 2+ раза. Действие выносится в `actions.json` (пресет), если используется 3+ раза; остальные действия — прямо в правиле. Пресет с одним-двумя пользователями не заводить: при правке такой стратегии действие возвращается в правило. Имена — `a-z`, `0-9`, `-`. Загрузка строгая: неизвестное поле, имя, порт или отсутствующий файл `bin:` — ошибка. Набор игры не может повторять имя из `lists.json`; `seed` — путь `lists:`, из него создаётся `user:`-список, если его нет.
+`target` и `action` в правиле — имя из каталога или объект прямо в правиле. Цель выносится в `targets.json`, если используется 2+ раза. Действие выносится в `actions.json` (пресет), если используется 3+ раза; остальные действия — прямо в правиле. Пресет с одним-двумя пользователями не заводить: при правке такой стратегии действие возвращается в правило. Имена — `a-z`, `0-9`, `-`. Загрузка строгая: неизвестное поле, имя, порт, отсутствующий файл `cat:` (или `bin:`, если загрузчику дана папка `bin`), `active:<ИМЯ>` без дефолта в `catalog.json` — ошибка. Набор игры не может повторять имя из `lists.json`; `seed` — путь `lists:`, из него создаётся `user:`-список, если его нет.
 
 Правило → профиль v0.1 → тот же генератор, что и раньше. `payload` для winws2 выводится из `l7` / `anyProtocol` (например, `tls`+`http` → две группы, `discord` → `discord_ip_discovery,stun`); явный `payload` пишут только когда вывод не подходит.
 
@@ -74,7 +83,9 @@ strategies/
 
 Игры идут **до** правил стратегии (они уже, чем общие правила на тех же портах), по `order`, затем по `id`. Сейчас: `sky` (10), `sker` (20), `photon` (30).
 
-Одноразовый конвертер v0.1 → v2 — [`dev/convert-v2`](../dev/convert-v2/); он сверяет argv до записи. Модель v0.1 (`V01Spec`) осталась внутри Go как промежуточная. Конвертер берёт `upstream` из git (`-git`, `-ref`, по умолчанию `upstream/main`) и пишет `rev: 1`, игре — `version: 1`; его тест сравнивает вывод с `strategies/` при `rev` = 1 и пропускается без `upstream/main`.
+Одноразовый конвертер v0.1 → v2 — [`dev/convert-v2`](../dev/convert-v2/); он сверяет argv до записи. Модель v0.1 (`V01Spec`) осталась внутри Go как промежуточная. Конвертер берёт `upstream` из git (`-git`, `-ref`, по умолчанию `upstream/main`) и пишет `rev: 1`, игре — `version: 1`; fake он пишет как `bin:`. Его тест сравнивает вывод с `strategies/` коммита `9f9aeed` (до переноса fake в `strategies/fakes/`) при `rev` = 1 и пропускается без `upstream/main`.
+
+Каталог самодостаточен: всё, на что ссылаются его JSON (кроме списков `lists:` / `user:`), лежит в нём, поэтому прошлый тег `strategies/` можно подключить как внешний каталог. `files` в `catalog.json` — SHA256 байтов каждого файла, как они лежат в git (`.gitattributes`: `strategies/**/*.json` — `eol=lf`, `*.bin` — `binary`, чтобы checkout не менял байты). После любой правки файла каталога (JSON, `.bin`) — `go generate ./internal/spec`: он пишет схему и `files`. Иначе `TestCatalogFiles` падает с `run go generate ./internal/spec`.
 
 ### Версии
 
@@ -121,11 +132,11 @@ go run ./dev/upstream-versions [-git .] [-ref upstream/main] [-dir strategies] [
 | `ttl` | `--dpi-desync-ttl=` | `ip_ttl=` на атаках, принимающих fooling; число 1–255 |
 | `splitPos` | `--dpi-desync-split-pos=` | `pos=` у split-атак |
 | `seqovl` | `--dpi-desync-split-seqovl=` | `seqovl=` |
-| `seqovlPattern` | `--dpi-desync-split-seqovl-pattern=` | blob + `seqovl_pattern=`. На обоих движках только путь `bin:`/`lists:`/`user:` |
+| `seqovlPattern` | `--dpi-desync-split-seqovl-pattern=` | blob + `seqovl_pattern=`. На обоих движках только путь с префиксом (`cat:`/`active:`/`lists:`/`user:`/`bin:`) |
 | `ipId` | `--ip-id=` | `ip_id=` |
 | `tlsMod` | `--dpi-desync-fake-tls-mod=` после `fake-tls` | `tls_mod=` на последнем ref слота `tls`, только на вызове для `tls_client_hello`. Без слота `tls` — не пишется |
 | `hostfakesplitMod` | `--dpi-desync-hostfakesplit-mod=` как в JSON | куски через запятую; **`altorder=*` не писать** (в stock Lua нет) |
-| `fakedsplitPattern` | `--dpi-desync-fakedsplit-pattern=` (путь, не сырой `bin:`) | `pattern=` / blob |
+| `fakedsplitPattern` | `--dpi-desync-fakedsplit-pattern=` (путь, не сырой `cat:`) | `pattern=` / blob |
 
 Cutoff на winws2 — `-nN` (счёт пакетов), как `--dpi-desync-cutoff=nN` у winws. На UDP счёт тот же. На TCP winws2 по умолчанию не перехватывает пустые ACK (`--wf-tcp-empty=0`, zapret2 `manual.en.md:1071`, `readme.md:314`), поэтому cutoff наступает на 1–2 пакета с данными позже, чем у winws, но раньше прежнего `-dN`. Точное совпадение требует глобального `--wf-tcp-empty=1` — это примерно 2× CPU на загрузках при Game Filter; его не пишем и не предупреждаем. Неявный `-d10` для TCP/QUIC остаётся.
 
@@ -148,7 +159,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 | JSON | winws | winws2 |
 |---|---|---|
 | `fake.tls` / `http` / … | `--dpi-desync-fake-tls=` (и аналоги) | `--blob=name:@file` или `name:0xHEX`, затем `blob=` в `--lua-desync=fake` |
-| значение `!` | как в JSON (встроенный hello z1) | stock `bin:tls_clienthello_www_google_com.bin` |
+| значение `!` | как в JSON (встроенный hello z1) | `cat:fakes/tls_clienthello_www_google_com.bin` — файл должен быть в каждом каталоге |
 | TLS-профиль с `fake` в `desync`, слота `tls` нет | z1 берёт встроенный hello | ошибка сборки: нет blob для группы. Неявного hello нет: пишите `"tls": ["!"]` |
 | `payload: "all"` / `anyProtocol`, слота `tls` нет | z1 берёт встроенный hello для TLS | TLS hello не подставляется |
 | группа из нескольких слотов (`all`, `discord,stun`), нет `luaPayload` | fake по типу пакета: TCP `http`/`tls`/`unknown`, UDP `quic`/`discord`/`stun`/`unknownUdp` | каждый слот — свой `payload=` у `fake`: `tls` → `tls_client_hello`, `http` → `http_req`, `quic` → `quic_initial`, `discord` → `discord_ip_discovery`, `stun` → `stun`, `unknown` → `~empty,http_req,tls_client_hello`, `unknownUdp` → `~empty,quic_initial,wireguard_initiation,dht,discord_ip_discovery,stun`. Один ref в нескольких слотах — один вызов, фильтры через запятую. Слоты другого L4 (UDP-слот в TCP-профиле) не пишутся. `unknown` / `unknownUdp` в профиле с `tcp` и `udp` — ошибка сборки |
@@ -162,7 +173,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 Игровые модули (`strategies/games/`) не зависят от Game Filter:
 
 - `sky` — Sky: UDP 5000–8000 с `user:ipset-sky.txt`, QUIC-fake, TTL 8, cutoff 4; TCP 443 для `live.ws.radiance.thatgamecompany.com` с multisplit на позиции 1, `luaPayload: all`, без cutoff. Список создаётся из `lists/ipset-sky.default.txt`; трей (`updater: sky-log`) дополняет его только конкретными IPv4 `/32` из `Sky.log`. DNS входа — отдельная настройка, стратегия `hosts` не меняет.
-- `sker` — Sker Ritual и Hazard Levels (тот же разработчик): `user:ipset-sker.txt`, fake `ACTIVE_GAME_UDP`, `luaPayload: all`, TTL 8, cutoff 4. Fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) через ~10 с после входа в матч. Список создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU на G-Core и Vultr) и сам не обновляется. Те же подсети у PEAK в регионе EU: он тоже попадает сюда.
+- `sker` — Sker Ritual и Hazard Levels (тот же разработчик): `user:ipset-sker.txt`, fake `active:GAME_UDP`, `luaPayload: all`, TTL 8, cutoff 4. Fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) через ~10 с после входа в матч. Список создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU на G-Core и Vultr) и сам не обновляется. Те же подсети у PEAK в регионе EU: он тоже попадает сюда.
 - `photon` — общий профиль Photon (UDP 5055–5058, 27000–27002); стоит после `sker`.
 
 Бывшая `general (ALT11 Photon)` = `general (ALT11)` + `sky`, `sker`, `photon`; отличие только в порядке профилей и портов `wf`.

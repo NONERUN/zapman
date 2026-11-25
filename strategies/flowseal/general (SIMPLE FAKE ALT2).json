@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.4",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-6" },
     { "target": "discord-voice", "action": "fake-discord-6" },
@@ -12,7 +12,7 @@
         "desync": ["fake"],
         "repeats": 6,
         "fooling": ["ts"],
-        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
       }
     },
     {
@@ -22,7 +22,7 @@
         "repeats": 6,
         "fooling": ["ts"],
         "ipId": "zero",
-        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
       }
     },
     {
@@ -32,8 +32,8 @@
         "repeats": 6,
         "fooling": ["ts"],
         "fake": {
-          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
+          "tls": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },
@@ -45,8 +45,8 @@
         "repeats": 6,
         "fooling": ["ts"],
         "fake": {
-          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
+          "tls": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },
@@ -58,9 +58,9 @@
         "cutoff": 5,
         "fooling": ["ts"],
         "fake": {
-          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
-          "unknown": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"]
+          "tls": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "unknown": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },

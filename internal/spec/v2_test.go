@@ -129,7 +129,7 @@ func TestV2Errors(t *testing.T) {
 		{"bad named action", map[string]string{ActionsFile: `{"a":{"desync":["Fake"]}}`, "flowseal/s.json": okStrategy}, `actions.json: "a": Unknown desync attack 'Fake'.`},
 		{"bad name", map[string]string{ActionsFile: `{"Fake":{"desync":["fake"]}}`, "flowseal/s.json": okStrategy}, `actions.json: name "Fake" is not valid`},
 		{"empty bundle", map[string]string{ListsFile: `{"x":{}}`, "flowseal/s.json": okStrategy}, `lists.json: "x": bundle has no refs`},
-		{"bundle prefix", map[string]string{ListsFile: `{"x":{"ipset":["ipset.txt"]}}`, "flowseal/s.json": okStrategy}, `lists.json: "x": Path prefix is not lists:/user:/bin: : ipset.txt`},
+		{"bundle prefix", map[string]string{ListsFile: `{"x":{"ipset":["ipset.txt"]}}`, "flowseal/s.json": okStrategy}, `lists.json: "x": Path prefix is not lists:/user:/cat:/active:/bin: : ipset.txt`},
 		{"unknown bundle field", map[string]string{ListsFile: `{"x":{"hostlistDomains":["a.com"]}}`, "flowseal/s.json": okStrategy}, `unknown field "hostlistDomains"`},
 		{"game id", map[string]string{"games/g.json": `{"id":"h","title":"G","version":1,"order":1,"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: id must be "g"`},
 		{"game no title", map[string]string{"games/g.json": `{"id":"g","title":"","version":1,"order":1,"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: title is empty`},

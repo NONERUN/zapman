@@ -172,6 +172,12 @@ type CatalogInfo struct {
 	ID     string `json:"id" doc:"catalog id: stock for the catalog of zapman" schema:"required,pattern=name"`
 	Title  string `json:"title" doc:"name in the UI" schema:"required"`
 	Spec   int    `json:"spec" doc:"format version: 2" schema:"required,const=2"`
+	// Active maps the name X of an active:X ref to the cat: file that the
+	// ref uses when the user has no file of the name.
+	Active map[string]string `json:"active,omitempty" doc:"defaults of the active:<NAME> fakes: NAME to a cat: file" schema:"keys=active,values=catref"`
+	// Files maps the path of each catalog file (with /, from the catalog
+	// root) to its SHA256. catalog.json and schema/ are not in it.
+	Files map[string]string `json:"files,omitempty" doc:"SHA256 (hex) of each file but catalog.json and schema/; go generate ./internal/spec writes it" schema:"keys=relpath,values=sha256"`
 }
 
 // StrategyFile is the JSON of strategies/<origin>/<name>.json.

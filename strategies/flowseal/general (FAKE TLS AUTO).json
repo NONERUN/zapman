@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.4",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-11" },
     { "target": "discord-voice", "action": "fake-discord-6" },
@@ -37,7 +37,7 @@
         "splitPos": "1,midsld",
         "fooling": ["badseq"],
         "tlsMod": "rnd,dupsid,sni=www.google.com",
-        "fake": { "tls": ["0x00000000", "!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fake": { "tls": ["0x00000000", "!"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
       }
     },
     { "target": "quic-ipset", "action": "fake-quic-google-11" },
@@ -49,7 +49,7 @@
         "splitPos": "1,midsld",
         "fooling": ["badseq"],
         "tlsMod": "rnd,dupsid,sni=www.google.com",
-        "fake": { "tls": ["0x00000000", "!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fake": { "tls": ["0x00000000", "!"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
       }
     },
     {
@@ -63,8 +63,8 @@
         "tlsMod": "rnd,dupsid,sni=www.google.com",
         "fake": {
           "tls": ["0x00000000", "!"],
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
-          "unknown": ["0x00000000", "bin:tls_clienthello_www_sferum_ru.bin"]
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "unknown": ["0x00000000", "cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },

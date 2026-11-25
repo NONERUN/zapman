@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.0",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-6" },
     { "target": "discord-voice", "action": "fake-discord-6" },
@@ -13,7 +13,7 @@
         "desync": ["multisplit"],
         "splitPos": "1",
         "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "ipId": "zero"
       }
     },
@@ -23,7 +23,7 @@
         "desync": ["multisplit"],
         "splitPos": "1",
         "seqovl": 568,
-        "seqovlPattern": "bin:tls_clienthello_4pda_to.bin"
+        "seqovlPattern": "cat:fakes/tls_clienthello_4pda_to.bin"
       }
     },
     { "target": "quic-ipset", "action": "fake-quic-google-6" },
@@ -33,7 +33,7 @@
         "desync": ["multisplit"],
         "splitPos": "1",
         "seqovl": 568,
-        "seqovlPattern": "bin:tls_clienthello_4pda_to.bin"
+        "seqovlPattern": "cat:fakes/tls_clienthello_4pda_to.bin"
       }
     },
     {
@@ -43,7 +43,7 @@
         "cutoff": 3,
         "splitPos": "1",
         "seqovl": 568,
-        "seqovlPattern": "bin:tls_clienthello_4pda_to.bin"
+        "seqovlPattern": "cat:fakes/tls_clienthello_4pda_to.bin"
       }
     },
     { "target": "gf-udp", "action": "fake-game-12-n2" }

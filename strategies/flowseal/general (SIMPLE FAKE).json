@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.4",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-6" },
     { "target": "discord-voice", "action": "fake-discord-6" },
@@ -12,7 +12,7 @@
         "desync": ["fake"],
         "repeats": 6,
         "fooling": ["ts"],
-        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
       }
     },
     { "target": "google", "action": "hostfakesplit" },
@@ -22,7 +22,7 @@
         "desync": ["fake"],
         "repeats": 6,
         "fooling": ["ts"],
-        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
       }
     },
     { "target": "quic-ipset", "action": "fake-quic-google-6" },
@@ -32,7 +32,7 @@
         "desync": ["fake"],
         "repeats": 6,
         "fooling": ["ts"],
-        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
       }
     },
     {
@@ -43,9 +43,9 @@
         "cutoff": 4,
         "fooling": ["ts"],
         "fake": {
-          "tls": ["bin:tls_clienthello_www_google_com.bin"],
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
-          "unknown": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"]
+          "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "unknown": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_google_com.bin"]
         }
       }
     },

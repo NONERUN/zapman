@@ -61,6 +61,9 @@ func BuildV01(s *V01Spec, engine Engine, p Paths, gf GameFilter) ([]string, erro
 	if err := s.validate(); err != nil {
 		return nil, err
 	}
+	if err := checkActive(s, p); err != nil {
+		return nil, err
+	}
 	if engine == Winws {
 		return buildWinws(s, p, gf)
 	}

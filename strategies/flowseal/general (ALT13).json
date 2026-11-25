@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.2",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-11" },
     {
@@ -10,7 +10,7 @@
       "action": {
         "desync": ["fake"],
         "repeats": 5,
-        "fake": { "discord": ["bin:ACTIVE_DISCORD_UDP.bin"], "stun": ["bin:ACTIVE_DISCORD_UDP.bin"] }
+        "fake": { "discord": ["active:DISCORD_UDP"], "stun": ["active:DISCORD_UDP"] }
       }
     },
     {
@@ -20,9 +20,9 @@
         "repeats": 7,
         "splitPos": "1",
         "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "fooling": ["ts"],
-        "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
       }
     },
     {
@@ -37,8 +37,8 @@
         "fooling": ["ts"],
         "hostfakesplitMod": "host=mail.ru,altorder=1",
         "fake": {
-          "tls": ["bin:tls_clienthello_sochi_park.bin", "bin:stun2.bin"],
-          "http": ["bin:tls_clienthello_sochi_park.bin"]
+          "tls": ["cat:fakes/tls_clienthello_sochi_park.bin", "cat:fakes/stun2.bin"],
+          "http": ["cat:fakes/tls_clienthello_sochi_park.bin"]
         }
       }
     },
@@ -51,8 +51,8 @@
         "fooling": ["ts"],
         "hostfakesplitMod": "host=mail.ru,altorder=1",
         "fake": {
-          "tls": ["bin:tls_clienthello_sochi_park.bin", "bin:stun2.bin"],
-          "http": ["bin:tls_clienthello_sochi_park.bin"]
+          "tls": ["cat:fakes/tls_clienthello_sochi_park.bin", "cat:fakes/stun2.bin"],
+          "http": ["cat:fakes/tls_clienthello_sochi_park.bin"]
         }
       }
     },
@@ -65,9 +65,9 @@
         "fooling": ["ts"],
         "hostfakesplitMod": "host=mail.ru,altorder=1",
         "fake": {
-          "tls": ["bin:tls_clienthello_sochi_park.bin", "bin:stun2.bin"],
-          "http": ["bin:tls_clienthello_sochi_park.bin"],
-          "unknown": ["bin:tls_clienthello_sochi_park.bin", "bin:stun2.bin"]
+          "tls": ["cat:fakes/tls_clienthello_sochi_park.bin", "cat:fakes/stun2.bin"],
+          "http": ["cat:fakes/tls_clienthello_sochi_park.bin"],
+          "unknown": ["cat:fakes/tls_clienthello_sochi_park.bin", "cat:fakes/stun2.bin"]
         }
       }
     },

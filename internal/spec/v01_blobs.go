@@ -6,8 +6,13 @@ import (
 )
 
 // defaultTLSFake is the winws2 blob for the '!' ref. winws has a built-in
-// TLS hello for '!'; winws2 has none.
-const defaultTLSFake = "bin:tls_clienthello_www_google_com.bin"
+// TLS hello for '!'; winws2 has none. Each catalog must have the file
+// DefaultTLSFakeFile.
+const defaultTLSFake = PrefixCat + DefaultTLSFakeFile
+
+// DefaultTLSFakeFile is the path in the catalog of the winws2 blob for the
+// '!' ref.
+const DefaultTLSFakeFile = FakesDir + "/tls_clienthello_www_google_com.bin"
 
 type blob struct {
 	name  string
@@ -64,15 +69,20 @@ func (r *blobRegistry) add(ref string) error {
 }
 
 // blobStem gives the blob name of a 0x<hex> ref or of a path ref: hex_<hex>
-// or the file name without the extension.
+// or the file name without the extension. The name of an active:X ref is
+// ACTIVE_X: it does not change when the user selects another fake.
 func blobStem(ref string) (string, error) {
 	if isHexRef(ref) {
 		return "hex_" + ref[2:], nil
 	}
-	if !isFileRef(ref) {
-		return "", fmt.Errorf("Blob ref is not 0x<hex> or a bin:/lists:/user: path: %s", ref)
+	pre, name, ok := splitRef(ref)
+	if !ok {
+		return "", fmt.Errorf("Blob ref is not 0x<hex> or a %s path: %s", refPrefixText, ref)
 	}
-	file := leafName(ref[strings.Index(ref, ":")+1:])
+	if pre == PrefixActive {
+		return activeStem(name), nil
+	}
+	file := leafName(name)
 	if dot := strings.LastIndex(file, "."); dot > 0 {
 		return file[:dot], nil
 	}

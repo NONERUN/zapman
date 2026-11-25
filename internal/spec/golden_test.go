@@ -27,7 +27,8 @@ func writeGolden(t *testing.T, path, text string) {
 }
 
 // goldenPaths are the fixed folders of the golden files.
-var goldenPaths = Paths{Bin: `C:\zapman\bin`, Lists: `C:\zapman\lists`, User: `C:\zapman\user`}
+// ActiveFiles is empty: the active: refs use the catalog defaults.
+var goldenPaths = Paths{Bin: `C:\zapman\bin`, Lists: `C:\zapman\lists`, User: `C:\zapman\user`, Catalog: `C:\zapman\strategies`}
 
 var goldenCases = []struct {
 	name string

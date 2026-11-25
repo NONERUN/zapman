@@ -79,6 +79,12 @@ var schemaPatterns = map[string]string{
 	"name": namePattern,
 	"port": `^(\$gameFilter|[0-9]+(-[0-9]+)?)$`,
 	"tag":  tagPattern,
+	// active is an active fake name (see isActiveName).
+	"active": "^[A-Z0-9]+(_[A-Z0-9]+)*$",
+	"catref": "^cat:[^ ]+$",
+	// relpath is a file path from the catalog root, with /.
+	"relpath": `^[^/\\]+(/[^/\\]+)*$`,
+	"sha256":  "^[0-9a-f]{64}$",
 }
 
 // schemaEnums are the value lists for the enum and items struct tags.
@@ -275,6 +281,15 @@ func (g *schemaGen) field(t reflect.Type, tags map[string]string) *jsonObj {
 		}
 		s.set("items", it)
 		s.set("minItems", 1)
+	case t.Kind() == reflect.Map && t.Elem().Kind() == reflect.String:
+		s.set("type", "object")
+		v := &jsonObj{}
+		v.set("type", "string")
+		v.set("pattern", schemaPatterns[tags["values"]])
+		pp := &jsonObj{}
+		pp.set(schemaPatterns[tags["keys"]], v)
+		s.set("patternProperties", pp)
+		s.set("additionalProperties", false)
 	case t.Kind() == reflect.Map:
 		s.set("type", "object")
 		pp := &jsonObj{}

@@ -3,50 +3,50 @@
   "fake-quic-google-6": {
     "desync": ["fake"],
     "repeats": 6,
-    "fake": { "quic": ["bin:quic_initial_www_google_com.bin"] }
+    "fake": { "quic": ["cat:fakes/quic_initial_www_google_com.bin"] }
   },
   "fake-discord-6": {
     "desync": ["fake"],
     "repeats": 6,
-    "fake": { "discord": ["bin:ACTIVE_DISCORD_UDP.bin"], "stun": ["bin:ACTIVE_DISCORD_UDP.bin"] }
+    "fake": { "discord": ["active:DISCORD_UDP"], "stun": ["active:DISCORD_UDP"] }
   },
   "multisplit-681-google": {
     "desync": ["multisplit"],
     "splitPos": "1",
     "seqovl": 681,
-    "seqovlPattern": "bin:tls_clienthello_www_google_com.bin"
+    "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin"
   },
   "fake-game-12-n2": {
     "desync": ["fake"],
     "repeats": 12,
     "cutoff": 2,
-    "fake": { "unknownUdp": ["bin:ACTIVE_GAME_UDP.bin"] }
+    "fake": { "unknownUdp": ["active:GAME_UDP"] }
   },
   "fake-game-12-n3": {
     "desync": ["fake"],
     "repeats": 12,
     "cutoff": 3,
-    "fake": { "unknownUdp": ["bin:ACTIVE_GAME_UDP.bin"] }
+    "fake": { "unknownUdp": ["active:GAME_UDP"] }
   },
   "fake-quic-google-11": {
     "desync": ["fake"],
     "repeats": 11,
-    "fake": { "quic": ["bin:quic_initial_www_google_com.bin"] }
+    "fake": { "quic": ["cat:fakes/quic_initial_www_google_com.bin"] }
   },
   "fake-multisplit-681-google": {
     "desync": ["fake", "multisplit"],
     "repeats": 8,
     "splitPos": "1",
     "seqovl": 681,
-    "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+    "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
     "fooling": ["ts"],
-    "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
+    "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
   },
   "fake-game-10-n4": {
     "desync": ["fake"],
     "repeats": 10,
     "cutoff": 4,
-    "fake": { "unknownUdp": ["bin:ACTIVE_GAME_UDP.bin"] }
+    "fake": { "unknownUdp": ["active:GAME_UDP"] }
   },
   "hostfakesplit": {
     "desync": ["hostfakesplit"],
@@ -58,12 +58,12 @@
     "desync": ["multisplit"],
     "splitPos": "2",
     "seqovl": 652,
-    "seqovlPattern": "bin:tls_clienthello_www_google_com.bin"
+    "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin"
   },
   "fake-game-10-n2": {
     "desync": ["fake"],
     "repeats": 10,
     "cutoff": 2,
-    "fake": { "unknownUdp": ["bin:ACTIVE_GAME_UDP.bin"] }
+    "fake": { "unknownUdp": ["active:GAME_UDP"] }
   }
 }

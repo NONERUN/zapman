@@ -71,6 +71,8 @@ type Strategy struct {
 	origin Origin
 	file   string
 	rules  []resolvedRule
+	// active are the defaults of the active fakes (CatalogInfo.Active).
+	active map[string]string
 }
 
 // Origin gives the origin of the strategy: the name of its folder.
@@ -92,8 +94,8 @@ type resolvedRule struct {
 }
 
 // LoadCatalog reads catalog.json, lists.json, targets.json, actions.json and
-// games/*.json of the catalog folder dir. When bin is not empty, each bin:
-// ref must be a file in bin.
+// games/*.json of the catalog folder dir. Each cat: ref must be a file in
+// dir. When bin is not empty, each bin: ref must be a file in bin.
 func LoadCatalog(dir, bin string) (*Catalog, error) {
 	c := &Catalog{Dir: dir, Bin: bin}
 	if err := c.loadInfo(); err != nil {
@@ -173,6 +175,52 @@ func (c *Catalog) loadInfo() error {
 	if isBlank(c.Title) {
 		return fmt.Errorf("%s: title is empty", CatalogFile)
 	}
+	for _, name := range sortedKeys(c.Active) {
+		ref := c.Active[name]
+		if !isActiveName(name) {
+			return fmt.Errorf("%s: active: name %q is not valid. Use A-Z, 0-9 and _.", CatalogFile, name)
+		}
+		if !strings.HasPrefix(ref, PrefixCat) || !isFakeValue(ref) {
+			return fmt.Errorf("%s: active: %q must be a cat: file: %s", CatalogFile, name, ref)
+		}
+		if err := c.checkCatFile(ref); err != nil {
+			return fmt.Errorf("%s: active: %q: %w", CatalogFile, name, err)
+		}
+	}
+	for _, rel := range sortedKeys(c.Files) {
+		if !isRelPath(rel) || rel == CatalogFile || strings.HasPrefix(rel, SchemaDir+"/") {
+			return fmt.Errorf("%s: files: path %q is not valid", CatalogFile, rel)
+		}
+		if h := c.Files[rel]; len(h) != 64 || !isHex(h) || strings.ToLower(h) != h {
+			return fmt.Errorf("%s: files: %q: %q is not a SHA256 in lowercase hex", CatalogFile, rel, h)
+		}
+	}
+	return nil
+}
+
+// isRelPath tells if p is a relative path with / and no empty, . or ..
+// part.
+func isRelPath(p string) bool {
+	if p == "" || strings.Contains(p, `\`) {
+		return false
+	}
+	for _, part := range strings.Split(p, "/") {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+// checkCatFile tells if the cat: ref is a file in the catalog folder.
+func (c *Catalog) checkCatFile(ref string) error {
+	name := strings.TrimPrefix(ref, PrefixCat)
+	if !isRelPath(name) {
+		return fmt.Errorf("cat: path must be a relative path with / and no ..: %s", ref)
+	}
+	if st, err := os.Stat(filepath.Join(c.Dir, filepath.FromSlash(name))); err != nil || st.IsDir() {
+		return fmt.Errorf("catalog file not found: %s", ref)
+	}
 	return nil
 }
 
@@ -242,7 +290,7 @@ func (c *Catalog) Strategy(name string) (*Strategy, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Strategy{Name: name, origin: o, file: file}
+	s := &Strategy{Name: name, origin: o, file: file, active: c.Active}
 	if err := decodeStrict(data, &s.StrategyFile); err != nil {
 		return nil, fmt.Errorf("%s: %w", file, err)
 	}
@@ -489,7 +537,7 @@ func (c *Catalog) checkBundle(b *Bundle) error {
 	for _, refs := range [][]string{b.Hostlist, b.HostlistExclude, b.Ipset, b.IpsetExclude} {
 		for _, ref := range refs {
 			if !isFileRef(ref) {
-				return fmt.Errorf("Path prefix is not lists:/user:/bin: : %s", ref)
+				return fmt.Errorf("Path prefix is not %s : %s", refPrefixText, ref)
 			}
 			n++
 		}
@@ -500,35 +548,30 @@ func (c *Catalog) checkBundle(b *Bundle) error {
 	return c.checkBin(&V01Profile{Hostlist: b.Hostlist, HostlistExclude: b.HostlistExclude, Ipset: b.Ipset, IpsetExclude: b.IpsetExclude})
 }
 
-// checkBin tells if each bin: ref of the profile is a file in c.Bin. It
-// does nothing when c.Bin is empty.
+// checkBin checks the file refs of the profile. A cat: ref must be a file
+// in the catalog folder. An active: ref must have a default in
+// catalog.json. A bin: ref must be a file in c.Bin; this check is only done
+// when c.Bin is not empty.
 func (c *Catalog) checkBin(p *V01Profile) error {
-	if c.Bin == "" {
-		return nil
-	}
-	refs := []string{p.SeqovlPattern, p.FakedsplitPattern}
-	for _, l := range []StringList{p.Hostlist, p.HostlistExclude, p.Ipset, p.IpsetExclude} {
-		refs = append(refs, l...)
-	}
-	for _, d := range v01FakeSlots {
-		for _, r := range d.get(&p.Fake).Refs {
-			if r == "!" {
-				// winws2 sends this blob for "!".
-				r = defaultTLSFake
-			}
-			refs = append(refs, r)
-		}
-	}
-	for _, r := range refs {
-		if !strings.HasPrefix(r, "bin:") {
-			continue
-		}
-		path, ok := resolveRef(r, Paths{Bin: c.Bin})
+	for _, r := range p.fileRefs() {
+		pre, name, ok := splitRef(r)
 		if !ok {
 			continue
 		}
-		if st, err := os.Stat(path); err != nil || st.IsDir() {
-			return fmt.Errorf("bin file not found: %s", r)
+		switch {
+		case pre == PrefixCat:
+			if err := c.checkCatFile(r); err != nil {
+				return err
+			}
+		case pre == PrefixActive:
+			if _, ok := c.Active[name]; !ok {
+				return fmt.Errorf("active fake %s has no default in %s", r, CatalogFile)
+			}
+		case pre == PrefixBin && c.Bin != "":
+			path, _ := resolveRef(r, Paths{Bin: c.Bin})
+			if st, err := os.Stat(path); err != nil || st.IsDir() {
+				return fmt.Errorf("bin file not found: %s", r)
+			}
 		}
 	}
 	return nil

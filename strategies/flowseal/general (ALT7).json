@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.0",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-6" },
     { "target": "discord-voice", "action": "fake-discord-6" },
@@ -12,7 +12,7 @@
         "desync": ["multisplit"],
         "splitPos": "2,sniext+1",
         "seqovl": 679,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin"
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin"
       }
     },
     {
@@ -21,7 +21,7 @@
         "desync": ["multisplit"],
         "splitPos": "2,sniext+1",
         "seqovl": 679,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "ipId": "zero"
       }
     },
@@ -31,7 +31,7 @@
         "desync": ["multisplit"],
         "splitPos": "2,sniext+1",
         "seqovl": 679,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin"
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin"
       }
     },
     { "target": "quic-ipset", "action": "fake-quic-google-6" },

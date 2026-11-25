@@ -12,11 +12,13 @@ import (
 // The rules of the games go first, in the order of Catalog.Games (Order,
 // then ID), because they are more specific than the strategy rules on the
 // same ports. Then the strategy rules follow. The wf line is the union of
-// the target ports (see WFPorts).
+// the target ports (see WFPorts). An active: ref uses the user file when
+// p.ActiveFiles has its name, else the default of the catalog of st.
 func Build(st *Strategy, games []*Game, engine Engine, p Paths, gf GameFilter) ([]string, error) {
 	if st == nil {
 		return nil, errors.New("Strategy spec is empty.")
 	}
+	p.activeDefault = st.active
 	gs := append([]*Game(nil), games...)
 	sortGames(gs)
 	var rules []resolvedRule

@@ -2,7 +2,7 @@
   "$schema": "../schema/strategy.json",
   "spec": 2,
   "upstream": "1.10.4",
-  "rev": 2,
+  "rev": 3,
   "rules": [
     { "target": "quic-general", "action": "fake-quic-google-11" },
     { "target": "discord-voice", "action": "fake-discord-6" },
@@ -13,7 +13,7 @@
         "repeats": 8,
         "splitPos": "1",
         "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "fooling": ["ts"],
         "tlsMod": "rnd,dupsid,sni=www.google.com",
         "fake": { "tls": ["!"] }
@@ -26,7 +26,7 @@
         "repeats": 8,
         "splitPos": "1",
         "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "fooling": ["ts"],
         "ipId": "zero",
         "tlsMod": "rnd,dupsid,sni=www.google.com",
@@ -40,10 +40,10 @@
         "repeats": 8,
         "splitPos": "1",
         "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "fooling": ["ts"],
         "tlsMod": "rnd,dupsid,sni=www.google.com",
-        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fake": { "tls": ["!"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
       }
     },
     { "target": "quic-ipset", "action": "fake-quic-google-11" },
@@ -54,10 +54,10 @@
         "repeats": 8,
         "splitPos": "1",
         "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "fooling": ["ts"],
         "tlsMod": "rnd,dupsid,sni=www.google.com",
-        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+        "fake": { "tls": ["!"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
       }
     },
     {
@@ -68,12 +68,12 @@
         "cutoff": 4,
         "splitPos": "1",
         "seqovl": 681,
-        "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
         "fooling": ["ts"],
         "tlsMod": "rnd,dupsid,sni=www.google.com",
         "fake": {
-          "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
-          "unknown": ["bin:tls_clienthello_www_sferum_ru.bin"]
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "unknown": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
         }
       }
     },
@@ -83,7 +83,7 @@
         "desync": ["fake"],
         "repeats": 10,
         "cutoff": 3,
-        "fake": { "unknownUdp": ["bin:ACTIVE_GAME_UDP.bin"] }
+        "fake": { "unknownUdp": ["active:GAME_UDP"] }
       }
     }
   ]

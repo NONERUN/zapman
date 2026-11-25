@@ -2,7 +2,7 @@
   "$schema": "../schema/game.json",
   "id": "sky",
   "title": "Sky: Children of the Light",
-  "version": 1,
+  "version": 2,
   "order": 10,
   "lists": { "ipset-sky": { "ipset": ["user:ipset-sky.txt"], "seed": "lists:ipset-sky.default.txt" } },
   "updater": "sky-log",
@@ -15,7 +15,7 @@
         "ttl": 8,
         "cutoff": 4,
         "luaPayload": "all",
-        "fake": { "unknownUdp": ["bin:quic_initial_www_google_com.bin"] }
+        "fake": { "unknownUdp": ["cat:fakes/quic_initial_www_google_com.bin"] }
       }
     },
     {
