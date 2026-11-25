@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -87,6 +88,9 @@ func TestGolden(t *testing.T) {
 				if err != nil {
 					t.Errorf("%s %s %s: %v", s.name, eng, c.name, err)
 					continue
+				}
+				for _, e := range argvRuleErrors(eng, lines) {
+					t.Errorf("%s %s %s: %s", s.name, eng, c.name, e)
 				}
 				got := goldenHeader(s.st, s.games) + strings.Join(lines, "\n") + "\n"
 				if *update {
@@ -193,6 +197,84 @@ func TestCheckGolden(t *testing.T) {
 	}
 	if !strings.Contains(checkGolden(v1+b, v1+a).Error(), "line 3") {
 		t.Error("the bump error does not show the line")
+	}
+}
+
+// The argv rules of argvRuleErrors.
+var (
+	reRawPrefix  = regexp.MustCompile(`=(bin|cat|active|lists|user):`)
+	reBlobEquals = regexp.MustCompile(`--blob=[^\s:]+=`)
+	reTLSModLast = regexp.MustCompile(`--dpi-desync-fake-tls-mod=\S+.*--dpi-desync-fake-tls=`)
+)
+
+// argvRuleErrors checks the argv lines of one engine for flags of the other
+// engine and for forms that the engine does not accept. A golden file can
+// be written with -update, so these rules do not depend on it.
+func argvRuleErrors(eng Engine, lines []string) []string {
+	var errs []string
+	add := func(i int, msg string) {
+		errs = append(errs, fmt.Sprintf("argv line %d: %s", i+1, msg))
+	}
+	for i, l := range lines {
+		if reRawPrefix.MatchString(l) {
+			add(i, "a path prefix (bin:, cat:, ...) is not resolved")
+		}
+		if eng == Winws {
+			if strings.Contains(l, "--lua-desync") {
+				add(i, "winws argv has --lua-desync")
+			}
+			if reTLSModLast.MatchString(l) {
+				add(i, "winws: --dpi-desync-fake-tls must come before --dpi-desync-fake-tls-mod")
+			}
+			continue
+		}
+		if strings.Contains(l, "--dpi-desync") {
+			add(i, "winws2 argv has --dpi-desync")
+		}
+		if reBlobEquals.MatchString(l) {
+			add(i, "winws2 --blob must be name:value (colon)")
+		}
+		if strings.Contains(l, "--blob=0x") {
+			add(i, "winws2 blob name starts with 0x")
+		}
+		if strings.Contains(l, "blob=empty") {
+			add(i, "winws2 argv has blob=empty")
+		}
+		for _, a := range strings.Fields(l) {
+			if strings.HasPrefix(a, "--lua-desync=fake:") && strings.Contains(a, "tls_mod=") && !strings.Contains(a, "blob=") {
+				add(i, "winws2 fake with tls_mod has no blob: "+a)
+			}
+		}
+	}
+	return errs
+}
+
+func TestArgvRuleErrors(t *testing.T) {
+	cases := []struct {
+		eng  Engine
+		line string
+		want string // empty: no error
+	}{
+		{Winws, `--filter-tcp=443 --dpi-desync=fake --dpi-desync-fake-tls=! --dpi-desync-fake-tls-mod=rnd`, ""},
+		{Winws, `--dpi-desync-fake-tls-mod=rnd --dpi-desync-fake-tls=!`, "before"},
+		{Winws, `--lua-desync=fake`, "--lua-desync"},
+		{Winws, `--dpi-desync-fakedsplit-pattern=bin:x.bin`, "prefix"},
+		{Winws2, `--blob=a:@"C:\x.bin" --lua-desync=fake:blob=a:tls_mod=rnd`, ""},
+		{Winws2, `--dpi-desync=fake`, "--dpi-desync"},
+		{Winws2, `--blob=a=@x.bin`, "colon"},
+		{Winws2, `--blob=0x00:0x00`, "0x"},
+		{Winws2, `--lua-desync=fake:blob=empty`, "blob=empty"},
+		{Winws2, `--lua-desync=fake:tls_mod=rnd`, "no blob"},
+		{Winws2, `--lua-desync=fake:blob=cat:fakes/x.bin`, "prefix"},
+	}
+	for _, c := range cases {
+		errs := argvRuleErrors(c.eng, []string{c.line})
+		switch {
+		case c.want == "" && len(errs) > 0:
+			t.Errorf("%s %q: %v", c.eng, c.line, errs)
+		case c.want != "" && (len(errs) == 0 || !strings.Contains(strings.Join(errs, "\n"), c.want)):
+			t.Errorf("%s %q: errors %v, want %q", c.eng, c.line, errs, c.want)
+		}
 	}
 }
 
