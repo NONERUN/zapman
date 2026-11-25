@@ -94,12 +94,19 @@ func (pr *V01Profile) ttl() (int, bool, error) {
 	return *pr.TTL, true, nil
 }
 
-func (pr *V01Profile) badseqIncrement() int {
+// winws badseq defaults (nfq/params.h): when the increment flags are not
+// given, badseq adds -10000 to seq and -66000 to ack.
+const (
+	badseqDefault = -10000
+	badackDefault = -66000
+)
+
+// badseqIncrement gives badseqIncrement and true when JSON sets it.
+func (pr *V01Profile) badseqIncrement() (int, bool) {
 	if pr.BadseqIncrement == nil {
-		// z1 default when --dpi-desync-fooling=badseq has no increment flag.
-		return -10
+		return badseqDefault, false
 	}
-	return *pr.BadseqIncrement
+	return *pr.BadseqIncrement, true
 }
 
 func (pr *V01Profile) slot(name string) *FakeSlot {
@@ -404,8 +411,8 @@ func buildWinws(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 		if len(pr.Fooling) > 0 {
 			parts = append(parts, "--dpi-desync-fooling="+strings.Join(pr.Fooling, ","))
 		}
-		if hasFold(pr.Fooling, "badseq") {
-			parts = append(parts, "--dpi-desync-badseq-increment="+strconv.Itoa(pr.badseqIncrement()))
+		if inc, set := pr.badseqIncrement(); set && hasFold(pr.Fooling, "badseq") {
+			parts = append(parts, "--dpi-desync-badseq-increment="+strconv.Itoa(inc))
 		}
 		if !isBlank(pr.SeqovlPattern) {
 			path, ok := resolveRef(pr.SeqovlPattern, p)
@@ -481,8 +488,12 @@ func (pr *V01Profile) luaFoolingArgs() ([]string, error) {
 		case "md5sig":
 			out = append(out, "tcp_md5")
 		case "badseq":
-			inc := strconv.Itoa(pr.badseqIncrement())
-			out = append(out, "tcp_seq="+inc, "tcp_ack="+inc)
+			// winws badseq changes seq by the increment and ack by
+			// the badack default. tcp_seq=0 does nothing: do not write it.
+			if inc, _ := pr.badseqIncrement(); inc != 0 {
+				out = append(out, "tcp_seq="+strconv.Itoa(inc))
+			}
+			out = append(out, "tcp_ack="+strconv.Itoa(badackDefault))
 		default:
 			return nil, fmt.Errorf("Unknown fooling '%s'.", f)
 		}

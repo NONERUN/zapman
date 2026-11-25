@@ -178,6 +178,45 @@ func TestFakePayloadFilters(t *testing.T) {
 	}
 }
 
+// TestBadseq checks the badseq defaults of winws (nfq/params.h).
+func TestBadseq(t *testing.T) {
+	cases := []struct {
+		name   string
+		extra  string
+		z1, z2 string
+		absent string
+	}{
+		{"default", ``, "--dpi-desync-fooling=badseq --", ":tcp_seq=-10000:tcp_ack=-66000", "badseq-increment"},
+		{"set", `,"badseqIncrement":2`, "--dpi-desync-badseq-increment=2", ":tcp_seq=2:tcp_ack=-66000", ""},
+		{"zero", `,"badseqIncrement":0`, "--dpi-desync-badseq-increment=0", "blob=a:tcp_ack=-66000", "tcp_seq"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := Parse([]byte(specWith(`"tcp":"443","l7":"tls","desync":["fake"],"fake":{"tls":["bin:a.bin"]},"fooling":["badseq"]` + c.extra)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, eng := range []Engine{Winws, Winws2} {
+				lines, err := Build(s, eng, goldenPaths, GameFilter{TCP: "12", UDP: "12"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				got := lines[len(lines)-1] + " --"
+				want := c.z1
+				if eng == Winws2 {
+					want = c.z2
+				}
+				if !strings.Contains(got, want) {
+					t.Errorf("%s: no %q in\n%s", eng, want, got)
+				}
+				if c.absent != "" && strings.Contains(got, c.absent) && (eng == Winws2) == (c.absent == "tcp_seq") {
+					t.Errorf("%s: %q in\n%s", eng, c.absent, got)
+				}
+			}
+		})
+	}
+}
+
 func TestEngine(t *testing.T) {
 	s, err := Parse([]byte(specWith(okProfile)))
 	if err != nil {

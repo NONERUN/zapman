@@ -19,6 +19,7 @@
 - ZapretSpec (Go), winws2: нет неявного TLS hello `!` для групп без `fake.tls`. ALT3, ALT8, FAKE TLS AUTO ALT/ALT2/ALT3 пишут `"tls": ["!"]` явно (на winws это `--dpi-desync-fake-tls=!`, тот же встроенный hello). Профили `payload: "all"` с UDP-fake больше не шлют google TLS hello.
 - ZapretSpec (Go), winws2: в группах из нескольких слотов (`payload: "all"`, `discord,stun`) каждый fake идёт только на свой тип пакета, как у winws (`payload=` слота у `--lua-desync=fake`). Раньше все fake шли на все известные payload, а `unknown` / `unknownUdp` — не на неизвестные пакеты. Явный `luaPayload` заменяет эти фильтры (Sky, Sker). Меняется argv winws2 всех стратегий.
 - ZapretSpec (Go), winws2: `tls_mod` только на последнем ref слота `tls` и только на вызове для `tls_client_hello`, как `--dpi-desync-fake-tls-mod` у winws. Без слота `tls` `tls_mod` не пишется (раньше шёл на `!` любого слота). Argv стратегий не меняется.
+- ZapretSpec (Go), `badseq`: без `badseqIncrement` winws не получает `--dpi-desync-badseq-increment` (дефолт winws −10000 seq / −66000 ack; раньше писалось −10). На winws2 `tcp_seq` = `badseqIncrement` или −10000, `tcp_ack` всегда −66000, как badack winws. Меняется argv FAKE TLS AUTO (оба движка) и winws2 ALT4, ALT8, FAKE TLS AUTO ALT/ALT2, SIMPLE FAKE ALT.
 - Сток из upstream (Flowseal) по 2026-11: `lists/list-exclude.txt` (+`lesta.pw`), `lists/list-google.txt` (+`fonts.googleapis.com`, `www.gstatic.com`), `.service/ipset-service.txt` (источник **Скачать ipset**), `.service/hosts` (**Сверить hosts**).
 
 ### Fixed

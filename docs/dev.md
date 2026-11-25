@@ -77,8 +77,8 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 |---|---|---|
 | `fooling` содержит `ts` | `--dpi-desync-fooling=…ts…` | `tcp_ts=-600000` |
 | `fooling` содержит `md5sig` | `--dpi-desync-fooling=…md5sig…` | `tcp_md5` |
-| `fooling` содержит `badseq` | `--dpi-desync-fooling=…badseq…` и `--dpi-desync-badseq-increment=` | `tcp_seq=` и `tcp_ack=` |
-| нет `badseqIncrement` при `badseq` | increment **−10** | **−10** |
+| `fooling` содержит `badseq` | `--dpi-desync-fooling=…badseq…`; `--dpi-desync-badseq-increment=` только если есть `badseqIncrement` | `tcp_seq=<badseqIncrement>` (при 0 не пишется) и `tcp_ack=-66000` |
+| нет `badseqIncrement` при `badseq` | флага нет: дефолт winws seq **−10000**, ack **−66000** (`nfq/params.h`) | `tcp_seq=-10000:tcp_ack=-66000` |
 | другое имя fooling | throw | throw |
 
 Fooling не вешается на Lua-атаку `multisplit`.
