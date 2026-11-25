@@ -328,7 +328,7 @@ func cachedAsset(a asset, path string, force bool, w io.Writer) error {
 		err = fmt.Errorf("%s: the size is not %d bytes", a.URL, a.Size)
 	}
 	if err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp) // The download error is the one to report.
 		return err
 	}
 	return os.Rename(tmp, path)

@@ -73,7 +73,7 @@ func run(o options, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }() // Cleanup of a temp folder: an error leaves only litter.
 	if err := writeFiles(tmp, res.files); err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func run(o options, w io.Writer) error {
 	if err := writeFiles(tmp, map[string][]byte{spec.DefaultTLSFakeFile: nil}); err != nil {
 		return err
 	}
-	if err := checkParity(tmp, o.Bin, old, names, res, w); err != nil {
+	if err := checkParity(tmp, o.Bin, old, names, res); err != nil {
 		return fmt.Errorf("parity: %w (nothing is written)", err)
 	}
 	res.report(w)

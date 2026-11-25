@@ -178,7 +178,7 @@ func checkPhoton(photon, alt11 *spec.V01Spec) ([]string, error) {
 	pt := reflect.TypeOf(spec.V01Profile{})
 	for i := range rest {
 		a, b := reflect.ValueOf(rest[i]), reflect.ValueOf(alt11.Profiles[i])
-		for f := 0; f < pt.NumField(); f++ {
+		for f := range pt.NumField() {
 			if !reflect.DeepEqual(a.Field(f).Interface(), b.Field(f).Interface()) {
 				return nil, fmt.Errorf("profile %d of the rest, field %s: %v and %v", i, pt.Field(f).Name, a.Field(f).Interface(), b.Field(f).Interface())
 			}
@@ -423,7 +423,7 @@ func nameActions(as []*use[spec.Action]) {
 			named = append(named, a)
 		}
 	}
-	for lvl := 0; lvl < actionDetailLevels; lvl++ {
+	for lvl := range actionDetailLevels {
 		groups := map[string][]*use[spec.Action]{}
 		for _, a := range named {
 			groups[a.name] = append(groups[a.name], a)
@@ -552,6 +552,7 @@ func actionDetails(a *spec.Action) []string {
 		d[10] = sanitize("lua-" + a.LuaPayload)
 	}
 	if f := a.Fake; f != nil {
+		slots := d[11:]
 		for i, s := range []struct {
 			name string
 			refs []string
@@ -566,7 +567,7 @@ func actionDetails(a *spec.Action) []string {
 			for _, r := range s.refs {
 				p += "-" + refDomain(r)
 			}
-			d[11+i] = p
+			slots[i] = p
 		}
 	}
 	return d

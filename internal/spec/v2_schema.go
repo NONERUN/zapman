@@ -188,7 +188,7 @@ func (g *schemaGen) object(t reflect.Type) *jsonObj {
 	var required []string
 	var walk func(t reflect.Type)
 	walk = func(t reflect.Type) {
-		for i := 0; i < t.NumField(); i++ {
+		for i := range t.NumField() {
 			f := t.Field(i)
 			if f.Anonymous {
 				walk(f.Type)
@@ -252,11 +252,11 @@ func (g *schemaGen) field(t reflect.Type, tags map[string]string) *jsonObj {
 			s.set("const", n)
 		}
 		if _, ok := tags["const"]; !ok {
-			min := 0
+			minimum := 0
 			if v, ok := tags["min"]; ok {
-				min, _ = strconv.Atoi(v)
+				minimum, _ = strconv.Atoi(v)
 			}
-			s.set("minimum", min)
+			s.set("minimum", minimum)
 		}
 		if v, ok := tags["max"]; ok {
 			n, _ := strconv.Atoi(v)

@@ -28,7 +28,7 @@ func Marshal(v any) ([]byte, error) {
 
 // node is a JSON value that keeps the key order.
 type node struct {
-	kind byte // '{', '[' or 0 for a scalar
+	kind rune // '{', '[' or 0 for a scalar
 	keys []string
 	vals []*node
 	raw  string
@@ -53,7 +53,7 @@ func parseNode(dec *json.Decoder) (*node, error) {
 	}
 	switch t := tok.(type) {
 	case json.Delim:
-		n := &node{kind: byte(t)}
+		n := &node{kind: rune(t)}
 		for dec.More() {
 			if n.kind == '{' {
 				k, err := dec.Token()
@@ -121,7 +121,7 @@ func format(n *node, indent, prefix int, root bool) string {
 	}
 	pad := strings.Repeat("  ", indent/2+1)
 	var b strings.Builder
-	b.WriteByte(n.kind)
+	b.WriteRune(n.kind)
 	b.WriteByte('\n')
 	for i, v := range n.vals {
 		b.WriteString(pad)

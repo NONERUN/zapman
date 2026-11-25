@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"reflect"
 	"sort"
 	"strings"
@@ -26,7 +25,7 @@ var parityGF = []struct {
 // v0.1 argv. Each strategy but Photon must give the same bytes. Photon
 // must be ALT11 with all games: only the place of the game profiles and
 // the order of the wf ports and the blobs can be different.
-func checkParity(dir, bin string, old map[string]*spec.V01Spec, names []string, res *result, w io.Writer) error {
+func checkParity(dir, bin string, old map[string]*spec.V01Spec, names []string, res *result) error {
 	cat, err := spec.LoadCatalog(dir, bin)
 	if err != nil {
 		return err
@@ -138,7 +137,7 @@ func comparePhoton(a, b []string, nProfiles int) (string, error) {
 			order = append(order, i)
 		}
 	}
-	for i := 0; i < nProfiles; i++ {
+	for i := range nProfiles {
 		if !isGame[i] {
 			order = append(order, i)
 		}

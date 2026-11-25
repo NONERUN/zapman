@@ -48,7 +48,9 @@ func testZip(t *testing.T, path string, files map[string]string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		io.WriteString(f, files[n])
+		if _, err := io.WriteString(f, files[n]); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
@@ -122,7 +124,9 @@ func TestExtract(t *testing.T) {
 
 	// A wrong SHA256 is an error, and bin does not change.
 	bad := map[string]map[string]string{"zapret2": {"zapret2-v1/binaries/windows-x86_64/winws2.exe": sum("x")}}
-	os.Remove(filepath.Join(bin, "winws.exe"))
+	if err := os.Remove(filepath.Join(bin, "winws.exe")); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := extract(zips, bad, bin, io.Discard); err == nil || !strings.Contains(err.Error(), "winws2.exe") {
 		t.Errorf("bad SHA256: error %v", err)
 	}
@@ -154,7 +158,9 @@ func TestCacheHit(t *testing.T) {
 	if cacheHit(path, asset{Size: 3}) {
 		t.Error("hit without a file")
 	}
-	os.WriteFile(path, []byte("abc"), 0o644)
+	if err := os.WriteFile(path, []byte("abc"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	for size, want := range map[int64]bool{3: true, 0: true, 4: false} {
 		if got := cacheHit(path, asset{Size: size}); got != want {
 			t.Errorf("size %d: %v, want %v", size, got, want)
@@ -167,7 +173,9 @@ func TestManifest(t *testing.T) {
 	if m := readManifest(path); m.tag("zapret") != "" {
 		t.Error("tag without a file")
 	}
-	os.WriteFile(path, []byte("{bad"), 0o644)
+	if err := os.WriteFile(path, []byte("{bad"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if m := readManifest(path); m.tag("zapret") != "" {
 		t.Error("tag from a bad file")
 	}

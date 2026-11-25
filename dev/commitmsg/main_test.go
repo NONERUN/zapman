@@ -28,7 +28,9 @@ func TestRun(t *testing.T) {
 		t.Errorf("missing file: %v", err)
 	}
 	path := filepath.Join(dir, "COMMIT_EDITMSG")
-	os.WriteFile(path, []byte("Fix x\n\n"+coAuthored+"\n"), 0o644)
+	if err := os.WriteFile(path, []byte("Fix x\n\n"+coAuthored+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if err := run(path); err != nil {
 		t.Fatal(err)
 	}
