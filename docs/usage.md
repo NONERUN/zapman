@@ -113,7 +113,7 @@ cli.bat env
 - `user/ipset-all.txt` — IP и подсети. Нет файла — копия с `lists/ipset-all.default.txt`.
 - `user/ipset-exclude-user.txt` — исключить IP и подсети.
 - `user/ipset-sky.txt` — игровые IPv4 Sky, отдельные адреса `/32` для ALT11 Photon.
-- `user/ipset-sker.txt` — подсети серверов Photon для Sker Ritual в ALT11 Photon. Нет файла — копия с `lists/ipset-sker.default.txt`.
+- `user/ipset-sker.txt` — подсети серверов Photon для Sker Ritual и Hazard Levels в ALT11 Photon. Нет файла — копия с `lists/ipset-sker.default.txt`.
 
 Обновление: скопируйте папку `user/` в новую распаковку. Файлы из старого `lists/` (`*-user.txt`, рабочий `ipset-all.txt`) и корневой `config.json` программа не читает.
 
@@ -126,6 +126,8 @@ IP игровых серверов — `user/ipset-sky.txt`, первонача�
 Игроки, чат и задания проверены на `winws2`. Для `winws` собираются соответствующие флаги, но работа в игре пока не проверена. Исправление DNS сервера входа (`hosts` или безопасный DNS) сохраняйте отдельно: стратегия не подменяет DNS.
 
 ### Sker Ritual
+
+Те же правила работают для Hazard Levels: игра того же разработчика на тех же серверах Photon. Сервер, к которому шло подключение, Hazard Levels пишет в `Player.log` (`Connection lost ... (IP:5056)`); Sker Ritual IP сервера не пишет.
 
 С общим профилем Photon в `general (ALT11 Photon)` игра выкидывает в меню через несколько секунд после старта матча: в `Player.log` есть `On Disconnected cause: ClientTimeout`. Для серверов из `user/ipset-sker.txt` стратегия посылает fake с TTL 8, и он не доходит до сервера. Если снова выкидывает, найдите IP игрового сервера (UDP 5055–5058 или 27000–27002) и добавьте его подсеть в `user/ipset-sker.txt`. Для winws2 перезапуск не нужен, для winws — Стоп/Старт. Те же подсети Photon Cloud EU использует PEAK.
 

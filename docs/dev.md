@@ -102,7 +102,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 
 `general (ALT11 Photon)` содержит первые профили для Sky: UDP 5000–8000 с `user:ipset-sky.txt`, QUIC-fake, TTL 8 и cutoff n4; TCP 443 для `live.ws.radiance.thatgamecompany.com` с multisplit на позиции 1, `luaPayload: all` и без cutoff. Они не зависят от Game Filter. Список Sky создаётся из `lists/ipset-sky.default.txt`; трей дополняет его только конкретными IPv4 `/32`, найденными в `Sky.log`. DNS входа — отдельная настройка, стратегия `hosts` не меняет.
 
-Перед общим профилем Photon (UDP 5055–5058, 27000–27002) стоит профиль Sker Ritual с `user:ipset-sker.txt`: fake `ACTIVE_GAME_UDP`, `luaPayload: all`, `defaultTlsFake: false`, TTL 8, cutoff n4. Fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) через ~10 с после входа в матч. Список создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU) и не обновляется автоматически. Те же подсети использует PEAK в регионе EU: он тоже попадает в этот профиль.
+Перед общим профилем Photon (UDP 5055–5058, 27000–27002) стоит профиль Sker Ritual с `user:ipset-sker.txt`: fake `ACTIVE_GAME_UDP`, `luaPayload: all`, `defaultTlsFake: false`, TTL 8, cutoff n4. Fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) через ~10 с после входа в матч. Профиль работает и для Hazard Levels (тот же разработчик). Список создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU на G-Core и Vultr) и не обновляется автоматически. Те же подсети использует PEAK в регионе EU: он тоже попадает в этот профиль.
 
 После правок `.ps1` / стратегий / `dev/`:
 
