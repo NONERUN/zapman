@@ -33,12 +33,12 @@ type GameBundle struct {
 
 // Target is a traffic selector (strategies/targets.json).
 type Target struct {
-	TCP            []string `json:"tcp,omitempty" doc:"TCP ports: N or N-M; $gameFilter is the Game Filter ports"`
-	UDP            []string `json:"udp,omitempty" doc:"UDP ports: N or N-M; $gameFilter is the Game Filter ports"`
+	TCP            []string `json:"tcp,omitempty" doc:"TCP ports: N or N-M; $gameFilter is the Game Filter ports" schema:"pattern=port"`
+	UDP            []string `json:"udp,omitempty" doc:"UDP ports: N or N-M; $gameFilter is the Game Filter ports" schema:"pattern=port"`
 	L3             string   `json:"l3,omitempty" doc:"--filter-l3= (ipv4 or ipv6)"`
-	L7             []string `json:"l7,omitempty" doc:"--filter-l7= names"`
-	Lists          []string `json:"lists,omitempty" doc:"bundle names with hostlist / ipset refs"`
-	Exclude        []string `json:"exclude,omitempty" doc:"bundle names with hostlistExclude / ipsetExclude refs"`
+	L7             []string `json:"l7,omitempty" doc:"--filter-l7= names" schema:"items=l7"`
+	Lists          []string `json:"lists,omitempty" doc:"bundle names with hostlist / ipset refs" schema:"pattern=name"`
+	Exclude        []string `json:"exclude,omitempty" doc:"bundle names with hostlistExclude / ipsetExclude refs" schema:"pattern=name"`
 	Domains        []string `json:"domains,omitempty" doc:"--hostlist-domains="`
 	ExcludeDomains []string `json:"excludeDomains,omitempty" doc:"--hostlist-exclude-domains="`
 	AnyProtocol    bool     `json:"anyProtocol,omitempty" doc:"winws --dpi-desync-any-protocol=1; winws2 --payload=all"`
@@ -47,14 +47,14 @@ type Target struct {
 
 // Action is a desync preset (strategies/actions.json).
 type Action struct {
-	Desync            []string `json:"desync" doc:"attacks, in order" schema:"required"`
+	Desync            []string `json:"desync" doc:"attacks, in order" schema:"required,items=desync"`
 	Repeats           *int     `json:"repeats,omitempty" doc:"--dpi-desync-repeats= / repeats="`
 	TTL               *int     `json:"ttl,omitempty" doc:"--dpi-desync-ttl= / ip_ttl=" schema:"min=1,max=255"`
 	Cutoff            *Cutoff  `json:"cutoff,omitempty" doc:"number of packets (winws nN) or \"none\""`
 	SplitPos          string   `json:"splitPos,omitempty" doc:"--dpi-desync-split-pos= / pos="`
 	Seqovl            *int     `json:"seqovl,omitempty" doc:"--dpi-desync-split-seqovl= / seqovl="`
 	SeqovlPattern     string   `json:"seqovlPattern,omitempty" doc:"bin:, lists: or user: file"`
-	Fooling           []string `json:"fooling,omitempty" doc:"fooling names"`
+	Fooling           []string `json:"fooling,omitempty" doc:"fooling names" schema:"items=fooling"`
 	BadseqIncrement   *int     `json:"badseqIncrement,omitempty" doc:"--dpi-desync-badseq-increment= / tcp_seq="`
 	IPID              string   `json:"ipId,omitempty" doc:"--ip-id= / ip_id="`
 	HostfakesplitMod  string   `json:"hostfakesplitMod,omitempty" doc:"--dpi-desync-hostfakesplit-mod="`
@@ -181,7 +181,7 @@ type GameFile struct {
 	Title   string                `json:"title" doc:"name in the UI" schema:"required"`
 	Order   int                   `json:"order" doc:"games with a lower order go first" schema:"required"`
 	Lists   map[string]GameBundle `json:"lists,omitempty" doc:"bundles of this game"`
-	Updater string                `json:"updater,omitempty" doc:"list updater, for example sky-log"`
+	Updater string                `json:"updater,omitempty" doc:"list updater" schema:"enum=updater"`
 	Rules   []Rule                `json:"rules" doc:"rules; they go before the strategy rules" schema:"required"`
 }
 

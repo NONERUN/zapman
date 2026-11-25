@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/NONERUN/zapman/strategies/schema/targets.json",
+  "title": "zapman targets",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^[a-z0-9]+(-[a-z0-9]+)*$": {
+      "$ref": "#/$defs/target"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "target": {
+      "type": "object",
+      "properties": {
+        "tcp": {
+          "description": "TCP ports: N or N-M; $gameFilter is the Game Filter ports",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(\\$gameFilter|[0-9]+(-[0-9]+)?)$"
+          },
+          "minItems": 1
+        },
+        "udp": {
+          "description": "UDP ports: N or N-M; $gameFilter is the Game Filter ports",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(\\$gameFilter|[0-9]+(-[0-9]+)?)$"
+          },
+          "minItems": 1
+        },
+        "l3": {
+          "description": "--filter-l3= (ipv4 or ipv6)",
+          "type": "string"
+        },
+        "l7": {
+          "description": "--filter-l7= names",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "dht",
+              "discord",
+              "http",
+              "quic",
+              "stun",
+              "tls",
+              "unknown",
+              "wireguard"
+            ]
+          },
+          "minItems": 1
+        },
+        "lists": {
+          "description": "bundle names with hostlist / ipset refs",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "minItems": 1
+        },
+        "exclude": {
+          "description": "bundle names with hostlistExclude / ipsetExclude refs",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "minItems": 1
+        },
+        "domains": {
+          "description": "--hostlist-domains=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "excludeDomains": {
+          "description": "--hostlist-exclude-domains=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "anyProtocol": {
+          "description": "winws --dpi-desync-any-protocol=1; winws2 --payload=all",
+          "type": "boolean"
+        },
+        "payload": {
+          "description": "winws2 --payload= group; only when the group from l7 / anyProtocol is not correct",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
