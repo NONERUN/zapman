@@ -99,3 +99,11 @@ func firstPort(s string) int {
 	}
 	return n
 }
+
+// DerivedPayload gives the winws2 payload groups that the build makes for
+// the profile when its payload is empty. A v2 target keeps an explicit
+// payload only when it is not the same as this.
+func (pr V01Profile) DerivedPayload() []string {
+	pr.Payload = ""
+	return pr.payloadGroups()
+}
