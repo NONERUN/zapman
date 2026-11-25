@@ -33,6 +33,11 @@
 - ZapretSpec (Go), `badseq`: без `badseqIncrement` winws не получает `--dpi-desync-badseq-increment` (дефолт winws −10000 seq / −66000 ack; раньше писалось −10). На winws2 `tcp_seq` = `badseqIncrement` или −10000, `tcp_ack` всегда −66000, как badack winws. Меняется argv FAKE TLS AUTO (оба движка) и winws2 ALT4, ALT8, FAKE TLS AUTO ALT/ALT2, SIMPLE FAKE ALT.
 - ZapretSpec (Go): одна проверка JSON для обоих движков, имена с учётом регистра. `engine` — ровно `winws` / `winws2`. Ошибка: нет `profiles` или список пуст; `desync` / `fooling` / `l7` / префикс пути не в нижнем регистре или неизвестны (`fooling` раньше проверялся только на winws2); `cutoff` не `nN` / `none`; `l7` с `quic` и `tls`; пустой домен в списке; fake не `!` / `0x<hex>` / путь с префиксом или с пробелом; `seqovlPattern` не путь (раньше winws2 принимал любой). Argv стратегий не меняется.
 - Сток из upstream (Flowseal) по 2026-11: `lists/list-exclude.txt` (+`lesta.pw`), `lists/list-google.txt` (+`fonts.googleapis.com`, `www.gstatic.com`), `.service/ipset-service.txt` (источник **Скачать ipset**), `.service/hosts` (**Сверить hosts**).
+- Инструменты разработки на Go: `dev\update-zapret.ps1` → [`dev/update-zapret`](dev/update-zapret/) (ещё сверяет файлы с `sha256sum.txt` релиза), `.githooks/commit-msg` → [`dev/commitmsg`](dev/commitmsg/), правила argv и Sky из `dev\lint.ps1` / `dev\test-sky.ps1` → `go test ./...`. Workflow Lint → [Go](.github/workflows/go.yml) (gofmt, vet, test).
+
+### Removed
+
+- PowerShell-версия на ветке `go`: `src/`, `zapman.bat`, `cli.bat`, `dev/*.ps1`, `PSScriptAnalyzerSettings.psd1`, `blinter.ini`. Иконка — в [`assets/`](assets/). PowerShell-версия остаётся на `main`.
 
 ### Fixed
 

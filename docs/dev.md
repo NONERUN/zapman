@@ -1,8 +1,8 @@
 # Разработка
 
-Ловушки PowerShell 5.1 / WPF, два `.bat`, что не делать в коде — [`AGENTS.md`](../AGENTS.md). Этот файл — поля JSON, обновление `bin/` и GitHub Release. Правка генератора и этого файла — в одном изменении.
+Раскладка, проверки и что не делать в коде — [`AGENTS.md`](../AGENTS.md). Этот файл — поля JSON, обновление `bin/` и GitHub Release. Правка генератора и этого файла — в одном изменении.
 
-Версия продукта — `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1). В окне и в git-теге: `v` + это число. Формат стратегий — `"spec": 2` (раздел «Формат v2» ниже); `Version` в [`internal/spec`](../internal/spec/). `cli.bat env` печатает версию продукта и `ModuleVersion` ZapretSpec.
+Версия продукта на ветке `go` пока не задана (на `main` — `ModuleVersion` в `src/Zapman/Zapman.psd1`, git-тег `v` + это число). Формат стратегий — `"spec": 2` (раздел «Формат v2» ниже); `Version` в [`internal/spec`](../internal/spec/).
 
 ## Движки
 
@@ -11,14 +11,14 @@
 Обновить exe:
 
 ```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\update-zapret.ps1
+go run ./dev/update-zapret [-zapret-tag vX] [-zapret2-tag vY] [-dry-run] [-force]
 ```
 
 Windows 7: тот же `WinDivert.dll` / `WinDivert64.sys` для обоих exe. Если ОС требует подпись — подмена из [zapret-win-bundle/win7](https://github.com/bol-van/zapret-win-bundle/tree/master/win7). См. [`troubleshooting.md`](troubleshooting.md).
 
-Выбор exe — радио в «Стратегия…» (GUI) или пункты 5/6 в `cli.bat service`. Ключ `user/config.json` `engine`: `winws` (дефолт) или `winws2`. Нет файла выбранного exe — ошибка, второй exe сам не подставляется.
+Выбор exe — радио в «Стратегия…» (GUI). Ключ `user/config.json` `engine`: `winws` (дефолт) или `winws2`. Нет файла выбранного exe — ошибка, второй exe сам не подставляется.
 
-Служба `zapret`: ImagePath = `"<bin>\<exe>" <argv>`. Для winws2 `Install-ZapretService` дописывает `--chdir="<bin>"`, если генератор сам `--chdir` не дал (не даёт). SCM стартует из System32; без `--chdir` Lua не находится. Смена `engine` или Game Filter при установленной службе — снова **Установить службу**.
+Служба `zapret`: ImagePath = `"<bin>\<exe>" <argv>`. Для winws2 установка службы дописывает `--chdir="<bin>"`, если генератор сам `--chdir` не дал (не даёт). SCM стартует из System32; без `--chdir` Lua не находится. Смена `engine` или Game Filter при установленной службе — снова **Установить службу**.
 
 GUI и CLI строку флагов не разбирают. Нет exe — отказ.
 
@@ -26,7 +26,7 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 
 ## JSON → argv
 
-Стратегия v2 (см. «Формат v2») разворачивается в профили. Генератор — [`src/ZapretSpec/`](../src/ZapretSpec/), экспорт `ConvertTo-ZapretStrategyArgList`. Lua только stock `bin/lua/zapret-lib.lua` и `bin/lua/zapret-antidpi.lua`. Свой `.lua` не подключать. Lua-атаку в флаги winws не переводить.
+Стратегия v2 (см. «Формат v2») разворачивается в профили. Генератор — [`internal/spec`](../internal/spec/), `spec.Build`. Lua только stock `bin/lua/zapret-lib.lua` и `bin/lua/zapret-antidpi.lua`. Свой `.lua` не подключать. Lua-атаку в флаги winws не переводить.
 
 Неизвестный `desync` — throw. Не добавлять имя атаки вне таблицы.
 
@@ -192,7 +192,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 
 На z2 в argv не должно быть `--dpi-desync`. На z1 не должно быть `--lua-desync`. `--blob=` только `name:value` (двоеточие).
 
-## Линтер и макеты
+## Игровые модули
 
 Игровые модули (`strategies/games/`) не зависят от Game Filter:
 
@@ -202,31 +202,20 @@ Fooling не вешается на Lua-атаку `multisplit`.
 
 Бывшая `general (ALT11 Photon)` = `general (ALT11)` + `sky`, `sker`, `photon`; отличие только в порядке профилей и портов `wf`.
 
-После правок `.ps1` / стратегий / `dev/`:
+Свойства профилей игр на `general (ALT11)` проверяет `TestGames` (`internal/spec`); `-update` golden-файлов их не сотрёт.
 
-```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
-```
-
-После XAML или `src/Zapman/Ui.ps1`:
-
-```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
-```
-
-Файлы в [`docs/ui/`](ui/index.md) руками не править. README показывает [`docs/ui/Main.svg`](ui/Main.svg). Кириллица в `src/Zapman/Ui.ps1` — UTF-8 с BOM.
+Проверки перед коммитом — [`AGENTS.md`](../AGENTS.md). Макеты [`docs/ui/`](ui/index.md) сделаны PowerShell-версией (`main`); на ветке `go` генератора нет.
 
 ## Релиз
 
 Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` сам запускает [Release](../.github/workflows/release.yml) **с того коммита** (YAML в теге). Job собирает zip/rar/tar.gz и создаёт **черновик**. `/releases/latest` не меняется, пока не нажмёте **Publish release**.
 
-1. `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1). Если менялась схема JSON — ZapretSpec и `specVersion` в `strategies/*.json`.
+1. `ModuleVersion` в `src/Zapman/Zapman.psd1` (ветка `main`; на ветке `go` `release.yml` ещё собирает PowerShell-версию и не работает). Если менялась схема JSON — `spec` в `strategies/`.
 2. Секция в [`CHANGELOG.md`](../CHANGELOG.md) на этот тег, коммит **с актуальным** `release.yml`.
 3. Аннотированный тег `v` + ModuleVersion **на этом коммите**:
    `git tag -a v0.1.1 -m v0.1.1`
 4. `git push origin main` и `git push origin v0.1.1`. Не `git push --tags`: в клоне могут быть чужие теги вроде `1.10.2` без `v`.
-5. Дождаться Lint на `main` и зелёного job Release.
+5. Дождаться проверок на `main` и зелёного job Release.
 6. Releases → черновик → проверить архивы → **Publish release**.
 
 Повтор без нового тега (тот же YAML с `main`):

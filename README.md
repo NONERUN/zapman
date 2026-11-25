@@ -39,7 +39,7 @@
 2. Скачайте архив со [страницы релизов](https://github.com/NONERUN/zapman/releases/latest) **этого** репозитория.
 3. Свойства архива → «Разблокировать» (7-Zip / PeaZip часто не требуют).
 4. Распакуйте в путь без кириллицы, пробелов и спецсимволов. Для обновления скопируйте старую папку `user/` в новую распаковку.
-5. Запустите [`zapman.bat`](./zapman.bat) (права администратора будут запрошены автоматически).
+5. Запустите `zapman.bat` из архива (права администратора будут запрошены автоматически).
 
 На **Windows 10 LTSC** и новее с рабочим столом ничего ставить не нужно. На **Windows 7 SP1 x64** — WMF 5.1 и .NET 4.5+.
 
@@ -52,23 +52,19 @@
 - [Использование](docs/usage.md)
 - [Проблемы](docs/troubleshooting.md)
 - [Окна GUI](docs/ui/index.md)
-- [Разработка](docs/dev.md) — JSON → флаги, `dev\update-zapret.ps1`
-- [AGENTS.md](AGENTS.md) — правила для агента (5.1, WPF, что не делать)
+- [Разработка](docs/dev.md) — JSON → флаги, `go run ./dev/update-zapret`
+- [AGENTS.md](AGENTS.md) — правила для агента (раскладка, проверки, что не делать)
 
 ## Разработка
 
-Интерпретатор продукта — `powershell.exe` **5.1**, не `pwsh`.
+Ветка `go` — переписывание на Go; релизы (PowerShell-версия) собираются с `main`.
 
 Тестирование:
 
 ```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
-```
-
-После смены XAML или строк UI:
-
-```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
+gofmt -l .
+go vet ./...
+go test ./...
 ```
 
 ## Поддержка проекта
@@ -80,7 +76,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 ## Лицензия
 
 [MIT](LICENSE.txt).
-Иконка окон и трея — [`src/gui/app.LICENSE.txt`](src/gui/app.LICENSE.txt) (Heroicons, MIT).
+Иконка окон и трея — [`assets/app.LICENSE.txt`](assets/app.LICENSE.txt) (Heroicons, MIT).
 
 ## Благодарность
 
