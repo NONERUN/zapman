@@ -694,14 +694,20 @@ function Restore-ZapretTestWinwsSnapshot {
         if ($current -and $current -contains $p.CommandLine) { continue }
 
         $exe = $p.ExecutablePath
-        $processArgs = ""
-        if ($p.CommandLine) {
-            $quotedExe = '"' + $exe + '"'
-            if ($p.CommandLine.StartsWith($quotedExe)) {
-                $processArgs = $p.CommandLine.Substring($quotedExe.Length).Trim()
-            } elseif ($p.CommandLine.StartsWith($exe)) {
-                $processArgs = $p.CommandLine.Substring($exe.Length).Trim()
-            }
+        # Remove the program token from the command line. A quoted token is clear.
+        # An unquoted token can contain spaces, so try the known path first.
+        $cmd = [string]$p.CommandLine
+        $processArgs = ''
+        if ($cmd -match '^\s*"[^"]*"\s*(.*)$') {
+            $processArgs = $matches[1].Trim()
+        } elseif ($cmd -and $cmd.StartsWith($exe, [StringComparison]::OrdinalIgnoreCase)) {
+            $processArgs = $cmd.Substring($exe.Length).Trim()
+        } elseif ($cmd -match '^\s*\S+\s*(.*)$') {
+            $processArgs = $matches[1].Trim()
+        }
+        if ([string]::IsNullOrWhiteSpace($processArgs)) {
+            Write-ZapmanTestHost ("[WARN] Cannot read the arguments of the previous winws ({0}). Restore skipped." -f $exe) -ForegroundColor Yellow
+            continue
         }
 
         $psi = New-Object System.Diagnostics.ProcessStartInfo

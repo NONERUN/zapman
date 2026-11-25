@@ -51,6 +51,10 @@ if ($doPause) {
 if ($doPause) {
     try {
         Write-Host "Press any key to close..." -ForegroundColor Yellow
+        # Tests run for minutes. Remove the keys that the user pressed during the run.
+        while ([System.Console]::KeyAvailable) {
+            [void][System.Console]::ReadKey($true)
+        }
         [void][System.Console]::ReadKey($true)
     } catch {
         $null = $_.Exception
