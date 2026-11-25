@@ -542,7 +542,7 @@ function Get-ZapmanDiagnosticReport {
         [void]$items.Add((New-ZapmanDiagItem -Id 'sys' -Status 'fail' -Text 'WinDivert64.sys file NOT found'))
     }
 
-    $vpn = @($allSvc | Where-Object { $_.DisplayName -match 'VPN' -or $_.Name -match 'VPN' } | ForEach-Object { $_.Name })
+    $vpn = @($allSvc | Where-Object { $_.DisplayName -match 'VPN|HappService' -or $_.Name -match 'VPN|HappService' } | ForEach-Object { $_.Name })
     if ($vpn.Count -gt 0) {
         [void]$items.Add((New-ZapmanDiagItem -Id 'vpn' -Status 'warn' -Text ('VPN services found: {0}. Disable VPN if bypass fails' -f ($vpn -join ', '))))
     } else {
