@@ -109,6 +109,18 @@ go run ./dev/upstream-versions [-git .] [-ref upstream/main] [-dir strategies] [
 
 Печатает таблицу: имя, тег в файле, вычисленный тег, статус (`ok`, `outdated`, `no .bat upstream`, `no tag yet`); код выхода 2, если есть не `ok`. `-write` ставит вычисленный `upstream` и `rev: 1` только там, где тег сменился; затем перенести изменения `.bat` в JSON и обновить golden. Теги — только из `-ref` (`--merged`), наши `v*` не считаются.
 
+Перенос `.bat` в JSON — [`dev/import-flowseal`](../dev/import-flowseal/):
+
+```text
+go run ./dev/import-flowseal [-git .] [-ref upstream/main] [-dir strategies] [-write]
+```
+
+Читает `general*.bat` из `-ref` через `git show` (без checkout): склеивает строки с `^`, раскрывает `set "X=…"`, `%GameFilterTCP%` / `%GameFilterUDP%` → `$gameFilter`, режет профили по `--new`. Каждый профиль — обратная таблица генератора winws: списки — в бандлы `lists.json`, цель и действие — имя из `targets.json` / `actions.json`, если JSON тот же, иначе inline; fake `bin\X` → `cat:fakes/X`, `bin\ACTIVE_X.bin` → `active:X`. Неизвестный флаг или значение — ошибка с именем `.bat` и флага. Затем round trip: argv нового файла (`spec.Build`, winws) должен совпасть с argv `.bat` (порты `wf` — множества, порядок флагов в профиле свободный, порядок значений одного флага и `fake-tls` / `fake-tls-mod` важен).
+
+Статусы: `same` (argv текущего `flowseal/<имя>.json` = `.bat`), `changed` (ниже — строки различий «ours / Flowseal»), `new`, `removed` (файл есть, `.bat` нет; файл не удаляется), `error`. Код выхода: 1 при ошибке, 2 если есть не `same` и файл не записан или `removed`, иначе 0. `-write` пишет `flowseal/<имя>.json` для `changed` и `new`: `upstream` — тег `.bat`, `rev: 1`, `about` прежний; `same` не трогает (байт в байт). После записи — `go generate ./internal/spec` (и golden).
+
+Внимание: на 1.10.4 все 22 файла — `changed` только из-за наших добавок v0.1 для winws2: `--filter-l7` у целей и явный `--dpi-desync-fake-tls=!` при `fake-tls-mod` без файла (ALT3, ALT8, FAKE TLS AUTO ALT/ALT2/ALT3). `-write` их уберёт и сбросит `rev` на 1, поэтому сейчас `-write` по всему каталогу не запускать — смотреть отчёт и переносить вручную. `TestImport` (пропуск без git или тега `1.10.4`) проверяет, что других различий нет.
+
 ### Цель и действие (поля профиля)
 
 `desync` — только эти имена: `fake`, `multisplit`, `multidisorder`, `hostfakesplit`, `fakedsplit`, `syndata`.
