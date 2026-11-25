@@ -204,7 +204,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 
 Свойства профилей игр на `general (ALT11)` проверяет `TestGames` (`internal/spec`); `-update` golden-файлов их не сотрёт.
 
-Проверки перед коммитом (`go tool golangci-lint run ./...`, `go vet ./...`, `go test ./...`) — [`AGENTS.md`](../AGENTS.md). Макеты [`docs/ui/`](ui/index.md) сделаны PowerShell-версией (`main`); на ветке `go` генератора нет.
+Проверки перед коммитом (golangci-lint и govulncheck из [`tools/go.mod`](../tools/go.mod), `go vet ./...`, `go test ./...`) — [`AGENTS.md`](../AGENTS.md). Макеты [`docs/ui/`](ui/index.md) сделаны PowerShell-версией (`main`); на ветке `go` генератора нет.
 
 ## Релиз
 

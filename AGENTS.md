@@ -36,15 +36,18 @@
 
 ## Проверки
 
-Перед каждым коммитом все три без ошибок:
+Перед каждым коммитом все четыре без ошибок:
 
 ```text
-go tool golangci-lint run ./...
+go tool -modfile=tools/go.mod golangci-lint run ./...
+go tool -modfile=tools/go.mod govulncheck ./...
 go vet ./...
 go test ./...
 ```
 
-golangci-lint (версия — в `go.mod`, настройки — [`.golangci.yml`](.golangci.yml)) проверяет и gofmt / goimports. `//nolint` — только с именем линтера и причиной: `//nolint:gosec // причина`.
+В PowerShell флаг брать в кавычки: `'-modfile=tools/go.mod'`.
+
+Линтеры — отдельный модуль [`tools/go.mod`](tools/go.mod), их зависимости не смешиваются с зависимостями программы. Версия Go — `toolchain` в `go.mod`; govulncheck нашёл уязвимость в стандартной библиотеке — поднять `toolchain` в `go.mod` и `tools/go.mod`. golangci-lint (настройки — [`.golangci.yml`](.golangci.yml)) проверяет и gofmt / goimports. `//nolint` — только с именем линтера и причиной: `//nolint:gosec // причина`.
 
 То же делает workflow [Go](.github/workflows/go.yml). Тесты не ходят в сеть.
 

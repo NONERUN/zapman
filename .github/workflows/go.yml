@@ -16,10 +16,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache-dependency-path: "**/go.sum"
 
+      # Lint tools have their own module, so their dependencies do not mix with ours.
       # Also checks gofmt and goimports (formatters in .golangci.yml).
       - name: Lint
-        run: go tool golangci-lint run ./...
+        run: go tool -modfile=tools/go.mod golangci-lint run ./...
+
+      - name: Vulnerabilities
+        run: go tool -modfile=tools/go.mod govulncheck ./...
 
       - name: Vet
         run: go vet ./...
