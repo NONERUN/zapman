@@ -36,13 +36,15 @@
 
 ## Проверки
 
-Перед каждым коммитом все три без ошибок (`gofmt -l .` — пустой вывод):
+Перед каждым коммитом все три без ошибок:
 
 ```text
-gofmt -l .
+go tool golangci-lint run ./...
 go vet ./...
 go test ./...
 ```
+
+golangci-lint (версия — в `go.mod`, настройки — [`.golangci.yml`](.golangci.yml)) проверяет и gofmt / goimports. `//nolint` — только с именем линтера и причиной: `//nolint:gosec // причина`.
 
 То же делает workflow [Go](.github/workflows/go.yml). Тесты не ходят в сеть.
 
