@@ -16,7 +16,7 @@ func TestEdge(t *testing.T) {
 	}
 	for _, eng := range []Engine{Winws, Winws2} {
 		path := filepath.Join("testdata", "edge."+string(eng)+".txt")
-		lines, err := Build(s, eng, goldenPaths, GameFilter{TCP: "12", UDP: "13"})
+		lines, err := BuildV01(s, eng, goldenPaths, GameFilter{TCP: "12", UDP: "13"})
 		if err != nil {
 			t.Fatalf("%s: %v", eng, err)
 		}
@@ -123,7 +123,7 @@ func TestErrors(t *testing.T) {
 			for _, eng := range c.fail {
 				err := perr
 				if err == nil {
-					_, err = Build(s, eng, p, gf)
+					_, err = BuildV01(s, eng, p, gf)
 				}
 				if err == nil {
 					t.Errorf("%s: no error", eng)
@@ -135,7 +135,7 @@ func TestErrors(t *testing.T) {
 				if perr != nil {
 					t.Fatalf("parse: %v", perr)
 				}
-				if _, err := Build(s, eng, p, gf); err != nil {
+				if _, err := BuildV01(s, eng, p, gf); err != nil {
 					t.Errorf("%s: %v", eng, err)
 				}
 			}
@@ -180,7 +180,7 @@ func TestFakePayloadFilters(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			lines, err := Build(s, Winws2, goldenPaths, GameFilter{TCP: "12", UDP: "12"})
+			lines, err := BuildV01(s, Winws2, goldenPaths, GameFilter{TCP: "12", UDP: "12"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -218,7 +218,7 @@ func TestBadseq(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, eng := range []Engine{Winws, Winws2} {
-				lines, err := Build(s, eng, goldenPaths, GameFilter{TCP: "12", UDP: "12"})
+				lines, err := BuildV01(s, eng, goldenPaths, GameFilter{TCP: "12", UDP: "12"})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -244,20 +244,20 @@ func TestEngine(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, gf := goldenPaths, GameFilter{TCP: "12", UDP: "12"}
-	if _, err := Build(s, "", p, gf); err == nil || err.Error() != "Engine is empty." {
+	if _, err := BuildV01(s, "", p, gf); err == nil || err.Error() != "Engine is empty." {
 		t.Errorf("empty engine: %v", err)
 	}
-	if _, err := Build(s, "winws3", p, gf); err == nil {
+	if _, err := BuildV01(s, "winws3", p, gf); err == nil {
 		t.Error("winws3: no error")
 	}
-	if _, err := Build(nil, Winws, p, gf); err == nil {
+	if _, err := BuildV01(nil, Winws, p, gf); err == nil {
 		t.Error("nil spec: no error")
 	}
-	if _, err := Build(s, "WINWS2", p, gf); err == nil || err.Error() != "Unknown engine 'WINWS2'. Use winws or winws2." {
+	if _, err := BuildV01(s, "WINWS2", p, gf); err == nil || err.Error() != "Unknown engine 'WINWS2'. Use winws or winws2." {
 		t.Errorf("WINWS2: %v", err)
 	}
 	for _, eng := range []Engine{Winws, Winws2} {
-		if _, err := Build(s, eng, p, gf); err != nil {
+		if _, err := BuildV01(s, eng, p, gf); err != nil {
 			t.Errorf("%s: %v", eng, err)
 		}
 	}

@@ -61,7 +61,7 @@ func TestGolden(t *testing.T) {
 		for _, eng := range []Engine{Winws, Winws2} {
 			for _, c := range goldenCases {
 				golden := filepath.Join(root, "testdata", "golden", string(eng), c.name, base+".txt")
-				lines, err := Build(s, eng, goldenPaths, c.gf)
+				lines, err := BuildV01(s, eng, goldenPaths, c.gf)
 				if err != nil {
 					t.Errorf("%s %s %s: %v", base, eng, c.name, err)
 					continue

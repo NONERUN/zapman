@@ -27,7 +27,7 @@ func (s *V01Spec) validate() error {
 	}
 	for i := range s.Profiles {
 		if err := s.Profiles[i].validate(); err != nil {
-			return err
+			return s.at(i, err)
 		}
 	}
 	return nil

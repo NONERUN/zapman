@@ -45,10 +45,10 @@ var payloadSlots = map[string][]string{
 	"discord_ip_discovery,stun": {"discord", "stun"},
 }
 
-// Build gives the argv lines of the spec for the engine: the --wf line, for
+// BuildV01 gives the argv lines of the v0.1 spec for the engine: the --wf line, for
 // winws2 the --lua-init line and the --blob line, then one line per profile.
 // Each profile line but the last ends with " --new".
-func Build(s *V01Spec, engine Engine, p Paths, gf GameFilter) ([]string, error) {
+func BuildV01(s *V01Spec, engine Engine, p Paths, gf GameFilter) ([]string, error) {
 	if s == nil {
 		return nil, errors.New("Strategy spec is empty.")
 	}
@@ -393,18 +393,18 @@ func registerBlobs(s *V01Spec, p Paths) (*blobRegistry, error) {
 		for _, d := range v01FakeSlots {
 			for _, ref := range d.get(&pr.Fake).Refs {
 				if err := reg.add(ref); err != nil {
-					return nil, err
+					return nil, s.at(i, err)
 				}
 			}
 		}
 		if pr.SeqovlPattern != "" {
 			if err := reg.add(pr.SeqovlPattern); err != nil {
-				return nil, err
+				return nil, s.at(i, err)
 			}
 		}
 		if isFileRef(pr.FakedsplitPattern) {
 			if err := reg.add(pr.FakedsplitPattern); err != nil {
-				return nil, err
+				return nil, s.at(i, err)
 			}
 		}
 	}
@@ -507,79 +507,87 @@ func buildWinws2(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 
 	var out [][]string
 	for i := range s.Profiles {
-		pr := &s.Profiles[i]
-		parts := pr.commonFilters(p, gf)
-		if n, ok := matchCutoffN(pr.Cutoff); ok {
-			parts = append(parts, "--out-range=-d"+n)
-		} else if pr.needOutRange() {
-			parts = append(parts, "--out-range=-d10")
-		}
-
-		foolArgs := pr.luaFoolingArgs()
-
-		for _, group := range pr.payloadGroups() {
-			if !isBlank(group) {
-				parts = append(parts, "--payload="+group)
-			}
-			for _, attack := range pr.Desync {
-				caps := v01Attacks[attack]
-				payloadArgs, err := pr.luaPayloadArgs()
-				if err != nil {
-					return nil, err
-				}
-				if attack == "fake" {
-					calls, err := pr.fakeCallsForGroup(group)
-					if err != nil {
-						return nil, err
-					}
-					if len(calls) < 1 {
-						return nil, fmt.Errorf("Strategy fake has no blob for payload group '%s'.", group)
-					}
-					for _, call := range calls {
-						ref := call.ref
-						lua := append([]string{"fake"}, payloadArgs...)
-						if call.payload != "" {
-							lua = []string{"fake", "payload=" + call.payload}
-						}
-						name, ok := reg.name(ref)
-						if !ok {
-							return nil, fmt.Errorf("Strategy fake blob is missing: %s", ref)
-						}
-						lua = append(lua, "blob="+name)
-						if pr.Repeats != nil {
-							lua = append(lua, "repeats="+strconv.Itoa(*pr.Repeats))
-						}
-						if call.tlsMod {
-							lua = append(lua, "tls_mod="+pr.TLSMod)
-						}
-						lua = append(lua, foolArgs...)
-						if !isBlank(pr.IPID) {
-							lua = append(lua, "ip_id="+pr.IPID)
-						}
-						parts = append(parts, "--lua-desync="+strings.Join(lua, ":"))
-					}
-					continue
-				}
-
-				lua := append([]string{attack}, payloadArgs...)
-				mod, err := pr.luaModArgs(caps, reg)
-				if err != nil {
-					return nil, err
-				}
-				lua = append(lua, mod...)
-				if pr.Repeats != nil && caps.repeats {
-					lua = append(lua, "repeats="+strconv.Itoa(*pr.Repeats))
-				}
-				if caps.fooling {
-					lua = append(lua, foolArgs...)
-				}
-				if !isBlank(pr.IPID) {
-					lua = append(lua, "ip_id="+pr.IPID)
-				}
-				parts = append(parts, "--lua-desync="+strings.Join(lua, ":"))
-			}
+		parts, err := s.Profiles[i].winws2Parts(p, gf, reg)
+		if err != nil {
+			return nil, s.at(i, err)
 		}
 		out = append(out, parts)
 	}
 	return finishProfiles(lines, out), nil
+}
+
+// winws2Parts gives the winws2 argv items of the profile.
+func (pr *V01Profile) winws2Parts(p Paths, gf GameFilter, reg *blobRegistry) ([]string, error) {
+	parts := pr.commonFilters(p, gf)
+	if n, ok := matchCutoffN(pr.Cutoff); ok {
+		parts = append(parts, "--out-range=-d"+n)
+	} else if pr.needOutRange() {
+		parts = append(parts, "--out-range=-d10")
+	}
+
+	foolArgs := pr.luaFoolingArgs()
+
+	for _, group := range pr.payloadGroups() {
+		if !isBlank(group) {
+			parts = append(parts, "--payload="+group)
+		}
+		for _, attack := range pr.Desync {
+			caps := v01Attacks[attack]
+			payloadArgs, err := pr.luaPayloadArgs()
+			if err != nil {
+				return nil, err
+			}
+			if attack == "fake" {
+				calls, err := pr.fakeCallsForGroup(group)
+				if err != nil {
+					return nil, err
+				}
+				if len(calls) < 1 {
+					return nil, fmt.Errorf("Strategy fake has no blob for payload group '%s'.", group)
+				}
+				for _, call := range calls {
+					ref := call.ref
+					lua := append([]string{"fake"}, payloadArgs...)
+					if call.payload != "" {
+						lua = []string{"fake", "payload=" + call.payload}
+					}
+					name, ok := reg.name(ref)
+					if !ok {
+						return nil, fmt.Errorf("Strategy fake blob is missing: %s", ref)
+					}
+					lua = append(lua, "blob="+name)
+					if pr.Repeats != nil {
+						lua = append(lua, "repeats="+strconv.Itoa(*pr.Repeats))
+					}
+					if call.tlsMod {
+						lua = append(lua, "tls_mod="+pr.TLSMod)
+					}
+					lua = append(lua, foolArgs...)
+					if !isBlank(pr.IPID) {
+						lua = append(lua, "ip_id="+pr.IPID)
+					}
+					parts = append(parts, "--lua-desync="+strings.Join(lua, ":"))
+				}
+				continue
+			}
+
+			lua := append([]string{attack}, payloadArgs...)
+			mod, err := pr.luaModArgs(caps, reg)
+			if err != nil {
+				return nil, err
+			}
+			lua = append(lua, mod...)
+			if pr.Repeats != nil && caps.repeats {
+				lua = append(lua, "repeats="+strconv.Itoa(*pr.Repeats))
+			}
+			if caps.fooling {
+				lua = append(lua, foolArgs...)
+			}
+			if !isBlank(pr.IPID) {
+				lua = append(lua, "ip_id="+pr.IPID)
+			}
+			parts = append(parts, "--lua-desync="+strings.Join(lua, ":"))
+		}
+	}
+	return parts, nil
 }

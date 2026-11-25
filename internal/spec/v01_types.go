@@ -17,6 +17,18 @@ type V01Spec struct {
 	SpecVersion string       `json:"specVersion"`
 	WF          *V01WF       `json:"wf"`
 	Profiles    []V01Profile `json:"profiles"`
+
+	// origins name the source of each profile in errors (v2: file and
+	// rule). It is empty for a v0.1 file.
+	origins []string
+}
+
+// at adds the origin of profile i to err.
+func (s *V01Spec) at(i int, err error) error {
+	if err == nil || i >= len(s.origins) {
+		return err
+	}
+	return fmt.Errorf("%s: %w", s.origins[i], err)
 }
 
 // V01WF is the WinDivert port filter of the root.
