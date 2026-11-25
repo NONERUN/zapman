@@ -59,7 +59,7 @@
       "fooling": ["ts"],
       "fake": {
         "tls": ["bin:tls_clienthello_www_google_com.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -86,7 +86,7 @@
       "fooling": ["ts"],
       "fake": {
         "tls": ["bin:tls_clienthello_www_google_com.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -101,7 +101,7 @@
       "cutoff": "n4",
       "fake": {
         "tls": ["bin:tls_clienthello_www_google_com.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"],
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
         "unknown": ["bin:stun2.bin", "bin:tls_clienthello_www_google_com.bin"]
       }
     },

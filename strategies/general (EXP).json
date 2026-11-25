@@ -66,8 +66,8 @@
       "seqovlPattern": "bin:stun2.bin",
       "fooling": ["ts"],
       "fake": {
-        "tls": ["bin:tls_clienthello_max_ru.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "tls": ["bin:tls_clienthello_www_sferum_ru.bin"],
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -97,8 +97,8 @@
       "seqovlPattern": "bin:stun2.bin",
       "fooling": ["ts"],
       "fake": {
-        "tls": ["bin:tls_clienthello_max_ru.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "tls": ["bin:tls_clienthello_www_sferum_ru.bin"],
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -110,13 +110,13 @@
       "repeats": 8,
       "splitPos": "1",
       "seqovl": 664,
-      "seqovlPattern": "bin:tls_clienthello_max_ru.bin",
+      "seqovlPattern": "bin:tls_clienthello_www_sferum_ru.bin",
       "fooling": ["ts"],
       "anyProtocol": true,
       "cutoff": "n4",
       "fake": {
-        "tls": ["bin:stun2.bin", "bin:tls_clienthello_max_ru.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {

@@ -65,7 +65,7 @@
       "fakedsplitPattern": "0x00",
       "fake": {
         "tls": ["bin:stun.bin", "bin:tls_clienthello_www_google_com.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -93,7 +93,7 @@
       "fakedsplitPattern": "0x00",
       "fake": {
         "tls": ["bin:stun.bin", "bin:tls_clienthello_www_google_com.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -109,7 +109,7 @@
       "fakedsplitPattern": "0x00",
       "fake": {
         "tls": ["bin:stun.bin", "bin:tls_clienthello_www_google_com.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"],
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
         "unknown": ["bin:stun.bin", "bin:tls_clienthello_www_google_com.bin"]
       }
     },

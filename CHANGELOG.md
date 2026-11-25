@@ -11,6 +11,7 @@
 ### Changed
 
 - GitHub Release: push тега `v*.*.*` собирает архивы в **черновик**; Publish — вручную. Повтор не трогает immutable-ассеты. См. [`docs/dev.md`](docs/dev.md).
+- Стратегии: fake `bin:tls_clienthello_max_ru.bin` → `bin:tls_clienthello_www_sferum_ru.bin` в 15 `strategies/*.json` (ALT, ALT3, ALT4, ALT8, ALT10, ALT11, ALT12, EXP, FAKE TLS AUTO*, SIMPLE FAKE*), как upstream 93ebbbf. Файл `tls_clienthello_max_ru.bin` остаётся в `bin/` для **Fake…**.
 
 ### Fixed
 

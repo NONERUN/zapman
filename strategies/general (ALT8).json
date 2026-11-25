@@ -61,7 +61,7 @@
       "badseqIncrement": 2,
       "tlsMod": "none",
       "fake": {
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -89,7 +89,7 @@
       "badseqIncrement": 2,
       "tlsMod": "none",
       "fake": {
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -105,8 +105,8 @@
       "cutoff": "n3",
       "tlsMod": "none",
       "fake": {
-        "http": ["bin:tls_clienthello_max_ru.bin"],
-        "unknown": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
+        "unknown": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {

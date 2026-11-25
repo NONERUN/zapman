@@ -58,7 +58,7 @@
       "tlsMod": "rnd,dupsid,sni=ya.ru",
       "hostfakesplitMod": "host=ya.ru,altorder=1",
       "fake": {
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -85,7 +85,7 @@
       "tlsMod": "rnd,dupsid,sni=ya.ru",
       "hostfakesplitMod": "host=ya.ru,altorder=1",
       "fake": {
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -100,8 +100,8 @@
       "tlsMod": "rnd,dupsid,sni=ya.ru",
       "hostfakesplitMod": "host=ya.ru,altorder=1",
       "fake": {
-        "http": ["bin:tls_clienthello_max_ru.bin"],
-        "unknown": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
+        "unknown": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {

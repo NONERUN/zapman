@@ -68,7 +68,7 @@
       "tlsMod": "rnd,dupsid,sni=www.google.com",
       "fake": {
         "tls": ["0x00000000", "!"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -97,7 +97,7 @@
       "tlsMod": "rnd,dupsid,sni=www.google.com",
       "fake": {
         "tls": ["0x00000000", "!"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -114,8 +114,8 @@
       "tlsMod": "rnd,dupsid,sni=www.google.com",
       "fake": {
         "tls": ["0x00000000", "!"],
-        "http": ["bin:tls_clienthello_max_ru.bin"],
-        "unknown": ["0x00000000", "bin:tls_clienthello_max_ru.bin"]
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
+        "unknown": ["0x00000000", "bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {

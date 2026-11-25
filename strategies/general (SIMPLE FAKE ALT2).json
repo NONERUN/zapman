@@ -61,8 +61,8 @@
       "repeats": 6,
       "fooling": ["ts"],
       "fake": {
-        "tls": ["bin:stun2.bin", "bin:tls_clienthello_max_ru.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -88,8 +88,8 @@
       "repeats": 6,
       "fooling": ["ts"],
       "fake": {
-        "tls": ["bin:stun2.bin", "bin:tls_clienthello_max_ru.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"]
+        "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
@@ -103,9 +103,9 @@
       "anyProtocol": true,
       "cutoff": "n5",
       "fake": {
-        "tls": ["bin:stun2.bin", "bin:tls_clienthello_max_ru.bin"],
-        "http": ["bin:tls_clienthello_max_ru.bin"],
-        "unknown": ["bin:stun2.bin", "bin:tls_clienthello_max_ru.bin"]
+        "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
+        "http": ["bin:tls_clienthello_www_sferum_ru.bin"],
+        "unknown": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
     {
