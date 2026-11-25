@@ -50,7 +50,7 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 |---|---|---|
 | `tcp` / `udp` / `l3` / `l7` | `--filter-tcp=` / `--filter-udp=` / `--filter-l3=` / `--filter-l7=` | то же |
 | `payload` | не пишется (фильтр из `l7`) | `--payload=` |
-| `luaPayload` | не пишется | `payload=` на каждой Lua-атаке; для неизвестных игровых пакетов нужен `all`, одного `--payload=all` недостаточно |
+| `luaPayload` | не пишется | `payload=` на каждой Lua-атаке; для неизвестных игровых пакетов нужен `all`, одного `--payload=all` недостаточно. У `fake` заменяет фильтры слотов (см. Fake) |
 | `hostlist` | `--hostlist=` | то же |
 | `hostlistExclude` | `--hostlist-exclude=` | то же |
 | `hostlistDomains` | `--hostlist-domains=` | то же |
@@ -93,6 +93,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 | значение `!` | как в JSON (встроенный hello z1) | stock `bin:tls_clienthello_www_google_com.bin` |
 | TLS-профиль с `fake` в `desync`, слота `tls` нет | z1 берёт встроенный hello | ошибка сборки: нет blob для группы. Неявного hello нет: пишите `"tls": ["!"]` |
 | `payload: "all"` / `anyProtocol`, слота `tls` нет | z1 берёт встроенный hello для TLS | TLS hello не подставляется |
+| группа из нескольких слотов (`all`, `discord,stun`), нет `luaPayload` | fake по типу пакета: TCP `http`/`tls`/`unknown`, UDP `quic`/`discord`/`stun`/`unknownUdp` | каждый слот — свой `payload=` у `fake`: `tls` → `tls_client_hello`, `http` → `http_req`, `quic` → `quic_initial`, `discord` → `discord_ip_discovery`, `stun` → `stun`, `unknown` → `~empty,http_req,tls_client_hello`, `unknownUdp` → `~empty,quic_initial,wireguard_initiation,dht,discord_ip_discovery,stun`. Один ref в нескольких слотах — один вызов, фильтры через запятую. Слоты другого L4 (UDP-слот в TCP-профиле) не пишутся. `unknown` / `unknownUdp` в профиле с `tcp` и `udp` — ошибка сборки |
 | hex `0x00000000` | как есть | имя blob `hex_00000000`, не `0x…` |
 | порядок | `fake-tls` **до** `fake-tls-mod` | `tls_mod` только на последний TLS-ref |
 

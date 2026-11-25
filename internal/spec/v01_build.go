@@ -146,34 +146,130 @@ func (pr *V01Profile) payloadGroups() []string {
 	return []string{""}
 }
 
-// fakeRefsForGroup gives the refs of the fake slots of the group. There is
-// no implicit TLS hello: use "!" in a slot to get the stock hello.
-func (pr *V01Profile) fakeRefsForGroup(group string) []string {
-	slots := []string{}
-	for _, d := range v01FakeSlots {
-		slots = append(slots, d.name)
+// slotPayload is the winws2 Lua payload filter of each fake slot in a group
+// with more than one slot (for example "all"). It copies the fake choice of
+// winws (desync.c): TCP http -> fake-http, tls -> fake-tls, other data ->
+// fake-unknown; UDP quic -> fake-quic, discord -> fake-discord, stun ->
+// fake-stun, other data but wireguard and dht -> fake-unknown-udp.
+var slotPayload = map[string]string{
+	"quic":       "quic_initial",
+	"tls":        "tls_client_hello",
+	"http":       "http_req",
+	"discord":    "discord_ip_discovery",
+	"stun":       "stun",
+	"unknown":    "~empty,http_req,tls_client_hello",
+	"unknownUdp": "~empty,quic_initial,wireguard_initiation,dht,discord_ip_discovery,stun",
+}
+
+// slotL4 is the protocol of the packets that winws sends the fake slot for.
+var slotL4 = map[string]string{
+	"quic": "udp", "tls": "tcp", "http": "tcp", "discord": "udp",
+	"stun": "udp", "unknown": "tcp", "unknownUdp": "udp",
+}
+
+// fakeCall is one winws2 fake call: a blob ref and its Lua payload filter.
+// An empty payload means the filter of the group.
+type fakeCall struct {
+	ref     string
+	payload string
+}
+
+// l4 gives "tcp" or "udp" when the profile has only that filter, else "".
+func (pr *V01Profile) l4() string {
+	switch {
+	case !isBlank(pr.TCP) && isBlank(pr.UDP):
+		return "tcp"
+	case isBlank(pr.TCP) && !isBlank(pr.UDP):
+		return "udp"
 	}
+	return ""
+}
+
+// fakeCallsForGroup gives the fake calls of the group. A group of one slot
+// (tls_client_hello, http_req, quic_initial) uses the refs of that slot. In
+// other groups each slot gets the payload filter of slotPayload, so a fake
+// goes only to the payload type that winws sends it for. When the slots of
+// one ref have positive filters, one call gets all of them. luaPayload, when
+// set, replaces these filters. There is no implicit TLS hello: use "!" in a
+// slot to get the stock hello.
+func (pr *V01Profile) fakeCallsForGroup(group string) ([]fakeCall, error) {
+	var slots []string
 	for g, s := range payloadSlots {
 		if strings.EqualFold(group, g) {
 			slots = s
 		}
 	}
-	seen := foldSet{}
-	var refs []string
+	filter := len(slots) != 1 && isBlank(pr.LuaPayload)
+	if slots == nil {
+		for _, d := range v01FakeSlots {
+			slots = append(slots, d.name)
+		}
+	}
+	l4 := pr.l4()
+	var calls []fakeCall
+	pos := map[string]int{} // ref (lower case) -> index of its call with a positive filter
 	for _, name := range slots {
 		sl := pr.slot(name)
 		if !sl.Set {
 			continue
 		}
+		payload := ""
+		if filter {
+			if l4 != "" && l4 != slotL4[name] {
+				// winws never sends this slot on this protocol.
+				continue
+			}
+			if l4 == "" && (name == "unknown" || name == "unknownUdp") {
+				return nil, fmt.Errorf("Fake slot '%s' needs a profile with only tcp or only udp.", name)
+			}
+			payload = slotPayload[name]
+		}
+		seen := foldSet{}
 		for _, r := range sl.Refs {
 			if isBlank(r) || seen.has(r) {
 				continue
 			}
 			seen.add(r)
-			refs = append(refs, r)
+			key := strings.ToLower(r)
+			if strings.HasPrefix(payload, "~") {
+				calls = append(calls, fakeCall{ref: r, payload: payload})
+				continue
+			}
+			if i, ok := pos[key]; ok {
+				if payload != "" {
+					calls[i].payload += "," + payload
+				}
+				continue
+			}
+			pos[key] = len(calls)
+			calls = append(calls, fakeCall{ref: r, payload: payload})
 		}
 	}
-	return refs
+	// A filter that is the same as the --payload group adds nothing.
+	for i := range calls {
+		if calls[i].payload != "" && sameItems(calls[i].payload, group) {
+			calls[i].payload = ""
+		}
+	}
+	return calls, nil
+}
+
+// sameItems tells if two comma lists have the same items.
+func sameItems(a, b string) bool {
+	x, y := strings.Split(a, ","), strings.Split(b, ",")
+	if len(x) != len(y) {
+		return false
+	}
+	set := foldSet{}
+	for _, s := range x {
+		set.add(s)
+	}
+	for _, s := range y {
+		if !set.has(s) {
+			return false
+		}
+	}
+	return true
 }
 
 // needOutRange is Test-ZapretSpecNeedOutRange.
@@ -342,18 +438,8 @@ func registerBlobs(s *V01Spec, p Paths) (*blobRegistry, error) {
 				}
 			}
 		}
-		desync, err := pr.desync()
-		if err != nil {
+		if _, err := pr.desync(); err != nil {
 			return nil, err
-		}
-		if hasFold(desync, "fake") {
-			for _, g := range pr.payloadGroups() {
-				for _, ref := range pr.fakeRefsForGroup(g) {
-					if err := reg.add(ref); err != nil {
-						return nil, err
-					}
-				}
-			}
 		}
 		if !isBlank(pr.SeqovlPattern) {
 			if err := reg.add(pr.SeqovlPattern); err != nil {
@@ -508,12 +594,19 @@ func buildWinws2(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 					return nil, err
 				}
 				if strings.EqualFold(attack, "fake") {
-					refs := pr.fakeRefsForGroup(group)
-					if len(refs) < 1 {
+					calls, err := pr.fakeCallsForGroup(group)
+					if err != nil {
+						return nil, err
+					}
+					if len(calls) < 1 {
 						return nil, fmt.Errorf("Strategy fake has no blob for payload group '%s'.", group)
 					}
-					for _, ref := range refs {
+					for _, call := range calls {
+						ref := call.ref
 						lua := append([]string{"fake"}, payloadArgs...)
+						if call.payload != "" {
+							lua = []string{"fake", "payload=" + call.payload}
+						}
 						name, ok := reg.name(ref)
 						if !ok {
 							return nil, fmt.Errorf("Strategy fake blob is missing: %s", ref)

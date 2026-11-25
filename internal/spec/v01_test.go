@@ -91,6 +91,7 @@ func TestErrors(t *testing.T) {
 		{"fake without blob", specWith(`"tcp":"80","payload":"http_req","desync":["fake"]`), z2, z1, "Strategy fake has no blob for payload group 'http_req'."},
 		{"tls fake without tls slot", specWith(`"tcp":"443","l7":"tls","desync":["fake"]`), z2, z1, "Strategy fake has no blob for payload group 'tls_client_hello'."},
 		{"parse: defaultTlsFake removed", specWith(okProfile + `,"defaultTlsFake":false`), both, nil, `unknown field "defaultTlsFake"`},
+		{"unknown fake with tcp and udp", specWith(`"tcp":"443","udp":"443","payload":"all","desync":["fake"],"fake":{"unknown":["bin:u.bin"]}`), z2, z1, "Fake slot 'unknown' needs a profile with only tcp or only udp."},
 		{"blob ref without file", specWith(`"tcp":"80","payload":"http_req","desync":["fake"],"fake":{"http":["bin:"]}`), z2, z1, "Blob ref has no file name: bin:"},
 	}
 	p := goldenPaths
@@ -115,6 +116,53 @@ func TestErrors(t *testing.T) {
 				}
 				if _, err := Build(s, eng, p, gf); err != nil {
 					t.Errorf("%s: %v", eng, err)
+				}
+			}
+		})
+	}
+}
+
+// TestFakePayloadFilters checks the Lua payload filters of winws2 fakes in a
+// group of more than one slot.
+func TestFakePayloadFilters(t *testing.T) {
+	cases := []struct {
+		name    string
+		profile string
+		want    []string
+		absent  []string
+	}{
+		{"tcp all", `"tcp":"443","payload":"all","desync":["fake"],"fake":{"tls":["bin:a.bin"],"http":["bin:a.bin"],"unknown":["bin:u.bin"],"quic":["bin:q.bin"]}`,
+			[]string{"--lua-desync=fake:payload=tls_client_hello,http_req:blob=a ", "--lua-desync=fake:payload=~empty,http_req,tls_client_hello:blob=u"},
+			[]string{"blob=q"}},
+		{"udp all", `"udp":"443","payload":"all","desync":["fake"],"fake":{"quic":["bin:q.bin"],"unknownUdp":["bin:u.bin"],"tls":["bin:a.bin"]}`,
+			[]string{"--lua-desync=fake:payload=quic_initial:blob=q", "--lua-desync=fake:payload=~empty,quic_initial,wireguard_initiation,dht,discord_ip_discovery,stun:blob=u"},
+			[]string{"blob=a"}},
+		{"discord and stun", `"udp":"443","l7":"discord,stun","desync":["fake"],"fake":{"discord":["bin:d.bin","bin:s.bin"],"stun":["bin:s.bin"]}`,
+			[]string{"--lua-desync=fake:payload=discord_ip_discovery:blob=d", "--lua-desync=fake:blob=s"},
+			nil},
+		{"luaPayload wins", `"udp":"443","payload":"all","luaPayload":"all","desync":["fake"],"fake":{"unknownUdp":["bin:u.bin"]}`,
+			[]string{"--lua-desync=fake:payload=all:blob=u"},
+			[]string{"~empty"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := Parse([]byte(specWith(c.profile)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines, err := Build(s, Winws2, goldenPaths, GameFilter{TCP: "12", UDP: "12"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := lines[len(lines)-1] + " "
+			for _, w := range c.want {
+				if !strings.Contains(got, w) {
+					t.Errorf("no %q in\n%s", w, got)
+				}
+			}
+			for _, a := range c.absent {
+				if strings.Contains(got, a) {
+					t.Errorf("%q in\n%s", a, got)
 				}
 			}
 		})
