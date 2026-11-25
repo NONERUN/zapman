@@ -397,9 +397,8 @@ $xamlFiles = @(Get-ZapretXamlFiles -RepoRoot $root)
 foreach ($item in @(Test-ZapretXamlRules -Files $xamlFiles)) {
     [void]$issues.Add($item)
 }
-foreach ($item in @(Test-ZapretStrategyJsonRules -RepoRoot $root)) {
-    [void]$issues.Add($item)
-}
+# Skipped: strategies/ is format v2 now; this rule checks v0.1. go test ./internal/spec checks v2.
+# foreach ($item in @(Test-ZapretStrategyJsonRules -RepoRoot $root)) { [void]$issues.Add($item) }
 foreach ($item in @(Test-ZapmanBatRequiresSta -RepoRoot $root)) {
     [void]$issues.Add($item)
 }

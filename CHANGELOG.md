@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+### Breaking
+
+- Формат стратегий v2 (`"spec": 2`): `strategies/lists.json`, `targets.json`, `actions.json`, `games/*.json` и стратегии из правил `{ target, action }`; `wf` считается из портов целей. JSON Schema — `strategies/schema/`. Файлы v0.1 (`specVersion`) не читаются; перевод — одноразовый [`dev/convert-v2`](dev/convert-v2/). Argv всех стратегий байт в байт как раньше. См. [`docs/dev.md`](docs/dev.md).
+- `general (ALT11 Photon)` удалена → `general (ALT11)` + игровые модули `sky`, `sker`, `photon`. Те же профили; игровые идут первыми, порты `wf` в порядке возрастания.
+
 ### Added
 
 - Sky в `general (ALT11 Photon)`: UDP fake с TTL 8 для игровых IP и TCP multisplit для WebSocket чата/заданий; `user/ipset-sky.txt` и его обновление из игрового лога через трей. Игровая проверка выполнена на winws2.

@@ -1,0 +1,20 @@
+{
+  "$schema": "../schema/game.json",
+  "id": "sker",
+  "title": "Sker Ritual, Hazard Levels",
+  "order": 20,
+  "lists": { "ipset-sker": { "ipset": ["user:ipset-sker.txt"], "seed": "lists:ipset-sker.default.txt" } },
+  "rules": [
+    {
+      "target": { "udp": ["5055-5058", "27000-27002"], "lists": ["ipset-sker"], "anyProtocol": true },
+      "action": {
+        "desync": ["fake"],
+        "repeats": 6,
+        "ttl": 8,
+        "cutoff": 4,
+        "luaPayload": "all",
+        "fake": { "unknownUdp": ["bin:ACTIVE_GAME_UDP.bin"] }
+      }
+    }
+  ]
+}

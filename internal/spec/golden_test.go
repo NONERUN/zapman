@@ -35,35 +35,54 @@ var goldenCases = []struct {
 	{"gf-all", GameFilter{TCP: "1024-65535", UDP: "1024-65535"}},
 }
 
-// TestGolden compares the argv of each strategies/*.json with
-// testdata/golden. ZAPMAN_SPEC_ROOT can point to another tree with
-// strategies/ and testdata/golden/.
+// gamesGolden is the golden name of ALT11 with all games.
+const gamesGolden = "general (ALT11)+games"
+
+// TestGolden compares the argv of each strategy in strategies/ with
+// testdata/golden. The strategies are built without games. "general
+// (ALT11)" is also built with all games, as gamesGolden. ZAPMAN_SPEC_ROOT
+// can point to another tree with strategies/, bin/ and testdata/golden/.
 func TestGolden(t *testing.T) {
 	root := os.Getenv("ZAPMAN_SPEC_ROOT")
 	if root == "" {
 		root = filepath.Join("..", "..")
 	}
-	files, err := filepath.Glob(filepath.Join(root, "strategies", "*.json"))
+	cat, err := LoadCatalog(filepath.Join(root, "strategies"), filepath.Join(root, "bin"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) == 0 {
+	names, err := cat.StrategyNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) == 0 {
 		t.Fatalf("no strategies in %s", root)
 	}
-	n := 0
-	for _, file := range files {
-		base := strings.TrimSuffix(filepath.Base(file), ".json")
-		s, err := LoadFile(file)
+	type goldenStrategy struct {
+		name  string
+		st    *Strategy
+		games []*Game
+	}
+	var all []goldenStrategy
+	for _, name := range names {
+		st, err := cat.Strategy(name)
 		if err != nil {
-			t.Errorf("%s: %v", base, err)
+			t.Errorf("%s: %v", name, err)
 			continue
 		}
+		all = append(all, goldenStrategy{name, st, nil})
+		if name == "general (ALT11)" {
+			all = append(all, goldenStrategy{gamesGolden, st, cat.Games})
+		}
+	}
+	n := 0
+	for _, s := range all {
 		for _, eng := range []Engine{Winws, Winws2} {
 			for _, c := range goldenCases {
-				golden := filepath.Join(root, "testdata", "golden", string(eng), c.name, base+".txt")
-				lines, err := BuildV01(s, eng, goldenPaths, c.gf)
+				golden := filepath.Join(root, "testdata", "golden", string(eng), c.name, s.name+".txt")
+				lines, err := Build(s.st, s.games, eng, goldenPaths, c.gf)
 				if err != nil {
-					t.Errorf("%s %s %s: %v", base, eng, c.name, err)
+					t.Errorf("%s %s %s: %v", s.name, eng, c.name, err)
 					continue
 				}
 				got := strings.Join(lines, "\n") + "\n"
@@ -78,7 +97,7 @@ func TestGolden(t *testing.T) {
 					continue
 				}
 				if got != string(want) {
-					t.Errorf("%s %s %s: argv differs\n%s", base, eng, c.name, firstDiff(got, string(want)))
+					t.Errorf("%s %s %s: argv differs\n%s", s.name, eng, c.name, firstDiff(got, string(want)))
 				}
 				n++
 			}
@@ -90,7 +109,6 @@ func TestGolden(t *testing.T) {
 	}
 	t.Logf("%d golden files match", n)
 }
-
 func firstDiff(got, want string) string {
 	g := strings.Split(got, "\n")
 	w := strings.Split(want, "\n")

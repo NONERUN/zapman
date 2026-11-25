@@ -1,0 +1,8 @@
+{
+  "$schema": "./schema/lists.json",
+  "general": { "hostlist": ["lists:list-general.txt", "user:list-general-user.txt"] },
+  "exclude-hosts": { "hostlistExclude": ["lists:list-exclude.txt", "user:list-exclude-user.txt"] },
+  "exclude-ips": { "ipsetExclude": ["lists:ipset-exclude.txt", "user:ipset-exclude-user.txt"] },
+  "google": { "hostlist": ["lists:list-google.txt"] },
+  "ipset-all": { "ipset": ["user:ipset-all.txt"] }
+}

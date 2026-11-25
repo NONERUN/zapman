@@ -1,0 +1,25 @@
+{
+  "$schema": "../schema/game.json",
+  "id": "sky",
+  "title": "Sky: Children of the Light",
+  "order": 10,
+  "lists": { "ipset-sky": { "ipset": ["user:ipset-sky.txt"], "seed": "lists:ipset-sky.default.txt" } },
+  "updater": "sky-log",
+  "rules": [
+    {
+      "target": { "udp": ["5000-8000"], "lists": ["ipset-sky"], "anyProtocol": true },
+      "action": {
+        "desync": ["fake"],
+        "repeats": 6,
+        "ttl": 8,
+        "cutoff": 4,
+        "luaPayload": "all",
+        "fake": { "unknownUdp": ["bin:quic_initial_www_google_com.bin"] }
+      }
+    },
+    {
+      "target": { "tcp": ["443"], "domains": ["live.ws.radiance.thatgamecompany.com"], "anyProtocol": true },
+      "action": { "desync": ["multisplit"], "cutoff": "none", "splitPos": "1", "luaPayload": "all" }
+    }
+  ]
+}

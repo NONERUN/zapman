@@ -2,7 +2,7 @@
 
 Ловушки PowerShell 5.1 / WPF, два `.bat`, что не делать в коде — [`AGENTS.md`](../AGENTS.md). Этот файл — поля JSON, обновление `bin/` и GitHub Release. Правка генератора и этого файла — в одном изменении.
 
-Версия продукта — `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1). В окне и в git-теге: `v` + это число. Схема JSON — `ModuleVersion` в [`src/ZapretSpec/ZapretSpec.psd1`](../src/ZapretSpec/ZapretSpec.psd1). Поле `specVersion` в каждом `strategies/*.json` должно совпадать. `cli.bat env` печатает обе.
+Версия продукта — `ModuleVersion` в [`src/Zapman/Zapman.psd1`](../src/Zapman/Zapman.psd1). В окне и в git-теге: `v` + это число. Формат стратегий — `"spec": 2` (раздел «Формат v2» ниже); `Version` в [`internal/spec`](../internal/spec/). `cli.bat env` печатает версию продукта и `ModuleVersion` ZapretSpec.
 
 ## Движки
 
@@ -26,7 +26,7 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 
 ## JSON → argv
 
-Один файл `strategies/*.json`. Генератор — [`src/ZapretSpec/`](../src/ZapretSpec/), экспорт `ConvertTo-ZapretStrategyArgList`. Lua только stock `bin/lua/zapret-lib.lua` и `bin/lua/zapret-antidpi.lua`. Свой `.lua` не подключать. Lua-атаку в флаги winws не переводить.
+Стратегия v2 (см. «Формат v2») разворачивается в профили. Генератор — [`src/ZapretSpec/`](../src/ZapretSpec/), экспорт `ConvertTo-ZapretStrategyArgList`. Lua только stock `bin/lua/zapret-lib.lua` и `bin/lua/zapret-antidpi.lua`. Свой `.lua` не подключать. Lua-атаку в флаги winws не переводить.
 
 Неизвестный `desync` — throw. Не добавлять имя атаки вне таблицы.
 
@@ -41,17 +41,29 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 
 Префиксы путей: `lists:` → `lists/`, `user:` → `user/`, `bin:` → `bin/`. Регистр префикса как в таблице.
 
-### Корень файла
+### Формат v2
 
-| Поле | winws | winws2 |
-|---|---|---|
-| `specVersion` | Должно равняться ZapretSpec `ModuleVersion` | то же |
-| `wf.tcp` | `--wf-tcp=` | `--wf-tcp-out=` |
-| `wf.udp` | `--wf-udp=` | `--wf-udp-out=` |
+Файлы в `strategies/` (JSON Schema — `strategies/schema/`, генерируется из структур Go: `go generate ./internal/spec`; у каждого файла `$schema`):
 
-В `wf.*` токены `$gf.Tcp` / `$gf.Udp` заменяются на порты Game Filter (`12` или `1024-65535`).
+| Файл | Что внутри |
+|---|---|
+| `lists.json` | именованные наборы списков: `hostlist`, `hostlistExclude`, `ipset`, `ipsetExclude` (пути `lists:`/`user:`/`bin:`) |
+| `targets.json` | именованные цели: `tcp`, `udp`, `l3`, `l7`, `lists` (имена наборов с `hostlist`/`ipset`), `exclude` (наборы с `*Exclude`), `domains`, `excludeDomains`, `anyProtocol`, `payload` |
+| `actions.json` | именованные действия: `desync` и поля атаки из таблиц ниже; `cutoff` — число N (= `nN`) или `"none"` |
+| `<имя>.json` | стратегия: `"spec": 2`, `about`, `rules[]` — пары `{ "target", "action" }` в порядке winws (первое совпадение выигрывает) |
+| `games/<id>.json` | игровой модуль: `id` (= имя файла), `title`, `order`, `updater`, свои `lists` (с `seed`), `rules[]` |
 
-### Профиль (`profiles[]`)
+`target` и `action` в правиле — имя из каталога или объект прямо в правиле. В каталог выносится только то, что используется 2+ раза. Имена — `a-z`, `0-9`, `-`. Загрузка строгая: неизвестное поле, имя, порт или отсутствующий файл `bin:` — ошибка. Набор игры не может повторять имя из `lists.json`; `seed` — путь `lists:`, из него создаётся `user:`-список, если его нет.
+
+Правило → профиль v0.1 → тот же генератор, что и раньше. `payload` для winws2 выводится из `l7` / `anyProtocol` (например, `tls`+`http` → две группы, `discord` → `discord_ip_discovery,stun`); явный `payload` пишут только когда вывод не подходит.
+
+`wf` не задаётся руками: это объединение портов всех целей (стратегии и включённых игр), без повторов, по возрастанию первого порта; `$gameFilter` (порты Game Filter, `12` или `1024-65535`) — последним. winws: `--wf-tcp=` / `--wf-udp=`, winws2: `--wf-tcp-out=` / `--wf-udp-out=`.
+
+Игры идут **до** правил стратегии (они уже, чем общие правила на тех же портах), по `order`, затем по `id`. Сейчас: `sky` (10), `sker` (20), `photon` (30).
+
+Одноразовый конвертер v0.1 → v2 — [`dev/convert-v2`](../dev/convert-v2/); он сверяет argv до записи. Модель v0.1 (`V01Spec`) осталась внутри Go как промежуточная.
+
+### Цель и действие (поля профиля)
 
 `desync` — только эти имена: `fake`, `multisplit`, `multidisorder`, `hostfakesplit`, `fakedsplit`, `syndata`.
 
@@ -110,9 +122,13 @@ Fooling не вешается на Lua-атаку `multisplit`.
 
 ## Линтер и макеты
 
-`general (ALT11 Photon)` содержит первые профили для Sky: UDP 5000–8000 с `user:ipset-sky.txt`, QUIC-fake, TTL 8 и cutoff n4; TCP 443 для `live.ws.radiance.thatgamecompany.com` с multisplit на позиции 1, `luaPayload: all` и без cutoff. Они не зависят от Game Filter. Список Sky создаётся из `lists/ipset-sky.default.txt`; трей дополняет его только конкретными IPv4 `/32`, найденными в `Sky.log`. DNS входа — отдельная настройка, стратегия `hosts` не меняет.
+Игровые модули (`strategies/games/`) не зависят от Game Filter:
 
-Перед общим профилем Photon (UDP 5055–5058, 27000–27002) стоит профиль Sker Ritual с `user:ipset-sker.txt`: fake `ACTIVE_GAME_UDP`, `luaPayload: all`, TTL 8, cutoff n4. Fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) через ~10 с после входа в матч. Профиль работает и для Hazard Levels (тот же разработчик). Список создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU на G-Core и Vultr) и не обновляется автоматически. Те же подсети использует PEAK в регионе EU: он тоже попадает в этот профиль.
+- `sky` — Sky: UDP 5000–8000 с `user:ipset-sky.txt`, QUIC-fake, TTL 8, cutoff 4; TCP 443 для `live.ws.radiance.thatgamecompany.com` с multisplit на позиции 1, `luaPayload: all`, без cutoff. Список создаётся из `lists/ipset-sky.default.txt`; трей (`updater: sky-log`) дополняет его только конкретными IPv4 `/32` из `Sky.log`. DNS входа — отдельная настройка, стратегия `hosts` не меняет.
+- `sker` — Sker Ritual и Hazard Levels (тот же разработчик): `user:ipset-sker.txt`, fake `ACTIVE_GAME_UDP`, `luaPayload: all`, TTL 8, cutoff 4. Fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) через ~10 с после входа в матч. Список создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU на G-Core и Vultr) и сам не обновляется. Те же подсети у PEAK в регионе EU: он тоже попадает сюда.
+- `photon` — общий профиль Photon (UDP 5055–5058, 27000–27002); стоит после `sker`.
+
+Бывшая `general (ALT11 Photon)` = `general (ALT11)` + `sky`, `sker`, `photon`; отличие только в порядке профилей и портов `wf`.
 
 После правок `.ps1` / стратегий / `dev/`:
 
