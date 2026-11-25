@@ -60,9 +60,7 @@ type V01Profile struct {
 	HostfakesplitMod  string `json:"hostfakesplitMod"`
 	FakedsplitPattern string `json:"fakedsplitPattern"`
 
-	// DefaultTLSFake false stops the implicit TLS hello on winws2.
-	DefaultTLSFake *bool    `json:"defaultTlsFake"`
-	Fake           V01Fakes `json:"fake"`
+	Fake V01Fakes `json:"fake"`
 }
 
 // V01Fakes holds the fake payload refs per slot.

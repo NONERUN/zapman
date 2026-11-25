@@ -34,7 +34,10 @@
       "desync": ["fake", "hostfakesplit"],
       "fooling": ["ts"],
       "tlsMod": "rnd,dupsid,sni=www.google.com",
-      "hostfakesplitMod": "host=www.google.com,altorder=1"
+      "hostfakesplitMod": "host=www.google.com,altorder=1",
+      "fake": {
+        "tls": ["!"]
+      }
     },
     {
       "tcp": "443",
@@ -45,7 +48,10 @@
       "fooling": ["ts"],
       "ipId": "zero",
       "tlsMod": "rnd,dupsid,sni=www.google.com",
-      "hostfakesplitMod": "host=www.google.com,altorder=1"
+      "hostfakesplitMod": "host=www.google.com,altorder=1",
+      "fake": {
+        "tls": ["!"]
+      }
     },
     {
       "tcp": "80,443",
@@ -58,6 +64,7 @@
       "tlsMod": "rnd,dupsid,sni=ya.ru",
       "hostfakesplitMod": "host=ya.ru,altorder=1",
       "fake": {
+        "tls": ["!"],
         "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
@@ -85,6 +92,7 @@
       "tlsMod": "rnd,dupsid,sni=ya.ru",
       "hostfakesplitMod": "host=ya.ru,altorder=1",
       "fake": {
+        "tls": ["!"],
         "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },

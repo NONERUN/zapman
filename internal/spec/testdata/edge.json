@@ -1,7 +1,7 @@
 {"specVersion":"0.1.0","wf":{"tcp":["80","","$gf.Tcp"],"udp":"$gf.Udp"},"profiles":[
  {"tcp":"443,$gf.Tcp","l7":"tls","hostlist":["LISTS:sub/a.txt","user:\\b.txt"],"desync":["fake","multisplit","multidisorder","hostfakesplit","fakedsplit","syndata"],"repeats":3,"splitPos":"1,midsld","seqovl":5,"seqovlPattern":"bin:x.bin","fooling":["badseq","md5sig"],"ipId":"seq","tlsMod":"rnd,sni=a.b","hostfakesplitMod":"host=x.com, altorder=1 ,,midhost=2","fakedsplitPattern":"bin:pat.bin",
   "fake":{"tls":["bin:a/x.bin","user:x.bin","0xAB","!","bin:X.bin"],"http":["Hello World","9abc","!!!"]}},
- {"udp":"443","l7":"TLS","desync":["FAKE","MultiSplit"],"cutoff":"N3","fooling":["TS"],"badseqIncrement":0,"fake":{"quic":null}},
+ {"udp":"443","l7":"TLS","desync":["FAKE","MultiSplit"],"cutoff":"N3","fooling":["TS"],"badseqIncrement":0,"fake":{"quic":null,"tls":["!"]}},
  {"tcp":"80","anyProtocol":true,"desync":["fake"],"fake":{"http":"bin:h.bin","unknown":["!"]},"tlsMod":"padencap"},
- {"udp":"5000","payload":"all","luaPayload":"ALL","ttl":8,"cutoff":"none","defaultTlsFake":false,"desync":["fake","syndata"],"fake":{"unknownUdp":["0x00"]},"fooling":["ts"]}
+ {"udp":"5000","payload":"all","luaPayload":"ALL","ttl":8,"cutoff":"none","desync":["fake","syndata"],"fake":{"unknownUdp":["0x00"]},"fooling":["ts"]}
 ]}

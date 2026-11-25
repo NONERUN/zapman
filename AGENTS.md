@@ -134,7 +134,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 - **Game Filter** и **`engine`** при установленной службе сидят в ImagePath: снова **Установить службу**, не Стоп/Старт.
 - **IPSet** читается из `user/ipset-all.txt` при старте winws: достаточно Стоп/Старт. Режимы — в [`docs/usage.md`](docs/usage.md). Смена `loaded` → другое: rename файла в backup, не вечная копия.
 - **Fake…** копирует `ACTIVE_*.bin`; winws читает при старте. Как IPSet: Стоп/Старт, не Install.
-- **Sky / ALT11 Photon:** `user/ipset-sky.txt` создаётся из `lists/ipset-sky.default.txt`; `src/Zapman/Sky.ps1` дополняет его только игровыми IPv4 `/32` из `Sky.log`. Трей вызывает обновление каждые две секунды для установленной ALT11 Photon. Сборка профилей Sky — только ZapretSpec, параметры `luaPayload`, `ttl`, `defaultTlsFake` и `cutoff: "none"` описаны в `docs/dev.md`. DNS/hosts стратегия не меняет.
+- **Sky / ALT11 Photon:** `user/ipset-sky.txt` создаётся из `lists/ipset-sky.default.txt`; `src/Zapman/Sky.ps1` дополняет его только игровыми IPv4 `/32` из `Sky.log`. Трей вызывает обновление каждые две секунды для установленной ALT11 Photon. Сборка профилей Sky — только ZapretSpec, параметры `luaPayload`, `ttl` и `cutoff: "none"` описаны в `docs/dev.md`. DNS/hosts стратегия не меняет.
 - **Sker Ritual, Hazard Levels / ALT11 Photon:** `user/ipset-sker.txt` создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU). Профиль с TTL 8 стоит перед общим профилем Photon. Автообновления нет: Sker Ritual IP сервера в лог не пишет.
 
 ## GUI

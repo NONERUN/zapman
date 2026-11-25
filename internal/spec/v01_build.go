@@ -146,18 +146,8 @@ func (pr *V01Profile) payloadGroups() []string {
 	return []string{""}
 }
 
-// groupUsesTLSFake is Test-ZapretSpecGroupUsesTlsFake.
-func (pr *V01Profile) groupUsesTLSFake(group string) bool {
-	if pr.DefaultTLSFake != nil && !*pr.DefaultTLSFake {
-		return false
-	}
-	if isBlank(group) {
-		return false
-	}
-	return strings.EqualFold(group, "all") || containsFold(group, "tls")
-}
-
-// fakeRefsForGroup is Get-ZapretSpecFakeRefsForGroup.
+// fakeRefsForGroup gives the refs of the fake slots of the group. There is
+// no implicit TLS hello: use "!" in a slot to get the stock hello.
 func (pr *V01Profile) fakeRefsForGroup(group string) []string {
 	slots := []string{}
 	for _, d := range v01FakeSlots {
@@ -182,11 +172,6 @@ func (pr *V01Profile) fakeRefsForGroup(group string) []string {
 			seen.add(r)
 			refs = append(refs, r)
 		}
-	}
-	// z1 uses a built-in '!' hello when fake.tls is absent. z2 has no
-	// built-in hello.
-	if pr.groupUsesTLSFake(group) && len(pr.tlsRefs()) < 1 && !seen.has("!") {
-		refs = append([]string{"!"}, refs...)
 	}
 	return refs
 }

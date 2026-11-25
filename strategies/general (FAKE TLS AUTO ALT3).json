@@ -37,7 +37,10 @@
       "seqovl": 681,
       "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
       "fooling": ["ts"],
-      "tlsMod": "rnd,dupsid,sni=www.google.com"
+      "tlsMod": "rnd,dupsid,sni=www.google.com",
+      "fake": {
+        "tls": ["!"]
+      }
     },
     {
       "tcp": "443",
@@ -51,7 +54,10 @@
       "seqovlPattern": "bin:tls_clienthello_www_google_com.bin",
       "fooling": ["ts"],
       "ipId": "zero",
-      "tlsMod": "rnd,dupsid,sni=www.google.com"
+      "tlsMod": "rnd,dupsid,sni=www.google.com",
+      "fake": {
+        "tls": ["!"]
+      }
     },
     {
       "tcp": "80,443",
@@ -67,6 +73,7 @@
       "fooling": ["ts"],
       "tlsMod": "rnd,dupsid,sni=www.google.com",
       "fake": {
+        "tls": ["!"],
         "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },
@@ -97,6 +104,7 @@
       "fooling": ["ts"],
       "tlsMod": "rnd,dupsid,sni=www.google.com",
       "fake": {
+        "tls": ["!"],
         "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
       }
     },

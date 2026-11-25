@@ -8,7 +8,7 @@
 
 - Sky в `general (ALT11 Photon)`: UDP fake с TTL 8 для игровых IP и TCP multisplit для WebSocket чата/заданий; `user/ipset-sky.txt` и его обновление из игрового лога через трей. Игровая проверка выполнена на winws2.
 - Sker Ritual в `general (ALT11 Photon)`: профиль UDP Photon с fake TTL 8 для подсетей из `user/ipset-sker.txt` (копия `lists/ipset-sker.default.txt`) перед общим профилем Photon. Общий профиль выкидывал из матча по `ClientTimeout`. Матч и голос проверены на winws2. Тот же профиль и подсеть Vultr `95.179.160.0/20` — для Hazard Levels.
-- Поля ZapretSpec `luaPayload`, `ttl`, `defaultTlsFake` и `cutoff: "none"` для переноса проверенных профилей Sky без ручной правки ImagePath службы.
+- Поля ZapretSpec `luaPayload`, `ttl` и `cutoff: "none"` для переноса проверенных профилей Sky без ручной правки ImagePath службы.
 - Макет главного окна в [`README.md`](README.md) ([`docs/ui/Main.svg`](docs/ui/Main.svg)).
 - Fake из upstream в `bin/` (видны в **Fake…**): `tls_clienthello_www_sferum_ru`, `tls_clienthello_awswaf_com`, `tls_clienthello_steam_chat_com`, `tls_clienthello_steamstatic_com`, `tls_clienthello_teamspeak_com`, `quic_initial_lemana_pro`, `quic_initial_steam_chat_com`, `quic_initial_steamstatic_com`.
 
@@ -16,6 +16,7 @@
 
 - GitHub Release: push тега `v*.*.*` собирает архивы в **черновик**; Publish — вручную. Повтор не трогает immutable-ассеты. См. [`docs/dev.md`](docs/dev.md).
 - Стратегии: fake `bin:tls_clienthello_max_ru.bin` → `bin:tls_clienthello_www_sferum_ru.bin` в 16 `strategies/*.json` (ALT, ALT3, ALT4, ALT8, ALT10, ALT11, ALT11 Photon, ALT12, EXP, FAKE TLS AUTO*, SIMPLE FAKE*), как upstream 93ebbbf. Файл `tls_clienthello_max_ru.bin` остаётся в `bin/` для **Fake…**.
+- ZapretSpec (Go), winws2: нет неявного TLS hello `!` для групп без `fake.tls`. ALT3, ALT8, FAKE TLS AUTO ALT/ALT2/ALT3 пишут `"tls": ["!"]` явно (на winws это `--dpi-desync-fake-tls=!`, тот же встроенный hello). Профили `payload: "all"` с UDP-fake больше не шлют google TLS hello.
 - Сток из upstream (Flowseal) по 2026-11: `lists/list-exclude.txt` (+`lesta.pw`), `lists/list-google.txt` (+`fonts.googleapis.com`, `www.gstatic.com`), `.service/ipset-service.txt` (источник **Скачать ipset**), `.service/hosts` (**Сверить hosts**).
 
 ### Fixed

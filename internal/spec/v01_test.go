@@ -89,6 +89,8 @@ func TestErrors(t *testing.T) {
 		{"prefix case", specWith(okProfile + `,"ipset":["Bin:ipset.txt"]`), nil, both, ""},
 		{"seqovlPattern no prefix", specWith(`"tcp":"443","desync":["multisplit"],"seqovl":1,"seqovlPattern":"0x00"`), z1, z2, "seqovlPattern must be a bin:/lists:/user: path: 0x00"},
 		{"fake without blob", specWith(`"tcp":"80","payload":"http_req","desync":["fake"]`), z2, z1, "Strategy fake has no blob for payload group 'http_req'."},
+		{"tls fake without tls slot", specWith(`"tcp":"443","l7":"tls","desync":["fake"]`), z2, z1, "Strategy fake has no blob for payload group 'tls_client_hello'."},
+		{"parse: defaultTlsFake removed", specWith(okProfile + `,"defaultTlsFake":false`), both, nil, `unknown field "defaultTlsFake"`},
 		{"blob ref without file", specWith(`"tcp":"80","payload":"http_req","desync":["fake"],"fake":{"http":["bin:"]}`), z2, z1, "Blob ref has no file name: bin:"},
 	}
 	p := goldenPaths
