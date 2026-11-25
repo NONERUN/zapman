@@ -168,10 +168,12 @@ var slotL4 = map[string]string{
 }
 
 // fakeCall is one winws2 fake call: a blob ref and its Lua payload filter.
-// An empty payload means the filter of the group.
+// An empty payload means the filter of the group. tlsMod tells if the call
+// gets tls_mod.
 type fakeCall struct {
 	ref     string
 	payload string
+	tlsMod  bool
 }
 
 // l4 gives "tcp" or "udp" when the profile has only that filter, else "".
@@ -192,6 +194,11 @@ func (pr *V01Profile) l4() string {
 // one ref have positive filters, one call gets all of them. luaPayload, when
 // set, replaces these filters. There is no implicit TLS hello: use "!" in a
 // slot to get the stock hello.
+//
+// tls_mod goes only on the last ref of the tls slot, and only when the call
+// sends it to TLS hello packets: in the tls_client_hello group or with the
+// tls_client_hello filter. winws also changes only the TLS fake
+// (desync.c, fake-tls-mod). This call does not join other slots.
 func (pr *V01Profile) fakeCallsForGroup(group string) ([]fakeCall, error) {
 	var slots []string
 	for g, s := range payloadSlots {
@@ -206,6 +213,10 @@ func (pr *V01Profile) fakeCallsForGroup(group string) ([]fakeCall, error) {
 		}
 	}
 	l4 := pr.l4()
+	tlsLast := ""
+	if refs := pr.tlsRefs(); len(refs) > 0 && !isBlank(pr.TLSMod) {
+		tlsLast = refs[len(refs)-1]
+	}
 	var calls []fakeCall
 	pos := map[string]int{} // ref (lower case) -> index of its call with a positive filter
 	for _, name := range slots {
@@ -231,6 +242,11 @@ func (pr *V01Profile) fakeCallsForGroup(group string) ([]fakeCall, error) {
 			}
 			seen.add(r)
 			key := strings.ToLower(r)
+			if name == "tls" && tlsLast != "" && strings.EqualFold(r, tlsLast) &&
+				(strings.EqualFold(group, "tls_client_hello") || payload == "tls_client_hello") {
+				calls = append(calls, fakeCall{ref: r, payload: payload, tlsMod: true})
+				continue
+			}
 			if strings.HasPrefix(payload, "~") {
 				calls = append(calls, fakeCall{ref: r, payload: payload})
 				continue
@@ -572,12 +588,6 @@ func buildWinws2(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		tlsLast, hasTLSLast := "", false
-		if refs := pr.tlsRefs(); len(refs) > 0 {
-			tlsLast, hasTLSLast = refs[len(refs)-1], true
-		} else if hasFold(desync, "fake") {
-			tlsLast, hasTLSLast = "!", true
-		}
 		foolArgs, err := pr.luaFoolingArgs()
 		if err != nil {
 			return nil, err
@@ -615,7 +625,7 @@ func buildWinws2(s *V01Spec, p Paths, gf GameFilter) ([]string, error) {
 						if pr.Repeats != nil {
 							lua = append(lua, "repeats="+strconv.Itoa(*pr.Repeats))
 						}
-						if !isBlank(pr.TLSMod) && hasTLSLast && strings.EqualFold(ref, tlsLast) {
+						if call.tlsMod {
 							lua = append(lua, "tls_mod="+pr.TLSMod)
 						}
 						lua = append(lua, foolArgs...)

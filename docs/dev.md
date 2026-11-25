@@ -67,7 +67,7 @@ GUI и CLI строку флагов не разбирают. Нет exe — о�
 | `seqovl` | `--dpi-desync-split-seqovl=` | `seqovl=` |
 | `seqovlPattern` | `--dpi-desync-split-seqovl-pattern=` (путь `bin:`/`lists:`/`user:`) | blob + `seqovl_pattern=` |
 | `ipId` | `--ip-id=` | `ip_id=` |
-| `tlsMod` | `--dpi-desync-fake-tls-mod=` после `fake-tls` | `tls_mod=` на последнем TLS-fake |
+| `tlsMod` | `--dpi-desync-fake-tls-mod=` после `fake-tls` | `tls_mod=` на последнем ref слота `tls`, только на вызове для `tls_client_hello`. Без слота `tls` — не пишется |
 | `hostfakesplitMod` | `--dpi-desync-hostfakesplit-mod=` как в JSON | куски через запятую; **`altorder=*` не писать** (в stock Lua нет) |
 | `fakedsplitPattern` | `--dpi-desync-fakedsplit-pattern=` (путь, не сырой `bin:`) | `pattern=` / blob |
 
@@ -95,7 +95,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 | `payload: "all"` / `anyProtocol`, слота `tls` нет | z1 берёт встроенный hello для TLS | TLS hello не подставляется |
 | группа из нескольких слотов (`all`, `discord,stun`), нет `luaPayload` | fake по типу пакета: TCP `http`/`tls`/`unknown`, UDP `quic`/`discord`/`stun`/`unknownUdp` | каждый слот — свой `payload=` у `fake`: `tls` → `tls_client_hello`, `http` → `http_req`, `quic` → `quic_initial`, `discord` → `discord_ip_discovery`, `stun` → `stun`, `unknown` → `~empty,http_req,tls_client_hello`, `unknownUdp` → `~empty,quic_initial,wireguard_initiation,dht,discord_ip_discovery,stun`. Один ref в нескольких слотах — один вызов, фильтры через запятую. Слоты другого L4 (UDP-слот в TCP-профиле) не пишутся. `unknown` / `unknownUdp` в профиле с `tcp` и `udp` — ошибка сборки |
 | hex `0x00000000` | как есть | имя blob `hex_00000000`, не `0x…` |
-| порядок | `fake-tls` **до** `fake-tls-mod` | `tls_mod` только на последний TLS-ref |
+| порядок | `fake-tls` **до** `fake-tls-mod` | `tls_mod` только на последний ref слота `tls` в группе `tls_client_hello` или с фильтром `tls_client_hello`; этот вызов не сливается с другими слотами. На `!` из `unknown` и других слотов — нет |
 
 На z2 в argv не должно быть `--dpi-desync`. На z1 не должно быть `--lua-desync`. `--blob=` только `name:value` (двоеточие).
 
