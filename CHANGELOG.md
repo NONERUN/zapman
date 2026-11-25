@@ -19,6 +19,7 @@
 
 ### Changed
 
+- Стратегии v2: в `strategies/actions.json` только действия, которые используются 3+ раза (11 пресетов вместо 32); остальные — прямо в правиле стратегии. Argv не меняется.
 - ZapretSpec (Go), winws2: `cutoff` N → `--out-range=-nN` (было `-dN`), счёт пакетов как у winws. Меняется argv winws2 всех стратегий с cutoff. Почему на TCP не точно как winws — [`docs/dev.md`](docs/dev.md).
 - GitHub Release: push тега `v*.*.*` собирает архивы в **черновик**; Publish — вручную. Повтор не трогает immutable-ассеты. См. [`docs/dev.md`](docs/dev.md).
 - Стратегии: fake `bin:tls_clienthello_max_ru.bin` → `bin:tls_clienthello_www_sferum_ru.bin` в 16 `strategies/*.json` (ALT, ALT3, ALT4, ALT8, ALT10, ALT11, ALT11 Photon, ALT12, EXP, FAKE TLS AUTO*, SIMPLE FAKE*), как upstream 93ebbbf. Файл `tls_clienthello_max_ru.bin` остаётся в `bin/` для **Fake…**.

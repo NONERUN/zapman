@@ -21,7 +21,18 @@
     },
     { "target": "discord-media", "action": "fake-multisplit-681-google" },
     { "target": "google", "action": "hostfakesplit" },
-    { "target": "tls-general", "action": "fake-multisplit-480-stun2-sferum" },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 4,
+        "splitPos": "1",
+        "seqovl": 480,
+        "seqovlPattern": "bin:stun2.bin",
+        "fooling": ["ts"],
+        "fake": { "tls": ["bin:tls_clienthello_www_sferum_ru.bin"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
     { "target": "quic-ipset", "action": "fake-quic-google-11" },
     {
       "target": {
@@ -31,7 +42,15 @@
         "exclude": ["exclude-hosts", "exclude-ips"],
         "excludeDomains": ["fonts.googleapis.com"]
       },
-      "action": "fake-multisplit-480-stun2-sferum"
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 4,
+        "splitPos": "1",
+        "seqovl": 480,
+        "seqovlPattern": "bin:stun2.bin",
+        "fooling": ["ts"],
+        "fake": { "tls": ["bin:tls_clienthello_www_sferum_ru.bin"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+      }
     },
     {
       "target": "gf-tcp",

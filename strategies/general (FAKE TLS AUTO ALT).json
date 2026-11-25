@@ -29,9 +29,31 @@
         "fake": { "tls": ["!"] }
       }
     },
-    { "target": "tls-general", "action": "fake-fakedsplit-stock" },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "fakedsplit"],
+        "repeats": 8,
+        "splitPos": "1",
+        "fooling": ["badseq"],
+        "badseqIncrement": 2,
+        "tlsMod": "rnd,dupsid,sni=www.google.com",
+        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
     { "target": "quic-ipset", "action": "fake-quic-google-11" },
-    { "target": "tls-ipset", "action": "fake-fakedsplit-stock" },
+    {
+      "target": "tls-ipset",
+      "action": {
+        "desync": ["fake", "fakedsplit"],
+        "repeats": 8,
+        "splitPos": "1",
+        "fooling": ["badseq"],
+        "badseqIncrement": 2,
+        "tlsMod": "rnd,dupsid,sni=www.google.com",
+        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
     {
       "target": "gf-tcp",
       "action": {

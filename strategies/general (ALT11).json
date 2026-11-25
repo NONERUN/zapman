@@ -18,9 +18,37 @@
         "fake": { "tls": ["bin:tls_clienthello_www_google_com.bin"] }
       }
     },
-    { "target": "tls-general", "action": "fake-multisplit-664-sferum-tls-stun2" },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 8,
+        "splitPos": "1",
+        "seqovl": 664,
+        "seqovlPattern": "bin:tls_clienthello_www_sferum_ru.bin",
+        "fooling": ["ts"],
+        "fake": {
+          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
+          "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
+        }
+      }
+    },
     { "target": "quic-ipset", "action": "fake-quic-google-11" },
-    { "target": "tls-ipset", "action": "fake-multisplit-664-sferum-tls-stun2" },
+    {
+      "target": "tls-ipset",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 8,
+        "splitPos": "1",
+        "seqovl": 664,
+        "seqovlPattern": "bin:tls_clienthello_www_sferum_ru.bin",
+        "fooling": ["ts"],
+        "fake": {
+          "tls": ["bin:stun2.bin", "bin:tls_clienthello_www_sferum_ru.bin"],
+          "http": ["bin:tls_clienthello_www_sferum_ru.bin"]
+        }
+      }
+    },
     {
       "target": "gf-tcp",
       "action": {

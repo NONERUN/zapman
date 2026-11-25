@@ -25,9 +25,27 @@
         "fake": { "tls": ["!"] }
       }
     },
-    { "target": "tls-general", "action": "fake-hostfakesplit-stock" },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=ya.ru,altorder=1",
+        "tlsMod": "rnd,dupsid,sni=ya.ru",
+        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
     { "target": "quic-ipset", "action": "fake-quic-google-6" },
-    { "target": "tls-ipset", "action": "fake-hostfakesplit-stock" },
+    {
+      "target": "tls-ipset",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=ya.ru,altorder=1",
+        "tlsMod": "rnd,dupsid,sni=ya.ru",
+        "fake": { "tls": ["!"], "http": ["bin:tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
     {
       "target": "gf-tcp",
       "action": {

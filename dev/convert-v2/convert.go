@@ -327,11 +327,11 @@ func addUse[T any](all *[]*use[T], byKey map[string]*use[T], v T) *use[T] {
 	return u
 }
 
-// nameTargets names the targets that are used two or more times.
+// nameTargets names the targets that are used minTargetUses or more times.
 func nameTargets(ts []*use[spec.Target]) {
 	var named []*use[spec.Target]
 	for _, t := range ts {
-		if t.uses >= 2 {
+		if t.uses >= minTargetUses {
 			t.name = targetName(&t.v)
 			named = append(named, t)
 		}
@@ -387,14 +387,21 @@ func targetName(t *spec.Target) string {
 	return sanitize("udp-" + strings.Join(t.UDP, "-"))
 }
 
-// nameActions names the actions that are used two or more times. The name
+// Use counts that make a named item. A target or an action with fewer uses
+// stays inline in the rule.
+const (
+	minTargetUses = 2
+	minActionUses = 3
+)
+
+// nameActions names the actions that are used minActionUses or more times. The name
 // has the attacks, the seqovl, the pattern and fake domains, and the
 // repeats of a fake-only action. More details are added only where two
 // actions get the same name.
 func nameActions(as []*use[spec.Action]) {
 	var named []*use[spec.Action]
 	for _, a := range as {
-		if a.uses >= 2 {
+		if a.uses >= minActionUses {
 			a.name = actionBase(&a.v)
 			named = append(named, a)
 		}

@@ -27,9 +27,33 @@
       "target": "google",
       "action": { "desync": ["hostfakesplit"], "fooling": ["ts"], "hostfakesplitMod": "host=www.google.com" }
     },
-    { "target": "tls-general", "action": "fake-hostfakesplit-stun2" },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "repeats": 5,
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=mail.ru,altorder=1",
+        "fake": {
+          "tls": ["bin:tls_clienthello_sochi_park.bin", "bin:stun2.bin"],
+          "http": ["bin:tls_clienthello_sochi_park.bin"]
+        }
+      }
+    },
     { "target": "quic-ipset", "action": "fake-quic-google-11" },
-    { "target": "tls-ipset", "action": "fake-hostfakesplit-stun2" },
+    {
+      "target": "tls-ipset",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "repeats": 5,
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=mail.ru,altorder=1",
+        "fake": {
+          "tls": ["bin:tls_clienthello_sochi_park.bin", "bin:stun2.bin"],
+          "http": ["bin:tls_clienthello_sochi_park.bin"]
+        }
+      }
+    },
     {
       "target": "gf-tcp",
       "action": {
