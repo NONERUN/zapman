@@ -5,8 +5,11 @@
 // binary. The Wails asset server gives these files and also the Wails
 // runtime at /wails/runtime.js; the pages import it as an ES module.
 //
-// The backend is the in-memory fake (backend.NewFake) until the engine,
-// config and service packages of branch go are ready.
+// The backend is internal/app over the folder of zapman.exe (bin,
+// strategies, lists, user). The flag -root sets an other folder. With
+// "go run", the exe is in a temporary go-build folder, so the root is the
+// working folder. The flag -fake gives the in-memory fake
+// (backend.NewFake), which needs no admin rights and changes nothing.
 package main
 
 import (
@@ -15,13 +18,18 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"runtime/debug"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/NONERUN/zapman/assets"
+	"github.com/NONERUN/zapman/internal/app"
+	"github.com/NONERUN/zapman/internal/engine"
 	"github.com/NONERUN/zapman/internal/gui"
 	"github.com/NONERUN/zapman/internal/gui/backend"
 )
@@ -42,6 +50,8 @@ func main() {
 
 func run() error {
 	tray := flag.Bool(trayFlag[2:], false, "start in the tray, with the main window hidden")
+	root := flag.String("root", "", "the folder with bin, strategies, lists and user (default: the folder of zapman.exe)")
+	useFake := flag.Bool("fake", false, "use the in-memory fake backend: no admin rights, no changes to the system")
 	flag.Parse()
 
 	pages, err := fs.Sub(frontend, "frontend")
@@ -49,11 +59,13 @@ func run() error {
 		return err
 	}
 
-	fake := backend.NewFake()
-	fake.Delay = 300 * time.Millisecond
+	be, err := newBackend(*root, *useFake)
+	if err != nil {
+		return err
+	}
 
 	sh := &shell{}
-	app := application.New(application.Options{
+	wapp := application.New(application.Options{
 		Name:        "Zapret Manager",
 		Description: "Zapret Manager",
 		Icon:        assets.AppIcon,
@@ -74,12 +86,92 @@ func run() error {
 		},
 		OnShutdown: sh.shutdown,
 	})
-	ui := gui.New(fake, sh, gui.Options{Culture: uiCulture()})
-	sh.init(app, ui)
-	app.RegisterService(application.NewService(ui))
+	ui := gui.New(be, sh, gui.Options{Culture: uiCulture()})
+	sh.init(wapp, ui)
+	wapp.RegisterService(application.NewService(ui))
 
-	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+	wapp.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		go sh.start(*tray)
 	})
-	return app.Run()
+	return wapp.Run()
+}
+
+// newBackend gives the fake, or the real backend over the root folder.
+func newBackend(root string, useFake bool) (backend.Backend, error) {
+	if useFake {
+		f := backend.NewFake()
+		f.Delay = 300 * time.Millisecond
+		return f, nil
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	if root == "" {
+		if root, err = rootFolder(exe); err != nil {
+			return nil, err
+		}
+	}
+	if root, err = filepath.Abs(root); err != nil {
+		return nil, err
+	}
+	o := app.Options{Layout: engine.NewLayout(root), AppVersion: appVersion()}
+	// A bad exe path is an error of SetTrayAtLogon only.
+	o.TrayCommand, _ = app.TrayCommand(exe)
+	return app.New(o), nil
+}
+
+// rootFolder gives the folder of the exe. When the exe is in a temporary
+// go-build folder ("go run"), it gives the working folder.
+func rootFolder(exe string) (string, error) {
+	if exe, err := filepath.EvalSymlinks(exe); err == nil {
+		dir := filepath.Dir(exe)
+		if !isGoBuildDir(dir) {
+			return dir, nil
+		}
+	}
+	return os.Getwd()
+}
+
+// isGoBuildDir tells if dir is in a temporary folder of "go run".
+func isGoBuildDir(dir string) bool {
+	tmp, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		tmp = os.TempDir()
+	}
+	rel, err := filepath.Rel(tmp, dir)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return false
+	}
+	return strings.HasPrefix(strings.ToLower(rel), "go-build")
+}
+
+// appVersion gives the module version of the build. A build from a
+// checkout gives "dev" with the short commit hash.
+func appVersion() string {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	if v := bi.Main.Version; v != "" && v != "(devel)" {
+		return v
+	}
+	var rev, dirty string
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			rev = s.Value
+		case "vcs.modified":
+			if s.Value == "true" {
+				dirty = "-dirty"
+			}
+		}
+	}
+	if len(rev) > 7 {
+		rev = rev[:7]
+	}
+	if rev == "" {
+		return "dev"
+	}
+	return "dev-" + rev + dirty
 }
