@@ -160,7 +160,9 @@ func (s *shell) newWindow(name, title string) *application.WebviewWindow {
 	}
 	if name != gui.WinMain {
 		opt.MinimiseButtonState = application.ButtonHidden
-		opt.Windows.HiddenOnTaskbar = true
+		// Not HiddenOnTaskbar: it makes a tool window with a small close
+		// button. The owner window (setOwner) keeps the dialog off the taskbar.
+		opt.Windows.ExStyle = dialogExStyle
 		if sp.resize {
 			opt.MaximiseButtonState = application.ButtonEnabled
 		} else {
@@ -242,6 +244,8 @@ func (s *shell) OpenWindow(name, title string) {
 		w = s.newWindow(name, title)
 	}
 
+	below := s.top()
+
 	s.mu.Lock()
 	s.wins[name] = w
 	s.mu.Unlock()
@@ -251,6 +255,10 @@ func (s *shell) OpenWindow(name, title string) {
 
 	w.SetTitle(title)
 	w.Show()
+	// The native window can be made at Show, thus set the owner after it.
+	if name != gui.WinMain && below != w {
+		setOwner(w, below)
+	}
 	if w.IsMinimised() {
 		w.UnMinimise()
 	}
