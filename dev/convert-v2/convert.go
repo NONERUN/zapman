@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"path"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -45,8 +43,7 @@ type gameDef struct {
 // games are in build order.
 var games = []gameDef{
 	{"sky", "Sky: Children of the Light", 10, "sky-log", []int{0, 1}},
-	{"sker", "Sker Ritual, Hazard Levels", 20, "", []int{4}},
-	{"photon", "Photon (UDP 5055-5058, 27000-27002)", 30, "", []int{5}},
+	{"photon", "Photon (UDP 5055-5058, 27000-27002)", 30, "", []int{4, 5}},
 }
 
 // use is a distinct target, action or bundle with its use count.
@@ -98,7 +95,7 @@ type converter struct {
 // convert makes the v2 files from the v0.1 strategies. The tags are the
 // upstream tags of the strategies. Each strategy gets rev 1 and each game
 // gets version 1.
-func convert(old map[string]*spec.V01Spec, names []string, listsDir string, tags map[string]string) (*result, error) {
+func convert(old map[string]*spec.V01Spec, names []string, tags map[string]string) (*result, error) {
 	c := &converter{
 		tags:      tags,
 		res:       &result{files: map[string][]byte{}},
@@ -144,7 +141,7 @@ func convert(old map[string]*spec.V01Spec, names []string, listsDir string, tags
 	}
 	nameTargets(c.res.targets)
 	nameActions(c.res.actions)
-	if err := c.render(listsDir); err != nil {
+	if err := c.render(); err != nil {
 		return nil, err
 	}
 	return c.res, nil
@@ -644,7 +641,7 @@ func joinName(parts ...string) string {
 }
 
 // render makes the JSON files.
-func (c *converter) render(listsDir string) error {
+func (c *converter) render() error {
 	res := c.res
 	res.files[spec.CatalogFile] = jsonfmt.Pretty(mustJSON(spec.CatalogInfo{Schema: "./schema/catalog.json", ID: catalogID, Title: catalogTitle, Spec: spec.Version}))
 	// A bundle that only one game uses goes into that game file.
@@ -710,15 +707,7 @@ func (c *converter) render(listsDir string) error {
 			if gf.Lists == nil {
 				gf.Lists = map[string]spec.GameBundle{}
 			}
-			gb := spec.GameBundle{Bundle: bundleOf(b)}
-			if b.kind == "ipset" || b.kind == "hostlist" {
-				_, p, _ := strings.Cut(b.refs[0], ":")
-				seed := strings.TrimSuffix(p, path.Ext(p)) + ".default" + path.Ext(p)
-				if _, err := os.Stat(filepath.Join(listsDir, seed)); err == nil {
-					gb.Seed = "lists:" + seed
-				}
-			}
-			gf.Lists[b.name] = gb
+			gf.Lists[b.name] = spec.GameBundle{Bundle: bundleOf(b)}
 		}
 		res.files[file] = jsonfmt.Pretty(mustJSON(gf))
 	}

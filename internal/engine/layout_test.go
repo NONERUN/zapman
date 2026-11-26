@@ -113,7 +113,7 @@ func TestEnsureUserFiles(t *testing.T) {
 	cat := stockCatalog(t, l)
 	old := filepath.Join(l.User, "list-general-user.txt")
 	writeFile(t, old, "my.example\r\n")
-	if err := l.EnsureUserFiles(cat, []*spec.Game{cat.Game("sky")}); err != nil {
+	if err := l.EnsureUserFiles(cat, []*spec.Game{cat.Game("sky"), cat.Game("photon")}); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, old); got != "my.example\r\n" {
@@ -123,15 +123,21 @@ func TestEnsureUserFiles(t *testing.T) {
 		"list-exclude-user.txt":  newHostlist,
 		"ipset-exclude-user.txt": newIpset,
 		"ipset-all.txt":          readFile(t, filepath.Join(l.Lists, "ipset-all.default.txt")),
-		"ipset-sky.txt":          readFile(t, filepath.Join(l.Lists, "ipset-sky.default.txt")),
+		"ipset-sky.txt":          newGameIpset,
+		// The ipset option of photon is off: the file is also made.
+		"ipset-photon.txt": newGameIpset,
 	} {
 		if got := readFile(t, filepath.Join(l.User, name)); got != want {
 			t.Errorf("%s: got %q, want %q", name, got, want)
 		}
 	}
 	// The games that are off get no files.
-	if _, err := os.Stat(filepath.Join(l.User, "ipset-sker.txt")); err == nil {
-		t.Error("ipset-sker.txt is made, but sker is off")
+	l2 := testLayout(t)
+	if err := l2.EnsureUserFiles(stockCatalog(t, l2), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(l2.User, "ipset-photon.txt")); err == nil {
+		t.Error("ipset-photon.txt is made, but photon is off")
 	}
 	// The active fakes are copies of the catalog defaults.
 	if len(cat.Active) == 0 {

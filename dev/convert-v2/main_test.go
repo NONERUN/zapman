@@ -25,8 +25,8 @@ const v2Commit = "9f9aeed"
 
 // TestConvert converts the v0.1 files of baseCommit. The conversion must
 // pass the parity check. The output must be the same as the v2 files of
-// v2Commit, with rev 1. The test is skipped when git, a commit or the
-// upstream ref is not available.
+// v2Commit, with rev 1 (but the game files). The test is
+// skipped when git, a commit or the upstream ref is not available.
 func TestConvert(t *testing.T) {
 	root := filepath.Join("..", "..")
 	if err := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", upstream.DefaultRef).Run(); err != nil {
@@ -57,7 +57,7 @@ func TestConvert(t *testing.T) {
 		t.Skipf("no strategies in %s", baseCommit)
 	}
 	var log bytes.Buffer
-	if err := run(options{Dir: dir, Bin: "", Lists: filepath.Join(root, "lists"), Git: root, Ref: upstream.DefaultRef}, &log); err != nil {
+	if err := run(options{Dir: dir, Bin: "", Git: root, Ref: upstream.DefaultRef}, &log); err != nil {
 		t.Fatalf("%v\n%s", err, log.String())
 	}
 	t.Log(log.String())
@@ -70,6 +70,12 @@ func TestConvert(t *testing.T) {
 			return err
 		}
 		rel, _ := filepath.Rel(dir, path)
+		// The game files are not compared: after v2Commit the game modules
+		// sker and photon became one module photon, and the game bundles
+		// have no seed. The parity check examines the game rules.
+		if filepath.Dir(rel) == "games" {
+			return nil
+		}
 		got, _ := os.ReadFile(path)
 		want, err := exec.Command("git", "-C", root, "show", v2Commit+":strategies/"+filepath.ToSlash(rel)).Output()
 		if err != nil {

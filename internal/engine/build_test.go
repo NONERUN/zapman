@@ -21,7 +21,8 @@ func TestBuild(t *testing.T) {
 	cat := stockCatalog(t, l)
 	cfg := config.Default()
 	cfg.Strategy = testStrategy
-	cfg.Games = []string{"sky"}
+	cfg.Games = []string{"photon", "sky"}
+	cfg.GameOptions = map[string]map[string]bool{"photon": {"ipset": true}}
 	cfg.GameFilter = config.GameFilterUDP
 	cfg.GameFilterUDP = "1024-1934,1936-65535"
 
@@ -32,14 +33,17 @@ func TestBuild(t *testing.T) {
 	if b.Exe != filepath.Join(l.Bin, "winws.exe") || b.Bin != l.Bin || b.Strategy.Name != testStrategy {
 		t.Fatalf("got %+v", b)
 	}
-	if got := b.GameVersions(); !reflect.DeepEqual(got, []string{"sky " + strconv.Itoa(cat.Game("sky").GameFile.Version)}) {
+	if got := b.GameVersions(); !reflect.DeepEqual(got, []string{
+		"photon " + strconv.Itoa(cat.Game("photon").GameFile.Version) + " ipset=on",
+		"sky " + strconv.Itoa(cat.Game("sky").GameFile.Version),
+	}) {
 		t.Errorf("games: %v", got)
 	}
 	cl := b.CommandLine()
 	if !strings.HasPrefix(cl, `"`+b.Exe+`" --wf-tcp=`) || strings.Contains(cl, "--chdir") {
 		t.Errorf("winws: %s", cl)
 	}
-	if !strings.Contains(cl, ",1024-1934,1936-65535 ") || !strings.Contains(cl, `user\ipset-sky.txt`) {
+	if !strings.Contains(cl, ",1024-1934,1936-65535 ") || !strings.Contains(cl, `user\ipset-sky.txt`) || !strings.Contains(cl, `user\ipset-photon.txt`) {
 		t.Errorf("Game Filter or game is not in the argv: %s", cl)
 	}
 	if strings.Contains(cl, "  ") || strings.ContainsAny(cl, "\r\n") {
@@ -74,6 +78,19 @@ func TestBuildErrors(t *testing.T) {
 	if _, err := l.Build(cat, &cfg); !errors.As(err, &fe) || fe.Field != "games" {
 		t.Errorf("unknown game: %v", err)
 	}
+	cfg.Games = []string{"photon"}
+	for _, opts := range []map[string]map[string]bool{
+		{"nogame": {"x": true}},
+		{"photon": {"nope": true}},
+		// A game that is off is checked too.
+		{"sky": {"ipset": true}},
+	} {
+		cfg.GameOptions = opts
+		if _, err := l.Build(cat, &cfg); !errors.As(err, &fe) || fe.Field != "gameOptions" {
+			t.Errorf("game options %v: %v", opts, err)
+		}
+	}
+	cfg.GameOptions = nil
 	cfg.Games = nil
 	cfg.Engine = spec.Winws2
 	if _, err := l.Build(cat, &cfg); err == nil || !strings.Contains(err.Error(), "winws2.exe is missing") {

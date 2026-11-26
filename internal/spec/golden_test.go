@@ -39,12 +39,35 @@ var goldenCases = []struct {
 	{"gf-all", GameFilter{TCP: "1024-65535", UDP: "1024-65535"}},
 }
 
-// gamesGolden is the golden name of ALT11 with all games.
-const gamesGolden = "general (ALT11)+games"
+// gamesGolden is the golden name of ALT11 with all games and the default
+// option values. gamesOptionsGolden has all options on.
+const (
+	gamesGolden        = "general (ALT11)+games"
+	gamesOptionsGolden = "general (ALT11)+games+options"
+)
+
+// allOptionsOn gives copies of the games with all options on.
+func allOptionsOn(t *testing.T, games []*Game) []*Game {
+	t.Helper()
+	out := make([]*Game, 0, len(games))
+	for _, g := range games {
+		on := map[string]bool{}
+		for name := range g.Options {
+			on[name] = true
+		}
+		og, err := g.With(on)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, og)
+	}
+	return out
+}
 
 // TestGolden compares the argv of each strategy in strategies/ with
 // testdata/golden. The strategies are built without games. "general
-// (ALT11)" is also built with all games, as gamesGolden. ZAPMAN_SPEC_ROOT
+// (ALT11)" is also built with all games, as gamesGolden and
+// gamesOptionsGolden. ZAPMAN_SPEC_ROOT
 // can point to another tree with strategies/, bin/ and testdata/golden/.
 func TestGolden(t *testing.T) {
 	root := os.Getenv("ZAPMAN_SPEC_ROOT")
@@ -76,7 +99,8 @@ func TestGolden(t *testing.T) {
 		}
 		all = append(all, goldenStrategy{name, st, nil})
 		if name == "general (ALT11)" {
-			all = append(all, goldenStrategy{gamesGolden, st, cat.Games})
+			all = append(all, goldenStrategy{gamesGolden, st, cat.Games},
+				goldenStrategy{gamesOptionsGolden, st, allOptionsOn(t, cat.Games)})
 		}
 	}
 	n := 0
@@ -125,11 +149,14 @@ var errBump = errors.New("argv changed: bump rev/version")
 
 // goldenHeader gives the first line of a golden file: the version of the
 // strategy and of each game, for example
-// "# version: flowseal 1.10.4 r2; sky 1; sker 1".
+// "# version: flowseal 1.10.4 r3; sky 3; photon 3 ipset=off".
 func goldenHeader(st *Strategy, games []*Game) string {
 	h := versionPrefix + strings.ToLower(st.Version())
 	for _, g := range games {
 		h += "; " + g.ID + " " + strconv.Itoa(g.GameFile.Version)
+		if o := g.OptionText(); o != "" {
+			h += " " + o
+		}
 	}
 	return h + "\n"
 }

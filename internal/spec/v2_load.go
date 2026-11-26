@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -83,6 +84,10 @@ type Game struct {
 	GameFile
 	file  string
 	rules []resolvedRule
+	// values are the option values that rules use.
+	values map[string]bool
+	// variants are the rules for each value set, by optionText.
+	variants map[string][]resolvedRule
 }
 
 // resolvedRule is a rule as a v0.1 profile, with its ports for the wf line
@@ -355,6 +360,10 @@ func (c *Catalog) loadGame(path string) (*Game, error) {
 	if len(g.Rules) == 0 {
 		return nil, fmt.Errorf("%s: Game has no rules.", file)
 	}
+	if err := checkGameOptions(file, g.Options); err != nil {
+		return nil, err
+	}
+	used := map[string]bool{}
 	for _, name := range sortedKeys(g.Lists) {
 		b := g.Lists[name]
 		if !isName(name) {
@@ -366,14 +375,153 @@ func (c *Catalog) loadGame(path string) (*Game, error) {
 		if err := c.checkBundle(&b.Bundle); err != nil {
 			return nil, fmt.Errorf("%s: lists: %q: %w", file, name, err)
 		}
-		if b.Seed != "" && (!strings.HasPrefix(b.Seed, "lists:") || !isFileRef(b.Seed)) {
-			return nil, fmt.Errorf("%s: lists: %q: seed must be a lists: path: %s", file, name, b.Seed)
+		if b.When != "" {
+			if _, ok := g.Options[b.When]; !ok {
+				return nil, fmt.Errorf("%s: lists: %q: when: unknown option %q", file, name, b.When)
+			}
+			used[b.When] = true
 		}
 	}
-	if g.rules, err = c.resolveRules(file, g.Rules, g.Lists); err != nil {
+	for _, name := range sortedKeys(g.Options) {
+		if !used[name] {
+			return nil, fmt.Errorf("%s: options: %q is not used. Use it in when of a bundle.", file, name)
+		}
+	}
+	if err := c.resolveGame(g); err != nil {
 		return nil, err
 	}
 	return g, nil
+}
+
+// checkGameOptions checks the options of a game file.
+func checkGameOptions(file string, opts map[string]GameOption) error {
+	if len(opts) > MaxGameOptions {
+		return fmt.Errorf("%s: options: a game can have %d options or fewer", file, MaxGameOptions)
+	}
+	for _, name := range sortedKeys(opts) {
+		o := opts[name]
+		if !isName(name) {
+			return fmt.Errorf("%s: options: name %q is not valid. Use a-z, 0-9 and -.", file, name)
+		}
+		if len(o.Title) == 0 {
+			return fmt.Errorf("%s: options: %q: title is empty", file, name)
+		}
+		for _, field := range []struct {
+			name  string
+			texts map[string]string
+		}{{"title", o.Title}, {"about", o.About}} {
+			for _, lang := range sortedKeys(field.texts) {
+				if !AboutLangs[lang] {
+					return fmt.Errorf("%s: options: %q: %s: unknown language %q. Use en or ru", file, name, field.name, lang)
+				}
+				if isBlank(field.texts[lang]) {
+					return fmt.Errorf("%s: options: %q: %s: the %s text is empty", file, name, field.name, lang)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// resolveGame resolves the rules of the game for each value set of its
+// options. Each option must change the rules. g.rules are the rules with
+// the default values.
+func (c *Catalog) resolveGame(g *Game) error {
+	names := sortedKeys(g.Options)
+	g.variants = map[string][]resolvedRule{}
+	for mask := range 1 << len(names) {
+		vals := map[string]bool{}
+		for i, n := range names {
+			vals[n] = mask&(1<<i) != 0
+		}
+		rules, err := c.resolveRules(g.file, g.Rules, g.bundles(vals))
+		if err != nil {
+			if len(names) > 0 {
+				return fmt.Errorf("%w (options %s)", err, optionText(names, vals))
+			}
+			return err
+		}
+		g.variants[optionText(names, vals)] = rules
+	}
+	for i, n := range names {
+		for mask := range 1 << len(names) {
+			if mask&(1<<i) != 0 {
+				continue
+			}
+			off, on := map[string]bool{}, map[string]bool{}
+			for j, m := range names {
+				off[m] = mask&(1<<j) != 0
+				on[m] = off[m]
+			}
+			on[n] = true
+			if reflect.DeepEqual(g.variants[optionText(names, off)], g.variants[optionText(names, on)]) {
+				return fmt.Errorf("%s: options: %q does not change the rules (options %s)", g.file, n, optionText(names, off))
+			}
+		}
+	}
+	g.values = map[string]bool{}
+	for _, n := range names {
+		g.values[n] = g.Options[n].Default
+	}
+	g.rules = g.variants[optionText(names, g.values)]
+	return nil
+}
+
+// bundles gives the bundles of the game for the option values. A bundle
+// with an option that is off is empty.
+func (g *Game) bundles(vals map[string]bool) map[string]GameBundle {
+	out := make(map[string]GameBundle, len(g.Lists))
+	for name, b := range g.Lists {
+		if b.When != "" && !vals[b.When] {
+			b = GameBundle{When: b.When}
+		}
+		out[name] = b
+	}
+	return out
+}
+
+// optionText gives the option values as text: name=on or name=off, in the
+// order of names, with spaces between them.
+func optionText(names []string, vals map[string]bool) string {
+	parts := make([]string, 0, len(names))
+	for _, n := range names {
+		v := "off"
+		if vals[n] {
+			v = "on"
+		}
+		parts = append(parts, n+"="+v)
+	}
+	return strings.Join(parts, " ")
+}
+
+// Values gives a copy of the option values of the game.
+func (g *Game) Values() map[string]bool {
+	out := make(map[string]bool, len(g.values))
+	for n, v := range g.values {
+		out[n] = v
+	}
+	return out
+}
+
+// OptionText gives the option values of the game as text, for example
+// "ipset=off". It is empty when the game has no options.
+func (g *Game) OptionText() string {
+	return optionText(sortedKeys(g.Options), g.values)
+}
+
+// With gives a copy of the game with the option values set. An option that
+// is not in vals keeps its value. An unknown option is an error.
+func (g *Game) With(vals map[string]bool) (*Game, error) {
+	out := *g
+	out.values = g.Values()
+	for _, n := range sortedKeys(vals) {
+		if _, ok := g.Options[n]; !ok {
+			return nil, fmt.Errorf("game %q has no option %q", g.ID, n)
+		}
+		out.values[n] = vals[n]
+	}
+	out.rules = g.variants[optionText(sortedKeys(g.Options), out.values)]
+	return &out, nil
 }
 
 // resolveRules gives the rules as checked v0.1 profiles.

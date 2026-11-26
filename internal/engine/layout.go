@@ -126,46 +126,56 @@ func activeName(file string) (string, bool) {
 
 // The contents of a new user list. An empty hostlist or ipset matches all
 // hosts, thus a new list has one address that is not used.
+//
+// IPSetMode compares a file with newIpset: do not change it. A new user
+// list of a game has a comment for the user (newGameIpset). The stock list
+// of the game is a lists: file, thus the user list has only the additions
+// of the user.
 const (
-	newHostlist = "# Do not make this file empty: an empty list matches all hosts.\r\ndomain.example.abc\r\n"
-	newIpset    = "203.0.113.113/32\r\n"
+	newHostlist  = "# Do not make this file empty: an empty list matches all hosts.\r\ndomain.example.abc\r\n"
+	newIpset     = "203.0.113.113/32\r\n"
+	newGameIpset = "# Your IPs and subnets of the game, one on each line. The stock list is in the lists folder.\r\n" +
+		"# 203.0.113.113 is not used: keep it, an empty list matches all IPs.\r\n" + newIpset
 )
 
 // EnsureUserFiles makes the user: lists of the catalog bundles and of the
 // games that are missing. It does not change a file that exists. The
 // contents of a new file come from:
-//   - the seed of the game bundle (a lists: file);
-//   - else lists\<name>.default.txt, when it exists (user:ipset-all.txt
-//     gets lists\ipset-all.default.txt);
-//   - else one address that is not used (see newHostlist and newIpset).
+//   - for a catalog bundle, lists\<name>.default.txt, when it exists
+//     (user:ipset-all.txt gets lists\ipset-all.default.txt);
+//   - else one address that is not used (see newHostlist, newIpset and
+//     newGameIpset).
 //
-// It also makes the missing active fakes (EnsureActiveFakes).
+// It makes the lists of all bundles of the games, also of a bundle with an
+// option that is off: the user can then edit the list before the option is
+// on. It also makes the missing active fakes (EnsureActiveFakes).
 func (l Layout) EnsureUserFiles(cat *spec.Catalog, games []*spec.Game) error {
 	type want struct {
-		ref, seed string
-		ipset     bool
+		ref   string
+		ipset bool
+		game  bool
 	}
 	var wants []want
-	add := func(b *spec.Bundle, seed string) {
+	add := func(b *spec.Bundle, game bool) {
 		for _, r := range b.Hostlist {
-			wants = append(wants, want{r, seed, false})
+			wants = append(wants, want{r, false, game})
 		}
 		for _, r := range b.HostlistExclude {
-			wants = append(wants, want{r, seed, false})
+			wants = append(wants, want{r, false, game})
 		}
 		for _, r := range b.Ipset {
-			wants = append(wants, want{r, seed, true})
+			wants = append(wants, want{r, true, game})
 		}
 		for _, r := range b.IpsetExclude {
-			wants = append(wants, want{r, seed, true})
+			wants = append(wants, want{r, true, game})
 		}
 	}
 	for _, b := range cat.Lists {
-		add(&b, "")
+		add(&b, false)
 	}
 	for _, g := range games {
 		for _, b := range g.Lists {
-			add(&b.Bundle, b.Seed)
+			add(&b.Bundle, true)
 		}
 	}
 	var errs []error
@@ -174,7 +184,7 @@ func (l Layout) EnsureUserFiles(cat *spec.Catalog, games []*spec.Game) error {
 		if !ok {
 			continue
 		}
-		if err := l.ensureUserFile(name, w.seed, w.ipset); err != nil {
+		if err := l.ensureUserFile(name, w.ipset, w.game); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -227,19 +237,17 @@ func (l Layout) CatalogFile(ref string) (string, error) {
 	return path, nil
 }
 
-func (l Layout) ensureUserFile(name, seed string, ipset bool) error {
-	path := filepath.Join(l.User, filepath.FromSlash(name))
-	if !isInside(l.User, path) {
-		return fmt.Errorf("user list %q is not in the user folder", name)
+func (l Layout) ensureUserFile(name string, ipset, game bool) error {
+	path, err := l.UserFile(name)
+	if err != nil {
+		return err
 	}
 	if _, err := os.Stat(path); err == nil || !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 	var data []byte
 	src := ""
-	if s, ok := strings.CutPrefix(seed, spec.PrefixLists); ok {
-		src = filepath.Join(l.Lists, filepath.FromSlash(s))
-	} else {
+	if !game {
 		def := filepath.Join(l.Lists, strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))+".default.txt")
 		if _, err := os.Stat(def); err == nil {
 			src = def
@@ -252,12 +260,24 @@ func (l Layout) ensureUserFile(name, seed string, ipset bool) error {
 			return fmt.Errorf("make %s: %w", name, err)
 		}
 		data = b
+	case ipset && game:
+		data = []byte(newGameIpset)
 	case ipset:
 		data = []byte(newIpset)
 	default:
 		data = []byte(newHostlist)
 	}
 	return writeNew(path, data)
+}
+
+// UserFile gives the path of the user: file name (the part after user:).
+// The path must be in the user folder.
+func (l Layout) UserFile(name string) (string, error) {
+	path := filepath.Join(l.User, filepath.FromSlash(name))
+	if !isInside(l.User, path) {
+		return "", fmt.Errorf("user list %q is not in the user folder", name)
+	}
+	return path, nil
 }
 
 // writeNew makes the file path with data. When the file exists, it does

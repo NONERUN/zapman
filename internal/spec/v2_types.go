@@ -24,12 +24,25 @@ type Bundle struct {
 	IpsetExclude    []string `json:"ipsetExclude,omitempty" doc:"--ipset-exclude= refs"`
 }
 
-// GameBundle is a bundle of a game module. Seed is the stock file that
-// makes the user file of the bundle when it is missing.
+// GameBundle is a bundle of a game module. When is the name of a game
+// option. When the option is off, a target uses the bundle as an empty
+// bundle: the rule has no lists from it.
 type GameBundle struct {
 	Bundle
-	Seed string `json:"seed,omitempty" doc:"lists: file that makes the user: list when it is missing"`
+	When string `json:"when,omitempty" doc:"game option; when it is off, the targets do not use this bundle" schema:"pattern=name"`
 }
+
+// GameOption is an option of a game module. The user sets it in the Games
+// dialog. An option must change the argv.
+type GameOption struct {
+	Title   map[string]string `json:"title" doc:"name in the UI: language (ru, en) to text" schema:"required,keys=lang,values=text"`
+	About   map[string]string `json:"about,omitempty" doc:"a short text for the UI: language (ru, en) to text" schema:"keys=lang,values=text"`
+	Default bool              `json:"default,omitempty" doc:"the value when the user did not set it"`
+}
+
+// MaxGameOptions is the maximum number of options of a game. The catalog
+// checks all value sets of the options.
+const MaxGameOptions = 4
 
 // Target is a traffic selector (strategies/targets.json).
 type Target struct {
@@ -202,6 +215,7 @@ type GameFile struct {
 	About   map[string]string     `json:"about,omitempty" doc:"a short text for the UI: language (ru, en) to text" schema:"keys=lang,values=text"`
 	Version int                   `json:"version" doc:"the version of the game module; add 1 when the argv changes" schema:"required,min=1"`
 	Order   int                   `json:"order" doc:"games with a lower order go first" schema:"required"`
+	Options map[string]GameOption `json:"options,omitempty" doc:"options of this game: name to option"`
 	Lists   map[string]GameBundle `json:"lists,omitempty" doc:"bundles of this game"`
 	Updater string                `json:"updater,omitempty" doc:"list updater" schema:"enum=updater"`
 	Rules   []Rule                `json:"rules" doc:"rules; they go before the strategy rules" schema:"required"`

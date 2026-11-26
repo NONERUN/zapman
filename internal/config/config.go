@@ -10,8 +10,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -48,6 +50,10 @@ type Config struct {
 	Strategy string `json:"strategy"`
 	// Games are the IDs of the game modules that are on (sorted).
 	Games []string `json:"games"`
+	// GameOptions are the option values that the user set: game ID to
+	// option name to value. An option that is not in it has the default of
+	// the catalog. The catalog checks the names (engine.Games).
+	GameOptions map[string]map[string]bool `json:"gameOptions,omitempty"`
 	// GameFilter is the Game Filter mode.
 	GameFilter GameFilterMode `json:"gameFilter"`
 	// GameFilterTCP and GameFilterUDP are the port ranges of the Game
@@ -106,6 +112,7 @@ var fields = []field{
 	{"engine", func(c *Config) any { return &c.Engine }, checkEngine},
 	{"strategy", func(c *Config) any { return &c.Strategy }, checkStrategy},
 	{"games", func(c *Config) any { return &c.Games }, checkGames},
+	{"gameOptions", func(c *Config) any { return &c.GameOptions }, checkGameOptions},
 	{"gameFilter", func(c *Config) any { return &c.GameFilter }, checkGameFilter},
 	{"gameFilterTcp", func(c *Config) any { return &c.GameFilterTCP }, func(c *Config) error { return checkPorts(c.GameFilterTCP) }},
 	{"gameFilterUdp", func(c *Config) any { return &c.GameFilterUDP }, func(c *Config) error { return checkPorts(c.GameFilterUDP) }},
@@ -315,6 +322,20 @@ func checkGames(c *Config) error {
 		}
 		if i > 0 && c.Games[i-1] == id {
 			return fmt.Errorf("game %q is in the list two times", id)
+		}
+	}
+	return nil
+}
+
+func checkGameOptions(c *Config) error {
+	for _, id := range slices.Sorted(maps.Keys(c.GameOptions)) {
+		if !isGameID(id) {
+			return fmt.Errorf("%q is not a game ID. Use a-z, 0-9 and -", id)
+		}
+		for _, name := range slices.Sorted(maps.Keys(c.GameOptions[id])) {
+			if !isGameID(name) {
+				return fmt.Errorf("%s: %q is not an option name. Use a-z, 0-9 and -", id, name)
+			}
 		}
 	}
 	return nil

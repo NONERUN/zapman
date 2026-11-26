@@ -3,6 +3,8 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -41,13 +43,9 @@ func (l Layout) Build(cat *spec.Catalog, cfg *config.Config) (*Build, error) {
 	if err != nil {
 		return nil, err
 	}
-	games := make([]*spec.Game, 0, len(cfg.Games))
-	for _, id := range cfg.Games {
-		g := cat.Game(id)
-		if g == nil {
-			return nil, &config.FieldError{Field: "games", Err: fmt.Errorf("game %q is not in the catalog", id)}
-		}
-		games = append(games, g)
+	games, err := Games(cat, cfg)
+	if err != nil {
+		return nil, err
 	}
 	exe, err := l.Exe(cfg.Engine)
 	if err != nil {
@@ -66,6 +64,35 @@ func (l Layout) Build(cat *spec.Catalog, cfg *config.Config) (*Build, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+// Games gives the games of cfg that are on, with the option values of
+// cfg.GameOptions. A game that is not in the catalog is an error. An entry of
+// cfg.GameOptions with a game or an option that is not in the catalog is
+// also an error; an entry of a game that is off is not used.
+func Games(cat *spec.Catalog, cfg *config.Config) ([]*spec.Game, error) {
+	for _, id := range slices.Sorted(maps.Keys(cfg.GameOptions)) {
+		g := cat.Game(id)
+		if g == nil {
+			return nil, &config.FieldError{Field: "gameOptions", Err: fmt.Errorf("game %q is not in the catalog", id)}
+		}
+		if _, err := g.With(cfg.GameOptions[id]); err != nil {
+			return nil, &config.FieldError{Field: "gameOptions", Err: err}
+		}
+	}
+	games := make([]*spec.Game, 0, len(cfg.Games))
+	for _, id := range cfg.Games {
+		g := cat.Game(id)
+		if g == nil {
+			return nil, &config.FieldError{Field: "games", Err: fmt.Errorf("game %q is not in the catalog", id)}
+		}
+		g, err := g.With(cfg.GameOptions[id])
+		if err != nil {
+			return nil, &config.FieldError{Field: "gameOptions", Err: err}
+		}
+		games = append(games, g)
+	}
+	return games, nil
 }
 
 // checkLength gives an error when the command line is longer than
@@ -112,11 +139,17 @@ func (b *Build) CommandLine() string {
 	return `"` + b.Exe + `" ` + b.Args()
 }
 
-// GameVersions gives "<id> <version>" for each game, for example "sky 2".
+// GameVersions gives "<id> <version>" for each game, for example "sky 3".
+// A game with options also has the option values, for example
+// "photon 3 ipset=off". The service record keeps these texts: a change of a
+// game version or of an option makes the service stale.
 func (b *Build) GameVersions() []string {
 	out := make([]string, len(b.Games))
 	for i, g := range b.Games {
 		out[i] = g.ID + " " + strconv.Itoa(g.GameFile.Version)
+		if t := g.OptionText(); t != "" {
+			out[i] += " " + t
+		}
 	}
 	return out
 }

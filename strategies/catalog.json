@@ -52,9 +52,8 @@
     "flowseal/general (SIMPLE FAKE ALT2).json": "bb0b43f2372dae3697c8b0d2523a219a2f6f1523f8014e8b90a181e1e3fbd491",
     "flowseal/general (SIMPLE FAKE).json": "c84f791064d2a1431ec054873088cd446e62c0fb6d87c85b7d4fd1fb37485221",
     "flowseal/general.json": "b0fe31a85b5840be623cd47913b87523b09ea419f7f20139017888c7db380bfd",
-    "games/photon.json": "38353d74ed33a963ef03053a0bd04f110deed94e4ccefb2c0a7eac3f12c9948a",
-    "games/sker.json": "c42647b855b9d113666c423a9de703154222c631271367c2c8c9035b826bc247",
-    "games/sky.json": "021f7ace84f912207fa83c734be7ae3c7e6a2856e130b8c31bf49764709df2af",
+    "games/photon.json": "a88b7d242f6dace0bdb4f1eff695f5260ef0b889e7f27d0aecdf546a41a72ecd",
+    "games/sky.json": "ee333a39ba18db7df82f3ccd99c7ef2f749fb5ff815dfb0309165aeee48fc87f",
     "lists.json": "7af953f6f75d295ffcff08150a366a85187d6b8cd470cf8c87a038f80cb70374",
     "targets.json": "a86b4d1703d123771cb63af5a57764b952938173b5f9cc0c6929174811fe753e"
   }

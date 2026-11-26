@@ -3,12 +3,12 @@
   "id": "sky",
   "title": "Sky: Children of the Light",
   "about": {
-    "ru": "UDP игры (IP из user/ipset-sky.txt) и WebSocket чата и заданий",
-    "en": "Game UDP (IPs from user/ipset-sky.txt) and the WebSocket of chat and quests"
+    "ru": "UDP игры (IP из lists/ipset-sky.txt и user/ipset-sky.txt) и WebSocket чата и заданий",
+    "en": "Game UDP (IPs from lists/ipset-sky.txt and user/ipset-sky.txt) and the WebSocket of chat and quests"
   },
-  "version": 2,
+  "version": 3,
   "order": 10,
-  "lists": { "ipset-sky": { "ipset": ["user:ipset-sky.txt"], "seed": "lists:ipset-sky.default.txt" } },
+  "lists": { "ipset-sky": { "ipset": ["lists:ipset-sky.txt", "user:ipset-sky.txt"] } },
   "updater": "sky-log",
   "rules": [
     {

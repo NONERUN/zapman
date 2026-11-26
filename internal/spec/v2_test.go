@@ -49,7 +49,7 @@ func TestV2Build(t *testing.T) {
 	dir := v2Tree(t, map[string]string{
 		"flowseal/s.json": okStrategy,
 		"games/b.json":    `{"id":"b","title":"B","version":1,"order":2,"rules":[{"target":{"udp":["5000-6000"],"anyProtocol":true},"action":"fake-game"}]}`,
-		"games/a.json": `{"id":"a","title":"A","version":1,"order":2,"lists":{"ipset-a":{"ipset":["user:ipset-a.txt"],"seed":"lists:ipset-a.default.txt"}},
+		"games/a.json": `{"id":"a","title":"A","version":1,"order":2,"options":{"only":{"title":{"en":"Only A","ru":"Только A"},"default":true}},"lists":{"ipset-a":{"ipset":["user:ipset-a.txt"],"when":"only"}},
 			"rules":[{"target":{"udp":["443","27000"],"lists":["ipset-a"]},"action":{"desync":["fake"],"ttl":8,"cutoff":"none","luaPayload":"all","fake":{"unknownUdp":["bin:g.bin"]}}}]}`,
 	})
 	c, err := LoadCatalog(dir, "")
@@ -95,6 +95,28 @@ func TestV2Build(t *testing.T) {
 	}
 	if list[0] != "--wf-tcp= --wf-udp=443,1024-1934,1936-65535" || !strings.HasPrefix(list[len(list)-1], "--filter-udp=1024-1934,1936-65535 ") {
 		t.Errorf("Game Filter list: %q", list)
+	}
+	// Option off: the rule has no lists from the bundle.
+	a := c.Game("a")
+	if a.OptionText() != "only=on" || c.Game("b").OptionText() != "" {
+		t.Errorf("option text: %q, %q", a.OptionText(), c.Game("b").OptionText())
+	}
+	off, err := a.With(map[string]bool{"only": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.OptionText() != "only=off" || a.OptionText() != "only=on" {
+		t.Errorf("With: %q, the catalog game %q", off.OptionText(), a.OptionText())
+	}
+	lines, err = Build(st, []*Game{off}, Winws, goldenPaths, gf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `--filter-udp=443,27000 --dpi-desync=fake --dpi-desync-ttl=8 --dpi-desync-fake-unknown-udp="C:\zapman\bin\g.bin" --new`; lines[1] != want {
+		t.Errorf("option off:\n got: %s\nwant: %s", lines[1], want)
+	}
+	if _, err := a.With(map[string]bool{"nope": true}); err == nil || !strings.Contains(err.Error(), `game "a" has no option "nope"`) {
+		t.Errorf("unknown option: %v", err)
 	}
 	if _, err := Build(st, []*Game{c.Game("a"), c.Game("a")}, Winws, goldenPaths, gf); err == nil {
 		t.Error("game two times: no error")
@@ -145,7 +167,16 @@ func TestV2Errors(t *testing.T) {
 		{"game about empty", map[string]string{"games/g.json": `{"id":"g","title":"G","about":{"en":"Text","ru":" "},"version":1,"order":1,"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: about: the ru text is empty`},
 		{"game updater", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"updater":"x","rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `unknown updater "x"`},
 		{"game bundle clash", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"lists":{"general":{"ipset":["user:x.txt"]}},"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: lists: "general" is also in lists.json`},
-		{"game seed", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"lists":{"x":{"ipset":["user:x.txt"],"seed":"user:x.txt"}},"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `seed must be a lists: path: user:x.txt`},
+		{"game seed", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"lists":{"x":{"ipset":["user:x.txt"],"seed":"lists:x.txt"}},"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `unknown field "seed"`},
+		{"game option name", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"options":{"O":{"title":{"en":"O"}}},"lists":{"x":{"ipset":["user:x.txt"],"when":"O"}},"rules":[{"target":{"udp":["1"],"lists":["x"]},"action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: options: name "O" is not valid`},
+		{"game option no title", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"options":{"o":{"title":{}}},"lists":{"x":{"ipset":["user:x.txt"],"when":"o"}},"rules":[{"target":{"udp":["1"],"lists":["x"]},"action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: options: "o": title is empty`},
+		{"game option lang", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"options":{"o":{"title":{"en":"O"},"about":{"de":"X"}}},"lists":{"x":{"ipset":["user:x.txt"],"when":"o"}},"rules":[{"target":{"udp":["1"],"lists":["x"]},"action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: options: "o": about: unknown language "de"`},
+		{"game option empty text", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"options":{"o":{"title":{"en":" "}}},"lists":{"x":{"ipset":["user:x.txt"],"when":"o"}},"rules":[{"target":{"udp":["1"],"lists":["x"]},"action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: options: "o": title: the en text is empty`},
+		{"game option field", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"options":{"o":{"title":{"en":"O"},"value":true}},"lists":{"x":{"ipset":["user:x.txt"],"when":"o"}},"rules":[{"target":{"udp":["1"],"lists":["x"]},"action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `unknown field "value"`},
+		{"game when unknown", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"lists":{"x":{"ipset":["user:x.txt"],"when":"o"}},"rules":[{"target":{"udp":["1"],"lists":["x"]},"action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: lists: "x": when: unknown option "o"`},
+		{"game option not used", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"options":{"o":{"title":{"en":"O"}}},"lists":{"x":{"ipset":["user:x.txt"]}},"rules":[{"target":{"udp":["1"],"lists":["x"]},"action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: options: "o" is not used`},
+		{"game option no change", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"options":{"o":{"title":{"en":"O"}}},"lists":{"x":{"ipset":["user:x.txt"],"when":"o"}},"rules":[{"target":"gf-udp","action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: options: "o" does not change the rules (options o=off)`},
+		{"game too many options", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"options":{"a":{"title":{"en":"A"}},"b":{"title":{"en":"B"}},"c":{"title":{"en":"C"}},"d":{"title":{"en":"D"}},"e":{"title":{"en":"E"}}},"rules":[{"target":{"udp":["1"],"lists":["x"]},"action":"fake-game"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: options: a game can have 4 options or fewer`},
 		{"game rule", map[string]string{"games/g.json": `{"id":"g","title":"G","version":1,"order":1,"rules":[{"target":"gf-udp","action":"nope"}]}`, "flowseal/s.json": okStrategy}, `games/g.json: rules[0]: unknown action "nope"`},
 	}
 	for _, c := range cases {

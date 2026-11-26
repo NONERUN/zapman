@@ -2,8 +2,8 @@
 // format v2 one time.
 //
 // It reads strategies/*.json (specVersion 0.1.0). It makes catalog.json,
-// the list bundles, targets and actions, the game modules sky, sker and
-// photon from "general (ALT11 Photon)", and the v2 strategy files in
+// the list bundles, targets and actions, the game modules sky and photon
+// from "general (ALT11 Photon)", and the v2 strategy files in
 // flowseal/. An action is a named preset only when 3 or more rules use it.
 // Each strategy gets the upstream tag of its .bat file (from the upstream
 // ref in git, see dev/upstream-versions) and rev 1. Each game gets
@@ -14,7 +14,7 @@
 //
 // This program is only for the migration. Delete it after the migration.
 //
-//	go run ./dev/convert-v2 [-dir strategies] [-bin bin] [-lists lists] [-git .] [-ref upstream/main] [-dry]
+//	go run ./dev/convert-v2 [-dir strategies] [-bin bin] [-git .] [-ref upstream/main] [-dry]
 package main
 
 import (
@@ -32,19 +32,17 @@ import (
 
 // options are the command line options.
 type options struct {
-	Dir   string // strategies folder
-	Bin   string // bin folder for the bin: check; empty: no check
-	Lists string // lists folder for the seed files
-	Git   string // git folder with the upstream ref
-	Ref   string // upstream ref for the upstream tags
-	Dry   bool   // do not write and do not delete
+	Dir string // strategies folder
+	Bin string // bin folder for the bin: check; empty: no check
+	Git string // git folder with the upstream ref
+	Ref string // upstream ref for the upstream tags
+	Dry bool   // do not write and do not delete
 }
 
 func main() {
 	var o options
 	flag.StringVar(&o.Dir, "dir", "strategies", "strategies folder")
 	flag.StringVar(&o.Bin, "bin", "bin", "bin folder (empty: no bin: check)")
-	flag.StringVar(&o.Lists, "lists", "lists", "lists folder (seed files)")
 	flag.StringVar(&o.Git, "git", ".", "git folder with the upstream ref")
 	flag.StringVar(&o.Ref, "ref", upstream.DefaultRef, "upstream ref for the upstream tags")
 	flag.BoolVar(&o.Dry, "dry", false, "check and show the report; do not write")
@@ -65,7 +63,7 @@ func run(o options, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	res, err := convert(old, names, o.Lists, tags)
+	res, err := convert(old, names, tags)
 	if err != nil {
 		return err
 	}

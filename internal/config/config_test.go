@@ -54,7 +54,7 @@ func TestLoadPowerShell(t *testing.T) {
 
 func TestLoadFieldErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), FileName)
-	data := `{"engine":"winws3","gameFilter":true,"language":"de","games":["sky","sky"],"strategy":"a/b","trayWatch":"yes","autoUpdateCheck":false}`
+	data := `{"engine":"winws3","gameFilter":true,"language":"de","games":["sky","sky"],"gameOptions":{"photon":{"Ipset":true}},"strategy":"a/b","trayWatch":"yes","autoUpdateCheck":false}`
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestLoadFieldErrors(t *testing.T) {
 			t.Errorf("error does not name the field: %v", e)
 		}
 	}
-	want := []string{"language", "engine", "strategy", "games", "gameFilter", "trayWatch"}
+	want := []string{"language", "engine", "strategy", "games", "gameOptions", "gameFilter", "trayWatch"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("fields %v, want %v", names, want)
 	}
@@ -113,6 +113,7 @@ func TestSaveRoundTrip(t *testing.T) {
 	c.SetGame("sky", false)
 	c.SetGame("akey", true)
 	c.Strategy = "general (ALT11)"
+	c.GameOptions = map[string]map[string]bool{"photon": {"ipset": true}}
 	if err := Save(path, &c); err != nil {
 		t.Fatal(err)
 	}
@@ -128,6 +129,11 @@ func TestSaveRoundTrip(t *testing.T) {
     "akey",
     "photon"
   ],
+  "gameOptions": {
+    "photon": {
+      "ipset": true
+    }
+  },
   "gameFilter": "disabled",
   "gameFilterTcp": "1024-65535",
   "gameFilterUdp": "1024-65535",
@@ -245,5 +251,24 @@ func TestParsePorts(t *testing.T) {
 	var fe *FieldError
 	if err := c.Validate(); !errors.As(err, &fe) || fe.Field != "gameFilterTcp" {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGameOptions(t *testing.T) {
+	for _, tc := range []struct {
+		opts map[string]map[string]bool
+		ok   bool
+	}{
+		{nil, true},
+		{map[string]map[string]bool{"photon": {"ipset": false}, "sky": {}}, true},
+		{map[string]map[string]bool{"Photon": {"ipset": true}}, false},
+		{map[string]map[string]bool{"photon": {"": true}}, false},
+		{map[string]map[string]bool{"photon": {"ip set": true}}, false},
+	} {
+		c := Default()
+		c.GameOptions = tc.opts
+		if err := c.Validate(); (err == nil) != tc.ok {
+			t.Errorf("%v: %v", tc.opts, err)
+		}
 	}
 }

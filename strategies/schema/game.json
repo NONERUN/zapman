@@ -36,6 +36,16 @@
       "type": "integer",
       "minimum": 0
     },
+    "options": {
+      "description": "options of this game: name to option",
+      "type": "object",
+      "patternProperties": {
+        "^[a-z0-9]+(-[a-z0-9]+)*$": {
+          "$ref": "#/$defs/gameOption"
+        }
+      },
+      "additionalProperties": false
+    },
     "lists": {
       "description": "bundles of this game",
       "type": "object",
@@ -282,11 +292,47 @@
           },
           "minItems": 1
         },
-        "seed": {
-          "description": "lists: file that makes the user: list when it is missing",
-          "type": "string"
+        "when": {
+          "description": "game option; when it is off, the targets do not use this bundle",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
         }
       },
+      "additionalProperties": false
+    },
+    "gameOption": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "description": "name in the UI: language (ru, en) to text",
+          "type": "object",
+          "patternProperties": {
+            "^(en|ru)$": {
+              "type": "string",
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        },
+        "about": {
+          "description": "a short text for the UI: language (ru, en) to text",
+          "type": "object",
+          "patternProperties": {
+            "^(en|ru)$": {
+              "type": "string",
+              "pattern": "\\S"
+            }
+          },
+          "additionalProperties": false
+        },
+        "default": {
+          "description": "the value when the user did not set it",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "title"
+      ],
       "additionalProperties": false
     },
     "rule": {
