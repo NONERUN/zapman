@@ -271,27 +271,44 @@ func TestInstallCreateRetry(t *testing.T) {
 
 func TestInstallRestore(t *testing.T) {
 	for name, set := range map[string]func(h *fakeHost){
-		"start":     func(h *fakeHost) { h.startCodes = []uint32{1, 1} },
+		"start":     func(h *fakeHost) { h.startCodes = []uint32{1} },
 		"settle":    func(h *fakeHost) { h.stopAfterRunning = 5 },
 		"read-back": func(h *fakeHost) { h.badReadBack = testPlan().ImagePath },
 	} {
-		t.Run(name, func(t *testing.T) {
-			h := newFake()
-			h.add(Name, Running, oldRecord())
-			set(h)
-			m := newManager(h)
-			err := m.Install(testPlan())
-			if err == nil || strings.Contains(err.Error(), "restore") {
-				t.Fatalf("got %v", err)
-			}
-			s := h.services[Name]
-			if s == nil || s.rec.ImagePath != oldRecord().ImagePath || s.rec.Strategy != "general" {
-				t.Fatalf("the old service is not back: %+v (%v)", s, err)
-			}
-			if s.status.State != Stopped {
-				t.Errorf("the old service runs: %v", s.status.State)
-			}
-		})
+		// The old service gets the state that it had before Install.
+		for _, before := range []State{Running, Stopped} {
+			t.Run(name+" "+before.String(), func(t *testing.T) {
+				h := newFake()
+				h.add(Name, before, oldRecord())
+				set(h)
+				m := newManager(h)
+				err := m.Install(testPlan())
+				if err == nil || strings.Contains(err.Error(), "restore") {
+					t.Fatalf("got %v", err)
+				}
+				s := h.services[Name]
+				if s == nil || s.rec.ImagePath != oldRecord().ImagePath || s.rec.Strategy != "general" {
+					t.Fatalf("the old service is not back: %+v (%v)", s, err)
+				}
+				if s.status.State != before {
+					t.Errorf("the old service is %v, not %v", s.status.State, before)
+				}
+			})
+		}
+	}
+}
+
+func TestInstallRestoreStartFails(t *testing.T) {
+	h := newFake()
+	h.add(Name, Running, oldRecord())
+	h.startCodes = []uint32{1, 2}
+	m := newManager(h)
+	err := m.Install(testPlan())
+	if err == nil || !strings.Contains(err.Error(), "0x00000001") || !strings.Contains(err.Error(), "start the old service") {
+		t.Fatalf("got %v", err)
+	}
+	if s := h.services[Name]; s == nil || s.rec.Strategy != "general" {
+		t.Fatalf("the old service is not back: %+v", s)
 	}
 }
 

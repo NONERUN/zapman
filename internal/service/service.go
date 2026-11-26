@@ -339,7 +339,8 @@ func (m *Manager) Status(want *Plan) (Status, error) {
 //  5. Start the service and make sure that it runs.
 //
 // When a step after 3 fails, Install deletes the new service and makes the
-// old service again (not started).
+// old service again. When the old service ran before Install, Install starts
+// it again; else it stays stopped.
 func (m *Manager) Install(p Plan) error {
 	if err := p.check(); err != nil {
 		return err
@@ -350,14 +351,14 @@ func (m *Manager) Install(p Plan) error {
 	if err := m.EnableTCPTimestamps(); err != nil {
 		return err
 	}
-	old, hadOld, err := m.snapshot()
+	old, err := m.snapshot()
 	if err != nil {
 		return err
 	}
 	if err := m.stopAll(); err != nil {
 		return err
 	}
-	if hadOld {
+	if old.had {
 		if err := m.deleteAndWait(Name); err != nil && !errors.Is(err, ErrNotInstalled) {
 			return err
 		}
@@ -370,33 +371,52 @@ func (m *Manager) Install(p Plan) error {
 	if err == nil {
 		return nil
 	}
-	if rerr := m.restore(&old, hadOld); rerr != nil {
+	if rerr := m.restore(&old); rerr != nil {
 		return errors.Join(err, fmt.Errorf("restore the old service: %w", rerr))
 	}
 	return err
 }
 
-func (m *Manager) snapshot() (Record, bool, error) {
-	if _, err := m.Host.Query(Name); errors.Is(err, ErrNotInstalled) {
-		return Record{}, false, nil
-	} else if err != nil {
-		return Record{}, false, err
-	}
-	r, err := m.Host.ReadRecord(Name)
-	return r, true, err
+// snapshot is the old service before Install.
+type snapshot struct {
+	rec     Record
+	had     bool // the service was installed
+	running bool // the service ran or was in a start
 }
 
-// restore deletes the new service and makes the old service again.
-func (m *Manager) restore(old *Record, hadOld bool) error {
+func (m *Manager) snapshot() (snapshot, error) {
+	ss, err := m.Host.Query(Name)
+	if errors.Is(err, ErrNotInstalled) {
+		return snapshot{}, nil
+	}
+	if err != nil {
+		return snapshot{}, err
+	}
+	r, err := m.Host.ReadRecord(Name)
+	return snapshot{rec: r, had: true, running: ss.State != Stopped && ss.State != StopPending}, err
+}
+
+// restore deletes the new service and makes the old service again. When
+// the old service ran, restore starts it.
+func (m *Manager) restore(old *snapshot) error {
 	_ = m.Host.Stop(Name)
 	_ = m.waitState(Name, Stopped, or(m.StopTimeout, 8*time.Second))
 	if err := m.deleteAndWait(Name); err != nil && !errors.Is(err, ErrNotInstalled) {
 		return err
 	}
-	if !hadOld || old.ImagePath == "" {
+	if !old.had || old.rec.ImagePath == "" {
 		return nil
 	}
-	return m.create(old)
+	if err := m.create(&old.rec); err != nil {
+		return err
+	}
+	if !old.running {
+		return nil
+	}
+	if err := m.start(); err != nil {
+		return fmt.Errorf("start the old service: %w", err)
+	}
+	return nil
 }
 
 // create makes the service with r.ImagePath and writes the record.

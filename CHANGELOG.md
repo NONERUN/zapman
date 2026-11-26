@@ -22,6 +22,7 @@
 - Go: [`internal/engine`](internal/engine/) — папки и `spec.Paths` (с `user/fakes/ACTIVE_*.bin`), создание недостающих `user:`-списков, сверка `bin/` с `versions.json`, командная строка движка, запуск на переднем плане с одним повтором при `0xC0000142`.
 - Go: [`internal/service`](internal/service/) — служба `zapret` (имя PowerShell-версии): установка с восстановлением старой службы при ошибке, удаление (с WinDivert), старт, стоп, статус. В ключе службы — стратегия (`zapman`), версия, игры и SHA256 ImagePath; статус говорит, устарела ли служба и почему. Без прав администратора — понятная ошибка.
 - Go: TCP timestamps (нужны `fooling=ts`) включаются при установке и старте службы, как в PowerShell-версии; проверка для диагностики — `TCPTimestamps()`.
+- Go: при ошибке установки службы старая служба создаётся снова и запускается, если работала до установки.
 - Fake из upstream (сейчас в `strategies/fakes/`): `tls_clienthello_www_sferum_ru`, `tls_clienthello_awswaf_com`, `tls_clienthello_steam_chat_com`, `tls_clienthello_steamstatic_com`, `tls_clienthello_teamspeak_com`, `quic_initial_lemana_pro`, `quic_initial_steam_chat_com`, `quic_initial_steamstatic_com`.
 
 ### Changed

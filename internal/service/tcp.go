@@ -7,7 +7,7 @@ import (
 	"regexp"
 )
 
-// The TCP timestamps (RFC 1323). The fooling=ts of 12 stock strategies
+// The TCP timestamps (RFC 1323). The fooling=ts of many stock strategies
 // needs them. Windows has them off by default. Windows has no documented
 // API or registry value for the active state, thus the Host reads the
 // output of "netsh interface tcp show global".
