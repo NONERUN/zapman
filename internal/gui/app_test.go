@@ -569,7 +569,7 @@ func TestMainCloseWithTray(t *testing.T) {
 
 func TestVersionNew(t *testing.T) {
 	a, f, sh := start(t, nil)
-	f.Update(func(d *backend.FakeData) { d.Latest = "v9.9.9" })
+	f.Update(func(d *backend.FakeData) { d.Version.App = "v0.2.0"; d.Latest = "v0.10.0" })
 	sh.answer(true)
 	a.ClickVersion()
 	a.wait()
@@ -581,6 +581,31 @@ func TestVersionNew(t *testing.T) {
 	a.wait()
 	if got := sh.get(&sh.infos); !slices.Equal(got, []string{en("VersionLatest", f.Version().App)}) {
 		t.Errorf("infos = %q", got)
+	}
+}
+
+// TestVersionNoOffer: a release that is newer than the latest tag, and a
+// dev build, get no offer of an update.
+func TestVersionNoOffer(t *testing.T) {
+	for _, tc := range []struct{ app, latest, info string }{
+		{"v0.2.0", "v0.1.1", en("VersionLatest", "v0.2.0")},
+		{"dev-0123abc", "v0.1.1", en("VersionDev", "dev-0123abc", "v0.1.1")},
+		{"dev-0123abc-dirty", "v0.1.1", en("VersionDev", "dev-0123abc-dirty", "v0.1.1")},
+		{"v0.1.2-0.20261120101010-0123456789ab", "v0.1.1", en("VersionDev", "v0.1.2-0.20261120101010-0123456789ab", "v0.1.1")},
+		{"v0.1.1+dirty", "v9.9.9", en("VersionDev", "v0.1.1+dirty", "v9.9.9")},
+	} {
+		t.Run(tc.app+"_"+tc.latest, func(t *testing.T) {
+			a, f, sh := start(t, nil)
+			f.Update(func(d *backend.FakeData) { d.Version.App = tc.app; d.Latest = tc.latest })
+			a.ClickVersion()
+			a.wait()
+			if got := sh.get(&sh.asks); len(got) != 0 {
+				t.Errorf("asks = %q", got)
+			}
+			if got := sh.get(&sh.infos); !slices.Equal(got, []string{tc.info}) {
+				t.Errorf("infos = %q, want %q", got, tc.info)
+			}
+		})
 	}
 }
 

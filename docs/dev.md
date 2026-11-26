@@ -349,7 +349,7 @@ Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` 
 - `go-winres make ... --file-version <тег без v> --product-version <тег без v>` в `cmd/zapman` — версия файла в свойствах exe (в git `.syso` с `0.0.0.0`; манифест не меняется);
 - `go build -tags production -trimpath -ldflags "-s -w -H windowsgui -X github.com/NONERUN/zapman/internal/app.Version=<тег>" ./cmd/zapman`. `-tags production` выключает devtools WebView2, адрес dev-сервера из переменной среды и отладочный лог Wails; `-H windowsgui` — без окна консоли. CLI `wails3` и npm не нужны: `frontend/` вшит через `go:embed`.
 
-`app.BuildVersion()` (заголовок окна, «Статус», проверка версии): `app.Version` из `-X`, если задан; иначе версия модуля из build info (у `go build` в git-копии — тег или псевдоверсия, `+dirty` при правках); иначе `dev-<коммит>`. Проверка версии сравнивает её с последним тегом GitHub как строку, поэтому в `-X` — тег целиком, с `v`.
+`app.BuildVersion()` (заголовок окна, «Статус», проверка версии): `app.Version` из `-X`, если задан; иначе версия модуля из build info (у `go build` в git-копии — тег или псевдоверсия, `+dirty` при правках); иначе `dev-<коммит>`. Проверка версии сравнивает её с последним тегом GitHub как числа `vMAJOR.MINOR.PATCH`, поэтому в `-X` — тег целиком, с `v`. Версия не в этом виде (`dev-<коммит>`, псевдоверсия, `+dirty`) — сборка для разработки: обновление не предлагается, «Проверить версию» только показывает последний релиз.
 
 В архиве: `zapman.exe`, `bin/`, `strategies/`, `lists/`, `docs/`, `README.md`, `LICENSE.txt`, `CHANGELOG.md`, `assets/app.LICENSE.txt` (лицензия иконки; сама иконка — в exe). `.service/` не нужен: «Скачать ipset» и «Сверить hosts» берут файлы с GitHub (ветка `main`). `user/` и `test-results/` exe создаёт сам.
 

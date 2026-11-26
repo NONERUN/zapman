@@ -1,8 +1,12 @@
 package gui
 
 import (
+	"cmp"
 	"context"
+	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/NONERUN/zapman/internal/gui/backend"
 	"github.com/NONERUN/zapman/internal/gui/i18n"
@@ -353,6 +357,8 @@ func (a *App) versionCheck(report bool) {
 		return
 	}
 	ver := a.be.Version()
+	local, release := parseRelease(ver.App)
+	latest, ok := parseRelease(remote)
 	switch {
 	case err != nil:
 		if report {
@@ -361,15 +367,22 @@ func (a *App) versionCheck(report bool) {
 		} else {
 			a.logLine(a.t("AutoFail"))
 		}
-	case remote == ver.App:
-		if report {
-			a.shell.Info(a.t("VersionLatest", ver.App))
-			a.logLine(a.t("VersionLatest", ver.App))
-		}
-	case remote == "":
+	case !ok:
 		if report {
 			a.shell.Info(a.t("VersionFail"))
 			a.logLine(a.t("VersionFail"))
+		}
+	case !release:
+		// A dev build (dev-<commit>, a pseudo-version, +dirty) has no
+		// release to compare. The latest release is only information.
+		if report {
+			a.shell.Info(a.t("VersionDev", ver.App, remote))
+			a.logLine(a.t("VersionDev", ver.App, remote))
+		}
+	case compareRelease(latest, local) <= 0:
+		if report {
+			a.shell.Info(a.t("VersionLatest", ver.App))
+			a.logLine(a.t("VersionLatest", ver.App))
 		}
 	default:
 		if a.shell.Ask(a.t("VersionNew", remote), true) {
@@ -379,6 +392,39 @@ func (a *App) versionCheck(report bool) {
 		}
 		a.logLine(a.t("VersionNew", remote))
 	}
+}
+
+// releaseRE is a release tag. It is the same as in web.ParseVersion; the
+// GUI logic does not import the network package.
+var releaseRE = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)$`)
+
+// parseRelease gives the three numbers of a release tag vMAJOR.MINOR.PATCH.
+// It gives false for all other text: a dev build, a pseudo-version, a tag
+// with +dirty, an empty text.
+func parseRelease(tag string) ([3]int, bool) {
+	var n [3]int
+	m := releaseRE.FindStringSubmatch(strings.TrimSpace(tag))
+	if m == nil {
+		return n, false
+	}
+	for i := range n {
+		v, err := strconv.Atoi(m[i+1])
+		if err != nil {
+			return n, false
+		}
+		n[i] = v
+	}
+	return n, true
+}
+
+// compareRelease compares two releases as numbers: -1, 0 or +1.
+func compareRelease(a, b [3]int) int {
+	for i := range a {
+		if c := cmp.Compare(a[i], b[i]); c != 0 {
+			return c
+		}
+	}
+	return 0
 }
 
 // Tray gives the state of the tray icon.
