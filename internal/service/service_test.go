@@ -38,12 +38,15 @@ type fakeHost struct {
 	// at the first Query after Running.
 	stopAfterRunning uint32
 	engines          int
+	// tcp is the value of the timestamps line of netsh: enabled or disabled.
+	tcp      string
+	tcpFails bool
 	// badReadBack: ReadRecord gives an other ImagePath for this ImagePath.
 	badReadBack string
 }
 
 func newFake() *fakeHost {
-	return &fakeHost{elevated: true, services: map[string]*fakeService{}}
+	return &fakeHost{elevated: true, services: map[string]*fakeService{}, tcp: "enabled"}
 }
 
 func (h *fakeHost) add(name string, st State, r Record) *fakeService {
@@ -159,6 +162,19 @@ func (h *fakeHost) WriteRecord(name string, r *Record) error {
 	s.rec.Strategy, s.rec.Version, s.rec.Hash = r.Strategy, r.Version, r.Hash
 	s.rec.Games = slices.Clone(r.Games)
 	s.legacy = ""
+	return nil
+}
+
+func (h *fakeHost) TCPShowGlobal() ([]byte, error) {
+	return []byte("TCP Global Parameters\r\n------\r\nECN Capability : disabled\r\nRFC 1323 Timestamps : " + h.tcp + " \r\n"), nil
+}
+
+func (h *fakeHost) TCPEnableTimestamps() error {
+	h.log = append(h.log, "tcp on")
+	if h.tcpFails {
+		return errors.New("access denied")
+	}
+	h.tcp = "enabled"
 	return nil
 }
 

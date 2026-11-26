@@ -140,6 +140,12 @@ type Host interface {
 	// KillEngines stops all winws.exe and winws2.exe processes. It gives
 	// the number of processes that it stopped.
 	KillEngines() (int, error)
+	// TCPShowGlobal gives the output of "netsh interface tcp show global".
+	// It does not need administrator rights.
+	TCPShowGlobal() ([]byte, error)
+	// TCPEnableTimestamps runs
+	// "netsh interface tcp set global timestamps=enabled".
+	TCPEnableTimestamps() error
 }
 
 // Plan is the service that Install makes.
@@ -326,7 +332,7 @@ func (m *Manager) Status(want *Plan) (Status, error) {
 
 // Install replaces the service with the plan and starts it. The steps are
 // the steps of the PowerShell version:
-//  1. Keep a copy of the old record.
+//  1. Set the TCP timestamps on and keep a copy of the old record.
 //  2. Stop the service and the engine processes.
 //  3. Delete the old service and wait until it is gone.
 //  4. Make the new service, write the record and read it again.
@@ -340,6 +346,9 @@ func (m *Manager) Install(p Plan) error {
 	}
 	if !m.Host.Elevated() {
 		return ErrNotElevated
+	}
+	if err := m.EnableTCPTimestamps(); err != nil {
+		return err
 	}
 	old, hadOld, err := m.snapshot()
 	if err != nil {
@@ -517,6 +526,9 @@ func (m *Manager) Start() error {
 	}
 	if ss.State == Running {
 		return nil
+	}
+	if err := m.EnableTCPTimestamps(); err != nil {
+		return err
 	}
 	return m.start()
 }

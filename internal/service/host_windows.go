@@ -1,10 +1,15 @@
 package service
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -236,6 +241,27 @@ func (windowsHost) WriteRecord(name string, r *Record) error {
 		errs = append(errs, fmt.Errorf("delete %s: %w", ValueLegacy, err))
 	}
 	return errors.Join(errs...)
+}
+
+// netsh runs System32\netsh.exe with args and no window.
+func netsh(args ...string) ([]byte, error) {
+	exe := filepath.Join(os.Getenv("SystemRoot"), "System32", "netsh.exe")
+	cmd := exec.Command(exe, args...) //nolint:gosec // G204: the args are constants of this file.
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: windows.CREATE_NO_WINDOW}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return out, fmt.Errorf("netsh %s: %w: %s", strings.Join(args, " "), err, bytes.TrimSpace(out))
+	}
+	return out, nil
+}
+
+func (windowsHost) TCPShowGlobal() ([]byte, error) {
+	return netsh("interface", "tcp", "show", "global")
+}
+
+func (windowsHost) TCPEnableTimestamps() error {
+	_, err := netsh("interface", "tcp", "set", "global", "timestamps=enabled")
+	return err
 }
 
 // engineExes are the processes that KillEngines stops.
