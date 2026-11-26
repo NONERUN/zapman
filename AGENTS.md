@@ -1,6 +1,6 @@
 # Инструкции для агентов
 
-**Zapret Manager** (`zapman`) запускает [zapret](https://github.com/bol-van/zapret) (`winws.exe`) и [zapret2](https://github.com/bol-van/zapret2) (`winws2.exe`) из `bin/`. Ветка `go` — переписывание на Go. PowerShell-версия (GUI, CLI, служба, трей) — только на ветке `main`; релизы собираются оттуда.
+**Zapret Manager** (`zapman`) запускает [zapret](https://github.com/bol-van/zapret) (`winws.exe`) и [zapret2](https://github.com/bol-van/zapret2) (`winws2.exe`) из `bin/`. Ветка `go` — переписывание на Go. PowerShell-версия (GUI, CLI, служба, трей) — только на ветке `main`. Workflow Release этой ветки собирает Go-версию (`zapman.exe`, версия — из git-тега) — [`docs/dev.md`](docs/dev.md#релиз).
 
 Какие поля JSON дают какие флаги — [`docs/dev.md`](docs/dev.md). [`CHANGELOG.md`](CHANGELOG.md) — дельты, не описание «как сейчас». Документация — на русском.
 

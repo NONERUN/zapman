@@ -2,7 +2,7 @@
 
 Раскладка, проверки и что не делать в коде — [`AGENTS.md`](../AGENTS.md). Этот файл — поля JSON, обновление `bin/` и GitHub Release. Правка генератора и этого файла — в одном изменении.
 
-Версия продукта на ветке `go` пока не задана (на `main` — `ModuleVersion` в `src/Zapman/Zapman.psd1`, git-тег `v` + это число). Формат стратегий — `"spec": 2` (раздел «Формат v2» ниже); `Version` в [`internal/spec`](../internal/spec/).
+Версия продукта — git-тег `vMAJOR.MINOR.PATCH`; workflow Release вшивает его в exe (раздел «Релиз»). На `main` — `ModuleVersion` в `src/Zapman/Zapman.psd1`, тег `v` + это число. Формат стратегий — `"spec": 2` (раздел «Формат v2» ниже); `Version` в [`internal/spec`](../internal/spec/).
 
 ## Движки
 
@@ -340,20 +340,29 @@ go-winres, а не `akavel/rsrc`: тот же `tc-hib/winres` используе
 
 ## Релиз
 
-Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` сам запускает [Release](../.github/workflows/release.yml) **с того коммита** (YAML в теге). Job собирает zip/rar/tar.gz и создаёт **черновик**. `/releases/latest` не меняется, пока не нажмёте **Publish release**.
+Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` сам запускает [Release](../.github/workflows/release.yml) **с того коммита** (YAML в теге). Job `build` (windows-latest) гоняет `go test ./...` и собирает `zapman.exe`; job `release` (ubuntu-latest) кладёт его в zip/rar/tar.gz и создаёт **черновик**. `/releases/latest` не меняется, пока не нажмёте **Publish release**.
 
-1. `ModuleVersion` в `src/Zapman/Zapman.psd1` (ветка `main`; на ветке `go` `release.yml` ещё собирает PowerShell-версию и не работает). Если менялась схема JSON — `spec` в `strategies/`.
-2. Секция в [`CHANGELOG.md`](../CHANGELOG.md) на этот тег, коммит **с актуальным** `release.yml`.
-3. Аннотированный тег `v` + ModuleVersion **на этом коммите**:
-   `git tag -a v0.1.1 -m v0.1.1`
-4. `git push origin main` и `git push origin v0.1.1`. Не `git push --tags`: в клоне могут быть чужие теги вроде `1.10.2` без `v`.
-5. Дождаться проверок на `main` и зелёного job Release.
+Версия продукта — только git-тег, в файлах репозитория её нет. Сборка релиза:
+
+- `go-winres make ... --file-version <тег без v> --product-version <тег без v>` в `cmd/zapman` — версия файла в свойствах exe (в git `.syso` с `0.0.0.0`; манифест не меняется);
+- `go build -tags production -trimpath -ldflags "-s -w -H windowsgui -X github.com/NONERUN/zapman/internal/app.Version=<тег>" ./cmd/zapman`. `-tags production` выключает devtools WebView2, адрес dev-сервера из переменной среды и отладочный лог Wails; `-H windowsgui` — без окна консоли. CLI `wails3` и npm не нужны: `frontend/` вшит через `go:embed`.
+
+`app.BuildVersion()` (заголовок окна, «Статус», проверка версии): `app.Version` из `-X`, если задан; иначе версия модуля из build info (у `go build` в git-копии — тег или псевдоверсия, `+dirty` при правках); иначе `dev-<коммит>`. Проверка версии сравнивает её с последним тегом GitHub как строку, поэтому в `-X` — тег целиком, с `v`.
+
+В архиве: `zapman.exe`, `bin/`, `strategies/`, `lists/`, `docs/`, `README.md`, `LICENSE.txt`, `CHANGELOG.md`, `assets/app.LICENSE.txt` (лицензия иконки; сама иконка — в exe). `.service/` не нужен: «Скачать ipset» и «Сверить hosts» берут файлы с GitHub (ветка `main`). `user/` и `test-results/` exe создаёт сам.
+
+1. Если менялась схема JSON — `spec` в `strategies/`.
+2. Секция `## vX.Y.Z - <дата>` в [`CHANGELOG.md`](../CHANGELOG.md) на этот тег (из неё — текст релиза), коммит **с актуальным** `release.yml`.
+3. Аннотированный тег **на этом коммите**:
+   `git tag -a v0.2.0 -m v0.2.0`
+4. Push ветки и тега: `git push origin <ветка>` и `git push origin v0.2.0`. Не `git push --tags`: в клоне могут быть чужие теги вроде `1.10.2` без `v`.
+5. Дождаться проверок и зелёных job `build` и `release`.
 6. Releases → черновик → проверить архивы → **Publish release**.
 
-Повтор без нового тега (тот же YAML с `main`):
+Повтор без нового тега: YAML берётся с `--ref`, код — с тега. Пока `go` не влит в `main`, на `main` лежит `release.yml` PowerShell-версии: для тега Go-версии — `--ref go`.
 
 ```text
-gh workflow run Release --repo NONERUN/zapman --ref main -f tag=v0.1.1
+gh workflow run Release --repo NONERUN/zapman --ref go -f tag=v0.2.0
 ```
 
 Всегда `--repo NONERUN/zapman`: `gh` в этой копии может смотреть на Flowseal. Не создавать Release вручную в UI без этого workflow — не будет zip/rar/tar.gz.
