@@ -129,6 +129,8 @@ func TestSaveRoundTrip(t *testing.T) {
     "photon"
   ],
   "gameFilter": "disabled",
+  "gameFilterTcp": "1024-65535",
+  "gameFilterUdp": "1024-65535",
   "autoUpdateCheck": true,
   "trayWatch": true,
   "autoUpdateBricks": true,
@@ -190,5 +192,58 @@ func TestGameFilterPorts(t *testing.T) {
 		if got := c.GameFilterPorts(); got != want {
 			t.Errorf("%s: got %+v, want %+v", mode, got, want)
 		}
+	}
+}
+
+func TestGameFilterCustomPorts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), FileName)
+	data := `{"gameFilter":"all","gameFilterTcp":" 80, 443 ,1024-1934","gameFilterUdp":"0-100"}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(path)
+	var fe *FieldError
+	if !errors.As(err, &fe) || fe.Field != "gameFilterUdp" {
+		t.Fatalf("got %v", err)
+	}
+	if c.GameFilterTCP != "80,443,1024-1934" || c.GameFilterUDP != DefaultPorts {
+		t.Fatalf("got %q %q", c.GameFilterTCP, c.GameFilterUDP)
+	}
+	want := spec.GameFilter{TCP: "80,443,1024-1934", UDP: DefaultPorts}
+	if got := c.GameFilterPorts(); got != want {
+		t.Fatalf("got %+v", got)
+	}
+	c.GameFilter = GameFilterUDP
+	c.GameFilterUDP = "27015"
+	if got := c.GameFilterPorts(); got != (spec.GameFilter{TCP: OffPort, UDP: "27015"}) {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestParsePorts(t *testing.T) {
+	good := []struct{ in, want string }{
+		{"1024-65535", "1024-65535"},
+		{" 1 , 2-3 ", "1,2-3"},
+		{"1024-1934,1936-65535", "1024-1934,1936-65535"},
+		{"65535", "65535"},
+		{"5-5", "5-5"},
+		{"00080", "00080"},
+	}
+	for _, g := range good {
+		got, err := ParsePorts(g.in)
+		if err != nil || got != g.want {
+			t.Errorf("%q: got %q, %v", g.in, got, err)
+		}
+	}
+	for _, in := range []string{"", " ", "0", "65536", "000080", "1-", "-5", "5-1", "1,,2", "a", "1-2-3", "1,"} {
+		if got, err := ParsePorts(in); err == nil {
+			t.Errorf("%q: got %q, no error", in, got)
+		}
+	}
+	c := Default()
+	c.GameFilterTCP = "1, 2"
+	var fe *FieldError
+	if err := c.Validate(); !errors.As(err, &fe) || fe.Field != "gameFilterTcp" {
+		t.Fatalf("got %v", err)
 	}
 }

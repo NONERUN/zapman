@@ -50,6 +50,11 @@ type Config struct {
 	Games []string `json:"games"`
 	// GameFilter is the Game Filter mode.
 	GameFilter GameFilterMode `json:"gameFilter"`
+	// GameFilterTCP and GameFilterUDP are the port ranges of the Game
+	// Filter, for example "1024-65535" or "27015,50000-50100". See
+	// ParsePorts.
+	GameFilterTCP string `json:"gameFilterTcp"`
+	GameFilterUDP string `json:"gameFilterUdp"`
 	// AutoUpdateCheck is on when the app examines GitHub for a new
 	// release.
 	AutoUpdateCheck bool `json:"autoUpdateCheck"`
@@ -70,6 +75,8 @@ func Default() Config {
 	return Config{
 		Engine:           spec.Winws,
 		GameFilter:       GameFilterOff,
+		GameFilterTCP:    DefaultPorts,
+		GameFilterUDP:    DefaultPorts,
 		AutoUpdateCheck:  true,
 		TrayWatch:        true,
 		AutoUpdateBricks: true,
@@ -100,6 +107,8 @@ var fields = []field{
 	{"strategy", func(c *Config) any { return &c.Strategy }, checkStrategy},
 	{"games", func(c *Config) any { return &c.Games }, checkGames},
 	{"gameFilter", func(c *Config) any { return &c.GameFilter }, checkGameFilter},
+	{"gameFilterTcp", func(c *Config) any { return &c.GameFilterTCP }, func(c *Config) error { return checkPorts(c.GameFilterTCP) }},
+	{"gameFilterUdp", func(c *Config) any { return &c.GameFilterUDP }, func(c *Config) error { return checkPorts(c.GameFilterUDP) }},
 	{"autoUpdateCheck", func(c *Config) any { return &c.AutoUpdateCheck }, nil},
 	{"trayWatch", func(c *Config) any { return &c.TrayWatch }, nil},
 	{"autoUpdateBricks", func(c *Config) any { return &c.AutoUpdateBricks }, nil},
@@ -167,11 +176,16 @@ func Load(path string) (Config, error) {
 
 // normalize puts the field name of c into its usual form.
 func (c *Config) normalize(name string) {
-	if name == "games" {
+	switch name {
+	case "games":
 		if c.Games != nil {
 			c.Games = append([]string(nil), c.Games...)
 			sort.Strings(c.Games)
 		}
+	case "gameFilterTcp":
+		c.GameFilterTCP = stripSpaces(c.GameFilterTCP)
+	case "gameFilterUdp":
+		c.GameFilterUDP = stripSpaces(c.GameFilterUDP)
 	}
 }
 
@@ -346,17 +360,92 @@ func (c *Config) SetGame(id string, on bool) {
 	}
 }
 
-// GameFilterPorts gives the ports of the $gf tokens for spec.Build.
+// GameFilterPorts gives the ports of the $gf tokens for spec.Build. A
+// protocol that the mode does not use gets OffPort. A range that is not
+// correct (Validate gives an error for it) gets DefaultPorts.
 func (c *Config) GameFilterPorts() spec.GameFilter {
-	const all = "1024-65535"
+	tcp, err := ParsePorts(c.GameFilterTCP)
+	if err != nil {
+		tcp = DefaultPorts
+	}
+	udp, err := ParsePorts(c.GameFilterUDP)
+	if err != nil {
+		udp = DefaultPorts
+	}
 	gf := spec.GameFilter{TCP: OffPort, UDP: OffPort}
 	switch c.GameFilter {
 	case GameFilterAll:
-		gf.TCP, gf.UDP = all, all
+		gf.TCP, gf.UDP = tcp, udp
 	case GameFilterTCP:
-		gf.TCP = all
+		gf.TCP = tcp
 	case GameFilterUDP:
-		gf.UDP = all
+		gf.UDP = udp
 	}
 	return gf
+}
+
+// DefaultPorts is the default port range of the Game Filter.
+const DefaultPorts = "1024-65535"
+
+// ParsePorts examines a Game Filter port list and gives it without spaces.
+// The rules are the rules of Flowseal service.bat: items that commas
+// separate, each item is a port N or a range N-M, 1 <= N <= M <= 65535.
+func ParsePorts(s string) (string, error) {
+	s = stripSpaces(s)
+	if s == "" {
+		return "", errors.New("the port list is empty")
+	}
+	for _, item := range strings.Split(s, ",") {
+		lo, hi, isRange := strings.Cut(item, "-")
+		a, err := parsePort(lo)
+		if err != nil {
+			return "", fmt.Errorf("%q: %w", item, err)
+		}
+		b := a
+		if isRange {
+			if b, err = parsePort(hi); err != nil {
+				return "", fmt.Errorf("%q: %w", item, err)
+			}
+		}
+		if a > b {
+			return "", fmt.Errorf("%q: the start of the range is more than its end", item)
+		}
+	}
+	return s, nil
+}
+
+func parsePort(s string) (int, error) {
+	if s == "" || len(s) > 5 {
+		return 0, errors.New("use a port from 1 to 65535")
+	}
+	n := 0
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return 0, errors.New("use a port from 1 to 65535")
+		}
+		n = n*10 + int(r-'0')
+	}
+	if n < 1 || n > 65535 {
+		return 0, errors.New("use a port from 1 to 65535")
+	}
+	return n, nil
+}
+
+func checkPorts(s string) error {
+	if _, err := ParsePorts(s); err != nil {
+		return err
+	}
+	if stripSpaces(s) != s {
+		return errors.New("the port list has spaces")
+	}
+	return nil
+}
+
+func stripSpaces(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == ' ' || r == '\t' {
+			return -1
+		}
+		return r
+	}, s)
 }

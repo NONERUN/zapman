@@ -79,7 +79,7 @@ strategies/
 
 Правило → профиль v0.1 → тот же генератор, что и раньше. `payload` для winws2 выводится из `l7` / `anyProtocol` (например, `tls`+`http` → две группы, `discord` → `discord_ip_discovery,stun`); явный `payload` пишут только когда вывод не подходит.
 
-`wf` не задаётся руками: это объединение портов всех целей (стратегии и включённых игр), без повторов, по возрастанию первого порта; `$gameFilter` (порты Game Filter, `12` или `1024-65535`) — последним. winws: `--wf-tcp=` / `--wf-udp=`, winws2: `--wf-tcp-out=` / `--wf-udp-out=`.
+`wf` не задаётся руками: это объединение портов всех целей (стратегии и включённых игр), без повторов, по возрастанию первого порта; `$gameFilter` (порты Game Filter: `12`, если фильтр выключен для протокола, иначе `gameFilterTcp` / `gameFilterUdp` из `user/config.json`) — последним. winws: `--wf-tcp=` / `--wf-udp=`, winws2: `--wf-tcp-out=` / `--wf-udp-out=`.
 
 Игры идут **до** правил стратегии (они уже, чем общие правила на тех же портах), по `order`, затем по `id`. Сейчас: `sky` (10), `sker` (20), `photon` (30).
 
@@ -221,6 +221,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 | `strategy` | имя стратегии каталога, `""` — не выбрана | `""` |
 | `games` | ID игровых модулей, которые включены (`sky`, `sker`, `photon`) | `[]` |
 | `gameFilter` | `disabled`, `all`, `tcp`, `udp` | `disabled` |
+| `gameFilterTcp`, `gameFilterUdp` | порты Game Filter: `N` или `N-M` через запятую, 1–65535, начало ≤ конца (правила Flowseal `service.bat`, коммит `2384961`); пробелы убираются при чтении | `1024-65535` |
 | `autoUpdateCheck` | bool | `true` |
 | `trayWatch` | bool | `true` |
 | `autoUpdateBricks` | bool: свои стратегии берут новые сток-кирпичи после обновления | `true` |

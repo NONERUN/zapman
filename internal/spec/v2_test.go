@@ -88,6 +88,14 @@ func TestV2Build(t *testing.T) {
 	if !strings.Contains(z2[3], "--filter-udp=443,27000 --ipset=\"C:\\zapman\\user\\ipset-a.txt\" --lua-desync=fake:payload=all:blob=g:ip_ttl=8 --new") {
 		t.Errorf("winws2 game rule: %s", z2[3])
 	}
+	// The Game Filter ports can be a list (Flowseal custom ranges).
+	list, err := Build(st, nil, Winws, goldenPaths, GameFilter{TCP: "12", UDP: "1024-1934,1936-65535"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if list[0] != "--wf-tcp= --wf-udp=443,1024-1934,1936-65535" || !strings.HasPrefix(list[len(list)-1], "--filter-udp=1024-1934,1936-65535 ") {
+		t.Errorf("Game Filter list: %q", list)
+	}
 	if _, err := Build(st, []*Game{c.Game("a"), c.Game("a")}, Winws, goldenPaths, gf); err == nil {
 		t.Error("game two times: no error")
 	}
