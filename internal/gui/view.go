@@ -107,11 +107,14 @@ func statusLabels(lang string, st backend.Status, hasStrategies bool, lastError 
 // TrayView is the state of the tray icon and its menu.
 type TrayView struct {
 	// Lines are the three status items of the menu.
-	Lines        [3]string
-	Tooltip      string
-	Open         string
-	Start        string
-	Stop         string
+	Lines   [3]string
+	Tooltip string
+	Open    string
+	Start   string
+	Stop    string
+	// Exit is the item that ends the program. A winws that runs in the
+	// foreground continues to run.
+	Exit         string
 	StartEnabled bool
 	StopEnabled  bool
 }
@@ -140,7 +143,7 @@ func trayView(lang string, st backend.Status) TrayView {
 		v.Lines[2] = t("StatusStrategyNone")
 	}
 	v.Tooltip = trayTooltip(strings.Join(v.Lines[:], "\n"))
-	v.Open, v.Start, v.Stop = t("TrayOpen"), t("TrayStart"), t("TrayStop")
+	v.Open, v.Start, v.Stop, v.Exit = t("TrayOpen"), t("TrayStart"), t("TrayStop"), t("TrayExit")
 	v.StartEnabled = st.Service == backend.ServiceStopped
 	v.StopEnabled = st.BypassRunning || (st.HasService() && st.Service != backend.ServiceStopped)
 	return v

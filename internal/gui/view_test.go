@@ -155,4 +155,7 @@ func TestTrayView(t *testing.T) {
 	if v.StartEnabled || !v.StopEnabled {
 		t.Errorf("running = %+v", v)
 	}
+	if v.Exit != "Exit" || trayView(i18n.RU, backend.Status{}).Exit != "Выход" {
+		t.Errorf("exit = %q", v.Exit)
+	}
 }

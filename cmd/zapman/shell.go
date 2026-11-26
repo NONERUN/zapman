@@ -431,6 +431,10 @@ func (s *shell) SetTray(v gui.TrayView, visible bool) {
 	m.Add(v.Open).OnClick(func(*application.Context) { s.openMain() })
 	m.Add(v.Start).SetEnabled(v.StartEnabled).OnClick(func(*application.Context) { go s.ui.TrayStart() })
 	m.Add(v.Stop).SetEnabled(v.StopEnabled).OnClick(func(*application.Context) { go s.ui.TrayStop() })
+	m.AddSeparator()
+	// Exit ends the program also when the main window hides in the tray.
+	// The winws of the foreground start continues to run.
+	m.Add(v.Exit).OnClick(func(*application.Context) { go s.quit() })
 	s.tray.SetMenu(m)
 	s.tray.SetTooltip(v.Tooltip)
 }

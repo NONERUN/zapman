@@ -191,6 +191,7 @@ var en = map[string]string{ //nolint:gosec // G101: UI strings, not credentials.
 	"TrayOpen":             "Open",
 	"TrayStart":            "Start service",
 	"TrayStop":             "Stop",
+	"TrayExit":             "Exit",
 	"ConsoleUtf8Warn":      "Console UTF-8 may not display all characters on this system.",
 }
 
@@ -383,5 +384,6 @@ var ru = map[string]string{ //nolint:gosec // G101: UI strings, not credentials.
 	"TrayOpen":             "Открыть",
 	"TrayStart":            "Старт службы",
 	"TrayStop":             "Стоп",
+	"TrayExit":             "Выход",
 	"ConsoleUtf8Warn":      "UTF-8 в консоли на этой системе может отображаться не полностью.",
 }
