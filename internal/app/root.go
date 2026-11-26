@@ -32,11 +32,27 @@ func isGoBuildDir(dir string) bool {
 	return strings.HasPrefix(strings.ToLower(rel), "go-build")
 }
 
-// BuildVersion gives the module version of the build. A build from a
-// checkout gives "dev" with the short commit hash.
+// Version is the product version of a release build: the git tag, for
+// example v1.2.0. The release workflow sets it with
+// -ldflags "-X github.com/NONERUN/zapman/internal/app.Version=<tag>".
+// It must be a variable: -X does not change a constant.
+var Version string
+
+// BuildVersion gives the product version. Version comes first. Without it,
+// it gives the module version of the build info. A build from a checkout
+// without a module version gives "dev" with the short commit hash.
 func BuildVersion() string {
-	bi, ok := debug.ReadBuildInfo()
-	if !ok {
+	bi, _ := debug.ReadBuildInfo() // nil without build info
+	return buildVersion(Version, bi)
+}
+
+// buildVersion gives the version from the value of -X and the build info.
+// A nil bi is a build without build info.
+func buildVersion(set string, bi *debug.BuildInfo) string {
+	if set = strings.TrimSpace(set); set != "" {
+		return set
+	}
+	if bi == nil {
 		return ""
 	}
 	if v := bi.Main.Version; v != "" && v != "(devel)" {
