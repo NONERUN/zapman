@@ -202,7 +202,7 @@ func (w *wired) RunTests(ctx context.Context, req backend.TestRequest, sink back
 	cfg, _ := b.loadConfig()
 	b.cfg.Unlock()
 	if err := b.l.EnsureUserFiles(cat, gamesOf(cat, &cfg)); err != nil {
-		return fmt.Errorf("make the user lists: %w", err)
+		return fmt.Errorf("make the user files: %w", err)
 	}
 	if err := b.l.RestoreIPSet(TestIPSetBackup); err != nil {
 		return fmt.Errorf("put back the ipset of earlier tests: %w", err)

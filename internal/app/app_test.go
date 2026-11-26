@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -693,13 +694,20 @@ func TestFakes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(c.Files, "stun.bin") || c.DiscordState != backend.FakeMissing || c.GameState != backend.FakeMissing {
+	// No user files: the dialog shows the defaults of catalog.json and
+	// does not make the files.
+	if !slices.Contains(c.Files, "stun.bin") ||
+		c.Discord != "quic_initial_rutube_ru.bin" || c.DiscordState != backend.FakeMatched ||
+		c.Game != "quic_initial_4pda_to.bin" || c.GameState != backend.FakeMatched {
 		t.Fatalf("got %+v", c)
+	}
+	if _, err := os.Stat(filepath.Join(e.l.User, spec.ActiveFakesDir)); err == nil {
+		t.Fatal("Fakes made the user fakes folder")
 	}
 	if err := e.b.SetFake(ctx, backend.FakeDiscord, "stun.bin"); err != nil {
 		t.Fatal(err)
 	}
-	if c, _ = e.b.Fakes(ctx); c.Discord != "stun.bin" || c.DiscordState != backend.FakeMatched || c.GameState != backend.FakeMissing {
+	if c, _ = e.b.Fakes(ctx); c.Discord != "stun.bin" || c.DiscordState != backend.FakeMatched || c.Game != "quic_initial_4pda_to.bin" {
 		t.Fatalf("after set: %+v", c)
 	}
 	p := filepath.Join(e.l.User, spec.ActiveFakesDir, "ACTIVE_GAME_UDP.bin")
@@ -720,6 +728,37 @@ func TestFakes(t *testing.T) {
 	}
 	if err := e.b.SetFake(ctx, "bad", "stun.bin"); err == nil {
 		t.Error("bad slot: no error")
+	}
+}
+
+// TestRunMakesActiveFakes: a run makes the missing active fakes from the
+// catalog defaults before the build, and keeps the file of the user.
+func TestRunMakesActiveFakes(t *testing.T) {
+	e := newEnv(t)
+	game := filepath.Join(e.l.User, spec.ActiveFakesDir, "ACTIVE_GAME_UDP.bin")
+	if err := os.MkdirAll(filepath.Dir(game), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(game, []byte("own fake"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.b.Run(ctx, testStrategy, spec.Winws); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(game); string(b) != "own fake" {
+		t.Errorf("the run changed the user fake: %q", b)
+	}
+	discord := filepath.Join(e.l.User, spec.ActiveFakesDir, "ACTIVE_DISCORD_UDP.bin")
+	got, err := os.ReadFile(discord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := os.ReadFile(filepath.Join(e.l.Strategies, "fakes", "quic_initial_rutube_ru.bin"))
+	if err != nil || !bytes.Equal(got, want) {
+		t.Errorf("ACTIVE_DISCORD_UDP.bin is not the default: %v", err)
+	}
+	if len(e.cmdLines) != 1 || !strings.Contains(e.cmdLines[0], discord) {
+		t.Errorf("the argv does not use the user fake: %q", e.cmdLines)
 	}
 }
 

@@ -133,6 +133,67 @@ func TestEnsureUserFiles(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(l.User, "ipset-sker.txt")); err == nil {
 		t.Error("ipset-sker.txt is made, but sker is off")
 	}
+	// The active fakes are copies of the catalog defaults.
+	if len(cat.Active) == 0 {
+		t.Fatal("the stock catalog has no active fake defaults")
+	}
+	for name, ref := range cat.Active {
+		src, err := l.CatalogFile(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := readFile(t, filepath.Join(l.User, spec.ActiveFakesDir, "ACTIVE_"+name+".bin"))
+		if got != readFile(t, src) {
+			t.Errorf("ACTIVE_%s.bin is not a copy of %s", name, ref)
+		}
+	}
+}
+
+func TestEnsureActiveFakes(t *testing.T) {
+	l := testLayout(t)
+	cat := stockCatalog(t, l)
+	// A file that the user selected does not change, also with an other
+	// case of the prefix and of the extension.
+	own := filepath.Join(l.User, spec.ActiveFakesDir, "active_GAME_UDP.BIN")
+	writeFile(t, own, "own fake")
+	if err := l.EnsureActiveFakes(cat); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, own); got != "own fake" {
+		t.Errorf("the user file changed: %q", got)
+	}
+	discord := filepath.Join(l.User, spec.ActiveFakesDir, "ACTIVE_DISCORD_UDP.bin")
+	src, err := l.CatalogFile(cat.Active["DISCORD_UDP"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readFile(t, discord) != readFile(t, src) {
+		t.Fatal("ACTIVE_DISCORD_UDP.bin is not the default")
+	}
+	// A second call does not write over a file that exists.
+	writeFile(t, discord, "changed")
+	if err := l.EnsureActiveFakes(cat); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, discord); got != "changed" {
+		t.Errorf("the second call changed the file: %q", got)
+	}
+	p, err := l.Paths()
+	if err != nil || !p.ActiveFiles["DISCORD_UDP"] || !p.ActiveFiles["GAME_UDP"] {
+		t.Errorf("Paths does not find the fakes: %v, %v", p.ActiveFiles, err)
+	}
+}
+
+func TestCatalogFile(t *testing.T) {
+	l := NewLayout(`C:\z`)
+	if p, err := l.CatalogFile("cat:fakes/stun.bin"); err != nil || p != `C:\z\strategies\fakes\stun.bin` {
+		t.Errorf("got %q, %v", p, err)
+	}
+	for _, ref := range []string{"fakes/stun.bin", "cat:../x.bin", "cat:", "lists:a.txt"} {
+		if _, err := l.CatalogFile(ref); err == nil {
+			t.Errorf("%q: no error", ref)
+		}
+	}
 }
 
 func TestIsInside(t *testing.T) {

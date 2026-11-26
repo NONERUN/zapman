@@ -11,8 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/NONERUN/zapman/internal/config"
@@ -136,6 +138,8 @@ const (
 //   - else lists\<name>.default.txt, when it exists (user:ipset-all.txt
 //     gets lists\ipset-all.default.txt);
 //   - else one address that is not used (see newHostlist and newIpset).
+//
+// It also makes the missing active fakes (EnsureActiveFakes).
 func (l Layout) EnsureUserFiles(cat *spec.Catalog, games []*spec.Game) error {
 	type want struct {
 		ref, seed string
@@ -174,7 +178,53 @@ func (l Layout) EnsureUserFiles(cat *spec.Catalog, games []*spec.Game) error {
 			errs = append(errs, err)
 		}
 	}
+	errs = append(errs, l.EnsureActiveFakes(cat))
 	return errors.Join(errs...)
+}
+
+// EnsureActiveFakes makes the missing files user\fakes\ACTIVE_<X>.bin. A
+// new file is a copy of the default of X in catalog.json "active". It does
+// not change a file that exists (Paths finds it, the test of the name is
+// not case-sensitive): the user selected that file.
+func (l Layout) EnsureActiveFakes(cat *spec.Catalog) error {
+	p, err := l.Paths()
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, name := range slices.Sorted(maps.Keys(cat.Active)) {
+		if p.ActiveFiles[name] {
+			continue
+		}
+		src, err := l.CatalogFile(cat.Active[name])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("default of active fake %s: %w", name, err))
+			continue
+		}
+		data, err := os.ReadFile(src)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("default of active fake %s: %w", name, err))
+			continue
+		}
+		dst := filepath.Join(l.User, spec.ActiveFakesDir, "ACTIVE_"+name+".bin")
+		if err := writeNew(dst, data); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// CatalogFile gives the path of the cat: ref in the stock catalog folder.
+func (l Layout) CatalogFile(ref string) (string, error) {
+	name, ok := strings.CutPrefix(ref, spec.PrefixCat)
+	if !ok {
+		return "", fmt.Errorf("%q is not a cat: ref", ref)
+	}
+	path := filepath.Join(l.Strategies, filepath.FromSlash(name))
+	if !isInside(l.Strategies, path) {
+		return "", fmt.Errorf("%q is not in the catalog folder", ref)
+	}
+	return path, nil
 }
 
 func (l Layout) ensureUserFile(name, seed string, ipset bool) error {
@@ -207,6 +257,12 @@ func (l Layout) ensureUserFile(name, seed string, ipset bool) error {
 	default:
 		data = []byte(newHostlist)
 	}
+	return writeNew(path, data)
+}
+
+// writeNew makes the file path with data. When the file exists, it does
+// nothing.
+func writeNew(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}

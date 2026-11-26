@@ -46,10 +46,17 @@ func (b *Backend) fakeFiles() ([]string, error) {
 
 // Fakes implements backend.Backend, as Get-ZapretFakeCatalog does: an
 // active fake is "matched" when its SHA256 is the SHA256 of a file of the
-// list (the first one), else "unlisted".
+// list (the first one), else "unlisted". When the user file is missing, the
+// build uses the default of catalog.json "active", thus Fakes gives that
+// file. Fakes does not make the user file: EnsureUserFiles makes it at the
+// next start.
 func (b *Backend) Fakes(context.Context) (backend.FakeCatalog, error) {
 	var c backend.FakeCatalog
 	files, err := b.fakeFiles()
+	if err != nil {
+		return c, err
+	}
+	cat, err := b.l.LoadCatalog()
 	if err != nil {
 		return c, err
 	}
@@ -61,7 +68,7 @@ func (b *Backend) Fakes(context.Context) (backend.FakeCatalog, error) {
 		}
 	}
 	for _, slot := range []backend.FakeSlot{backend.FakeDiscord, backend.FakeGame} {
-		name, state, err := b.activeFake(slotNames[slot], files, hashes)
+		name, state, err := b.activeFake(cat, slotNames[slot], files, hashes)
 		if err != nil {
 			return c, err
 		}
@@ -74,11 +81,20 @@ func (b *Backend) Fakes(context.Context) (backend.FakeCatalog, error) {
 	return c, nil
 }
 
-func (b *Backend) activeFake(name string, files, hashes []string) (string, backend.FakeState, error) {
+func (b *Backend) activeFake(cat *spec.Catalog, name string, files, hashes []string) (string, backend.FakeState, error) {
 	p := b.activePath(name)
 	ok, err := fileExists(p)
-	if err != nil || !ok {
+	if err != nil {
 		return "", backend.FakeMissing, err
+	}
+	if !ok {
+		def, has := cat.Active[name]
+		if !has {
+			return "", backend.FakeMissing, nil
+		}
+		if p, err = b.l.CatalogFile(def); err != nil {
+			return "", backend.FakeMissing, err
+		}
 	}
 	h, err := engine.FileSHA256(p)
 	if err != nil {

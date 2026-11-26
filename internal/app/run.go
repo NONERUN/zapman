@@ -15,7 +15,7 @@ import (
 
 // build builds the strategy name for the engine e with the other settings
 // of user\config.json (games, Game Filter). It makes the missing user
-// lists. When the file is not correct, the defaults of the fields that are
+// lists and active fakes. When the file is not correct, the defaults of the fields that are
 // not correct apply.
 func (b *Backend) build(ctx context.Context, name string, e spec.Engine) (*engine.Build, error) {
 	if err := b.CheckEngine(ctx, e); err != nil {
@@ -37,14 +37,11 @@ func (b *Backend) build(ctx context.Context, name string, e spec.Engine) (*engin
 	b.cfg.Unlock()
 	c.Strategy = name
 	c.Engine = e
-	bd, err := b.l.Build(cat, &c)
-	if err != nil {
-		return nil, err
+	// Make the user files first: the argv then has the new active fakes.
+	if err := b.l.EnsureUserFiles(cat, gamesOf(cat, &c)); err != nil {
+		return nil, fmt.Errorf("make the user files: %w", err)
 	}
-	if err := b.l.EnsureUserFiles(cat, bd.Games); err != nil {
-		return nil, fmt.Errorf("make the user lists: %w", err)
-	}
-	return bd, nil
+	return b.l.Build(cat, &c)
 }
 
 // supports tells if the strategy has flags for the engine e: spec.Build

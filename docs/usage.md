@@ -89,7 +89,7 @@
 
 Окна и трей — один процесс. Второй запуск `zapman.exe` показывает главное окно уже запущенного; второй запуск с `--tray` ничего не делает.
 
-**Fake...** — оба слота сразу (Discord UDP и Game UDP). Список — файлы `strategies/fakes/*.bin`. Выбранный файл копируется в `user/fakes/ACTIVE_DISCORD_UDP.bin` или `user/fakes/ACTIVE_GAME_UDP.bin`. Движок читает их при старте: если служба стоит, GUI спрашивает, перезапустить ли её; без службы — Стоп, затем запуск из «Стратегия...».
+**Fake...** — оба слота сразу (Discord UDP и Game UDP). Список — файлы `strategies/fakes/*.bin`. Выбранный файл копируется в `user/fakes/ACTIVE_DISCORD_UDP.bin` или `user/fakes/ACTIVE_GAME_UDP.bin`. Пока файла нет, окно показывает дефолт каталога (`quic_initial_rutube_ru.bin` / `quic_initial_4pda_to.bin`); запуск, установка службы и тесты создают файл из этого дефолта. Выбранный файл программа не перезаписывает. Движок читает их при старте: если служба стоит, GUI спрашивает, перезапустить ли её; без службы — Стоп, затем запуск из «Стратегия...».
 
 ## Tools
 
@@ -149,6 +149,7 @@ IP игровых серверов — `user/ipset-sky.txt`, первонача�
 - `user/ipset-exclude-user.txt` — исключить IP и подсети.
 - `user/ipset-sky.txt` — игровые IPv4 Sky (модуль Sky). Нет файла — копия с `lists/ipset-sky.default.txt`.
 - `user/ipset-sker.txt` — подсети Photon для Sker Ritual и Hazard Levels (модуль Sker). Нет файла — копия с `lists/ipset-sker.default.txt`.
+- `user/fakes/ACTIVE_DISCORD_UDP.bin`, `user/fakes/ACTIVE_GAME_UDP.bin` — активные fake (окно **Fake...**). Нет файла — копия дефолта из `active` в `strategies/catalog.json`: `quic_initial_rutube_ru.bin` и `quic_initial_4pda_to.bin`.
 
 Пустой список подходит под всё, поэтому новый файл без начальной копии получает одну неиспользуемую строку.
 
