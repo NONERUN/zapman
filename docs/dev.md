@@ -360,10 +360,6 @@ go run ./dev/import-flowseal [-git .] [-ref upstream/main] [-dir strategies] [-w
 
 `--dpi-desync-fake-tls=!` (встроенный hello) добавляется, если в профиле есть `--dpi-desync-fake-tls-mod`, но нет `--dpi-desync-fake-tls` и нет `--dpi-desync-any-protocol`: winws берёт этот hello неявно, а у winws2 неявного TLS fake нет. Профили Game Filter с `any-protocol` hello не получают — иначе он ушёл бы на все payload.
 
-### Одноразовый конвертер v0.1 → v2
-
-[`dev/convert-v2`](../dev/convert-v2/) один раз перевёл файлы формата v0.1 в v2 и сверил argv до записи. Он берёт `upstream` из git (`-git`, `-ref`, по умолчанию `upstream/main`), пишет стратегиям `rev: 1`, играм — `version: 1`, а fake — как `bin:`. Его тест сравнивает вывод с `strategies/` коммита `9f9aeed` (до переноса fake в `strategies/fakes/`) при `rev` = 1 и пропускается без `upstream/main`. После миграции программу можно удалить.
-
 ## Частые задачи с каталогом
 
 **Поправить существующую стратегию.** Измените правило или кирпич, поднимите `rev` / `version` у всех стратегий, чей argv изменился, затем `go generate ./internal/spec` и обновление golden (см. [«Тесты генератора»](#тесты-генератора)). Если правите кирпич, проверьте в diff golden, какие ещё стратегии он задел.
@@ -566,6 +562,16 @@ go generate ./cmd/zapman
 Этого файла (`docs/dev.md`) в архиве нет: workflow удаляет его после копирования `docs/`, потому что он нужен разработчикам, а не пользователям. `README.md` ссылается на него по адресу на GitHub. Поэтому в файлах, которые попадают в архив (`README.md`, `docs/usage.md`, `docs/troubleshooting.md`, `docs/ui/`), ссылки на `dev.md` должны быть полными адресами GitHub, а не относительными.
 
 `.service/` в архив не нужен: «Скачать ipset» и «Сверить hosts» берут эти файлы с GitHub (ветка `main`). `user/` и `test-results/` exe создаёт сам.
+
+Посмотреть архив до тега можно локально:
+
+```text
+go run ./dev/dist          # .local/dist/zapman-v0.0.0-dist.<коммит>/
+go run ./dev/dist -zip     # и .zip рядом
+go run ./dev/dist -tag v0.2.0 -ref v0.2.0
+```
+
+[`dev/dist`](../dev/dist/) повторяет шаги workflow над закоммиченными файлами (`git archive`, а не рабочая папка): версия exe через go-winres (только для тега `vX.Y.Z`), `go build` с теми же флагами, те же файлы без `docs/dev.md`. Тесты, rar и tar.gz он не делает. Список файлов архива записан в двух местах — в `release.yml` и в `dev/dist/main.go`; меняя один, поменяйте и другой.
 
 ### Шаги релиза
 

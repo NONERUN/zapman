@@ -80,7 +80,7 @@ go test ./internal/spec -run "Golden|Edge" -update
 | `go run ./dev/update-zapret` | Официальные zip zapret / zapret2 → `bin/` + `bin/versions.json`; сверка с `sha256sum.txt` релиза. `-dry-run`, `-zapret-tag`, `-zapret2-tag`, `-force`. Останавливает службу `zapret` и winws |
 | `go run ./dev/import-flowseal` | `general*.bat` из git-ref upstream → `strategies/flowseal/*.json` (`-write`) |
 | `go run ./dev/upstream-versions` | Сверка `upstream`-тегов стратегий Flowseal с upstream (`-write`) |
-| `dev/convert-v2` | Одноразовый перевод v0.1 → v2 |
+| `go run ./dev/dist` | Папка релизного архива из закоммиченного HEAD → `.local/dist/` (`-zip`, `-tag`, `-ref`); список файлов — как в `release.yml` |
 | `dev/schemagen`, `dev/catalogfiles` | Вызываются из `go generate ./internal/spec` |
 | `dev/iconvariants` | Серая, жёлтая и красная иконки (`assets/app-idle.ico`, `app-warn.ico`, `app-error.ico`) из `assets/app.ico`; вызывается из `go generate ./assets` после правки `app.ico` |
 | `dev/commitmsg` | Хук commit-msg (ниже) |

@@ -117,7 +117,8 @@ jobs:
       # zapman.exe needs bin/, strategies/ and lists/ next to it; it makes
       # user/ and test-results/ itself. The icon is in the exe; its license
       # goes with the archive. docs/dev.md is for developers: it is not in
-      # the archive (README.md links to it on GitHub).
+      # the archive (README.md links to it on GitHub). dev/dist makes the same
+      # bundle on a local computer: change its file list together with this.
       - name: Prepare release bundle
         run: |
           set -euo pipefail
