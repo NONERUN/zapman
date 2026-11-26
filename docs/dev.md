@@ -245,7 +245,8 @@ Fooling не вешается на Lua-атаку `multisplit`.
 - `Remove()` — стоп службы, стоп `winws` / `winws2`, удаление `zapret`, затем стоп и удаление `WinDivert` и `WinDivert14` (в этом порядке, иначе драйвер остаётся в `STOP_PENDING`). Задачу трея не трогает.
 - `Start()` — уже запущена — ничего; ImagePath не меняется. `Stop()` — стоп и ожидание `Stopped`.
 - TCP timestamps (RFC 1323): без них не работает `fooling=ts` (многие сток-стратегии), в Windows они по умолчанию выключены. `TCPTimestamps()` — только чтение, для диагностики, без прав администратора. `EnableTCPTimestamps()` включает их (`netsh interface tcp set global timestamps=enabled`), если они не включены или состояние неизвестно; его вызывают `Install` (до любых изменений; ошибка — служба не трогается) и `Start`, перед запуском на переднем плане — вызывающий. Документированного API или значения реестра для текущего состояния нет, поэтому читается вывод `netsh interface tcp show global` (`ParseTCPTimestamps`): строка с `timestamps` или `RFC 1323` (английский и русский вывод), значение после последнего `:` — `enabled` / `disabled`, иначе ошибка. Вывод может быть в OEM-кодировке; смотрятся только ASCII-части.
-- `Install`, `Remove`, `Start`, `Stop` без прав администратора — `ErrNotElevated` до любых вызовов. `Status` прав не требует.
+- `Snapshot()` — точная копия службы: ImagePath, имя, описание, тип запуска (с отложенным автозапуском), все значения записи (и `zapret-discord-youtube`), работала ли. `Restore(snapshot)` создаёт её снова такой же и запускает, если работала; служба из копии — и чужая (`service.bat`). Ими пользуются тесты стратегий; `Install` берёт ту же копию для отката.
+- `Install`, `Remove`, `Start`, `Stop`, `Restore` без прав администратора — `ErrNotElevated` до любых вызовов. `Status` и `Snapshot` прав не требуют.
 
 Служба не меняется до переустановки: Game Filter, движок, стратегия, active-fake и папка zapman — в ImagePath. Запись о стратегии — значения в ключе службы `HKLM\SYSTEM\CurrentControlSet\Services\zapret`:
 
@@ -256,7 +257,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 | `zapmanGames` | REG_MULTI_SZ | включённые игры с версиями, например `sky 2` |
 | `zapmanHash` | REG_SZ | SHA256 (hex) ImagePath |
 
-Значения удаляются вместе со службой, читаются без прав администратора и не видны в описании службы. Старое значение `zapret-discord-youtube` при установке удаляется и не читается.
+Значения удаляются вместе со службой, читаются без прав администратора и не видны в описании службы. Старое значение `zapret-discord-youtube` при установке удаляется; его читает только `Snapshot`, чтобы вернуть службу как была.
 
 `Status(want)` — `Installed`, `State`, `ExitCode`, `Engine` (из ImagePath; `winws2.exe` проверяется первым), запись, `Edited` (хеш не совпадает с ImagePath), `Outdated` и `Reason` — первая подходящая причина:
 
@@ -278,7 +279,7 @@ Fooling не вешается на Lua-атаку `multisplit`.
 - `netreset` — `Reset`: `netsh winsock reset`, `netsh int ip reset all`, `netsh winhttp reset proxy`, `ipconfig /flushdns`, лог как у PowerShell-версии; шаг с ошибкой — `ErrFailed`, остальные шаги выполняются. `Reboot` — `shutdown /r /f /t 0`.
 - `web` — `Client`: `LatestVersion` (теги GitHub, 8 с), `DownloadIPSet` (в `user/ipset-all.txt`, атомарно, с прогрессом), `CheckHosts` (первая и последняя строка шаблона Flowseal в system hosts), `OpenHosts` (Notepad).
 - `diag` — `Checker.Report`: 18 проверок PowerShell-версии (ID, тексты, порядок); `Checker.Do` — действия `remove-services`, `remove-windivert`, `discord-cache`. Система — интерфейс `System` (`NewSystem()` — настоящая).
-- `stratest` — тесты стратегий без службы (`Invoke-ZapmanStrategyTestsCore`). `New(layout, catalog, config)` — настоящий `Tester`; `Run(ctx, Request, Sink)`. Проверки до тестов: права администратора, `curl.exe` (PATH, затем System32), служба `zapret` не установлена. Каждая стратегия: стоп всех `winws` / `winws2`, TCP timestamps, `Layout.Build` + `Runner.Run` (готовность — окно старта 2 с), тесты, стоп. Стандартные тесты — 17 целей, curl HTTP / TLS1.2 / TLS1.3 и ping (ICMP, IPv4); DPI — набор TCP 16-20 [hyperion-cs/dpi-checkers](https://github.com/hyperion-cs/dpi-checkers) (`MONITOR_HOST` — одна своя цель без загрузки набора). Лучшая стратегия: больше `OK`, при равенстве — больше удачных ping (как в PowerShell-версии; стратегия с 0 `OK` тоже может быть лучшей). Файл `test-results/test_results_<дата>.txt` (UTF-8 с BOM, CRLF). Режим IPSet и возврат движков, что работали до тестов, — на вызывающем.
+- `stratest` — тесты стратегий без службы (`Invoke-ZapmanStrategyTestsCore`). `New(layout, catalog, config)` — настоящий `Tester`; `Run(ctx, Request, Sink)`. Проверки до тестов: права администратора, `curl.exe` (PATH, затем System32), служба `zapret` не установлена. Каждая стратегия: стоп всех `winws` / `winws2`, TCP timestamps, `Layout.Build` + `Runner.Run` (готовность — окно старта 2 с), тесты, стоп. Стандартные тесты — 17 целей, curl HTTP / TLS1.2 / TLS1.3 и ping (ICMP, IPv4); DPI — набор TCP 16-20 [hyperion-cs/dpi-checkers](https://github.com/hyperion-cs/dpi-checkers) (`MONITOR_HOST` — одна своя цель без загрузки набора). Лучшая стратегия: больше `OK`, при равенстве — больше удачных ping (как в PowerShell-версии; стратегия с 0 `OK` тоже может быть лучшей). Файл `test-results/test_results_<дата>.txt` (UTF-8 с BOM, CRLF). Режим IPSet и возврат службы и движка, что работали до тестов, — на вызывающем (`internal/app`, `RunTests`).
 
 Ручная проверка на Windows: `go run ./.local/toolscheck` (без прав — версия, hosts, отчёт диагностики, ping); `go run ./.local/toolscheck -tests standard -strategies "general"` из консоли администратора — тесты стратегий (служба `zapret` должна быть удалена). Папка `.local/` в `.gitignore`.
 
@@ -311,7 +312,7 @@ go-winres, а не `akavel/rsrc`: тот же `tc-hib/winres` используе
 | `internal/gui/` | Логика окон PS GUI (`src/gui` на `main`) без Wails: виды окон, кнопки, тексты, трей. Тесты — с фейковым `Shell` |
 | `internal/gui/backend/` | Интерфейс `Backend` (всё, что GUI просит у движка, службы и конфига) и детерминированный фейк в памяти |
 | `internal/gui/i18n/` | Строки RU / EN (копия таблиц `Ui.ps1`) и строки, которых нет в PS-версии |
-| `internal/app/` | Настоящий `Backend` поверх `internal/config`, `internal/engine` и `internal/service`; задача трея `zapman-tray` (`schtasks.exe`) |
+| `internal/app/` | Настоящий `Backend` поверх `internal/config`, `internal/engine`, `internal/service` и `internal/tools` (`wired.go`); задача трея `zapman-tray` (`schtasks.exe`) |
 | `assets/assets.go` | `app.ico` для окон и трея (`go:embed`) |
 
 Как это связано:
@@ -328,12 +329,14 @@ go-winres, а не `akavel/rsrc`: тот же `tc-hib/winres` используе
 `app.New(Options)` — настоящий `Backend`; его создаёт `cmd/zapman/main.go` (`newBackend`). Пакет отдельно от `internal/gui/backend`: там остаются интерфейс и фейк без вызовов системы, а SCM, процессы и `schtasks.exe` — только здесь.
 
 - Настройки — `user/config.json` через `internal/config`; неизвестные поля и поля, которых нет в GUI, сохраняются. Плохой файл — дефолты и ошибка (`ConfigError`); «Запуск» и «Установка» его не перезаписывают.
-- «Запуск» — проверка exe и сборки, стоп службы и всех `winws` / `winws2`, TCP timestamps, `Runner.Run` на переднем плане. Ошибка старта — текст `EngineStartFailText` с выводом движка. Процесс остаётся после выхода GUI; после перезапуска GUI он — «чужой» `winws`.
-- «Установка» — `service.Install(PlanFor(build))`; стратегия и движок пишутся в конфиг после успеха.
-- `SuspendService` / `RestoreService` (тесты стратегий) — удаление службы и установка снова с текущими настройками. Чужая служба (без `zapman`) не восстанавливается.
+- `CheckEngine` — exe (у winws2 и `lua/`) есть и SHA256 файлов движка совпадают с `bin/versions.json` (`engine.CheckBin`; файлы другого движка не смотрятся). Иначе — текст `EngineBinBad` со списком `путь: состояние`.
+- «Запуск» — проверка exe и сборки, стоп службы и всех `winws` / `winws2`, TCP timestamps, `Runner.Run` на переднем плане. Ошибка старта — текст `EngineStartFailText` с выводом движка. Процесс остаётся после выхода GUI (как в PS-версии: её GUI тоже не останавливает `winws` при закрытии); после перезапуска GUI он — «чужой» `winws`.
+- «Установка» — `service.Install(PlanFor(build))`; стратегия и движок пишутся в конфиг после успеха. Ошибка — текст `ServiceInstallFail` с текстом ошибки (в PS-версии — сырой текст исключения).
+- `SuspendService` / `RestoreService` (тесты стратегий) — `service.Manager.Snapshot`, удаление службы и WinDivert; затем `Restore` той же копии. Служба возвращается точно такой, как была, и чужая тоже; запускается, только если работала. Ошибка — текст `ServiceRestoreFail`.
 - Fake — список `strategies/fakes/*.bin`; активный — `user/fakes/ACTIVE_DISCORD_UDP.bin` / `ACTIVE_GAME_UDP.bin` (в PS-версии — в `bin/`). Выбор = копия файла; совпадение ищется по SHA256.
 - «Иконка в трее» при входе — задача планировщика `zapman-tray` (имя PS-версии): `schtasks /Create /SC ONLOGON /RL HIGHEST /F /TR "\"<zapman.exe>\" --tray"`; выключение — `/Delete`, если задача есть.
-- Сеть, hosts, загрузки, диагностика и тесты стратегий — интерфейс `app.Tools`. Пока его нет, методы дают ошибку `NotWired` с именем метода. Реализация передаётся в `app.Options.Tools` в `newBackend` (или `Backend.SetTools` до первого вызова, если ей нужен сам `Backend`).
+- Сеть, hosts, загрузки, диагностика и тесты стратегий — интерфейс `app.Tools`. `app.NewTools(b)` (`wired.go`) — реализация на `internal/tools`; `newBackend` передаёт её в `Backend.SetTools`. Без неё (`Options.Tools` пустой) методы дают `NotWired` с именем метода. `LatestVersion` без тега в ответе GitHub — пустая строка без ошибки (GUI пишет «не удалось проверить»). Действия диагностики со службами требуют прав администратора.
+- `RunTests` — как `Tests.ps1`: `CheckEngine`, копия и удаление службы (если GUI не сделал этого раньше), стоп процесса «Запуска», недостающие `user:`-списки. Для DPI-тестов режим IPSet — `any`: `user/ipset-all.txt` копируется в `user/ipset-all.test-backup.txt`. Копия, оставшаяся от прерванных тестов, возвращается до начала. В тесты идут только стратегии, у которых есть флаги для движка (правило `StrategyInfo.Supports`). После тестов, и при ошибке или отмене: ipset, затем служба, затем «Запуск» той же стратегии (без записи в конфиг). Пока идут тесты, остальные действия со службой и движком ждут.
 
 ## Релиз
 

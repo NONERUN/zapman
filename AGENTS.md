@@ -14,7 +14,7 @@
 | `internal/service/` | Служба `zapret`: установка, удаление, старт, стоп, статус и «устарела ли»; SCM и реестр — за интерфейсом `Host`, в тестах подделка |
 | `cmd/zapman/` | GUI на Wails: окна, трей, страницы `frontend/` — [`docs/dev.md`](docs/dev.md#gui-wails) |
 | `internal/gui/` | Логика окон GUI без Wails; `backend/` — интерфейс бэкенда и фейк, `i18n/` — строки |
-| `internal/app/` | Настоящий бэкенд GUI поверх `config`, `engine`, `service`; задача трея `zapman-tray`; `Tools` — место для сети, hosts, диагностики и тестов |
+| `internal/app/` | Настоящий бэкенд GUI поверх `config`, `engine`, `service`; задача трея `zapman-tray`; `Tools` — сеть, hosts, загрузки, диагностика и тесты из `internal/tools` (`NewTools`, подключён в `cmd/zapman`) |
 | `strategies/` | Сток-каталог: `catalog.json`, `lists.json`, `targets.json`, `actions.json`; `flowseal/` — стратегии Flowseal; `games/` — игровые модули; `fakes/` — fake и паттерны `.bin`; `schema/` — JSON Schema (генерируется) |
 | `lists/` | Сток-списки (`list-*.txt`, `ipset-*.txt`, `*.default.txt`) |
 | `bin/` | Только файлы движков: `winws.exe`, `winws2.exe`, `cygwin1.dll`, WinDivert, `lua/`. Теги и SHA256 — [`bin/versions.json`](bin/versions.json) |
