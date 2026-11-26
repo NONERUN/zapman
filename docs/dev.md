@@ -270,6 +270,18 @@ Fooling не вешается на Lua-атаку `multisplit`.
 | `edited` | ImagePath поменяли после установки |
 | `argv` | версии те же, другая командная строка (движок, Game Filter, active-fake, папка) |
 
+### `internal/tools/...`
+
+Инструменты GUI. Типы `internal/gui/backend` они не импортируют (иначе цикл импорта): у них свои типы с теми же полями. Программы, сеть, ping и система — за полями структур и `command.Func`; тесты без сети, прав администратора и процессов. Отмена `ctx` — ошибка с `errors.Is(err, context.Canceled)`.
+
+- `command` — `Run(ctx, exe, args...)`: запуск без окна, вывод (stdout + stderr) из OEM-кодировки в UTF-8, код выхода в `Result.Code`; ненулевой код — не ошибка. `System32(name)` — путь в `%SystemRoot%\System32`.
+- `netreset` — `Reset`: `netsh winsock reset`, `netsh int ip reset all`, `netsh winhttp reset proxy`, `ipconfig /flushdns`, лог как у PowerShell-версии; шаг с ошибкой — `ErrFailed`, остальные шаги выполняются. `Reboot` — `shutdown /r /f /t 0`.
+- `web` — `Client`: `LatestVersion` (теги GitHub, 8 с), `DownloadIPSet` (в `user/ipset-all.txt`, атомарно, с прогрессом), `CheckHosts` (первая и последняя строка шаблона Flowseal в system hosts), `OpenHosts` (Notepad).
+- `diag` — `Checker.Report`: 18 проверок PowerShell-версии (ID, тексты, порядок); `Checker.Do` — действия `remove-services`, `remove-windivert`, `discord-cache`. Система — интерфейс `System` (`NewSystem()` — настоящая).
+- `stratest` — тесты стратегий без службы (`Invoke-ZapmanStrategyTestsCore`). `New(layout, catalog, config)` — настоящий `Tester`; `Run(ctx, Request, Sink)`. Проверки до тестов: права администратора, `curl.exe` (PATH, затем System32), служба `zapret` не установлена. Каждая стратегия: стоп всех `winws` / `winws2`, TCP timestamps, `Layout.Build` + `Runner.Run` (готовность — окно старта 2 с), тесты, стоп. Стандартные тесты — 17 целей, curl HTTP / TLS1.2 / TLS1.3 и ping (ICMP, IPv4); DPI — набор TCP 16-20 [hyperion-cs/dpi-checkers](https://github.com/hyperion-cs/dpi-checkers) (`MONITOR_HOST` — одна своя цель без загрузки набора). Лучшая стратегия: больше `OK`, при равенстве — больше удачных ping (как в PowerShell-версии; стратегия с 0 `OK` тоже может быть лучшей). Файл `test-results/test_results_<дата>.txt` (UTF-8 с BOM, CRLF). Режим IPSet и возврат движков, что работали до тестов, — на вызывающем.
+
+Ручная проверка на Windows: `go run ./.local/toolscheck` (без прав — версия, hosts, отчёт диагностики, ping); `go run ./.local/toolscheck -tests standard -strategies "general"` из консоли администратора — тесты стратегий (служба `zapret` должна быть удалена). Папка `.local/` в `.gitignore`.
+
 ## GUI (Wails)
 
 GUI на [Wails v3](https://v3.wails.io/) `v3.1.0` (версия закреплена в `go.mod`). CLI `wails3` не нужен, npm тоже: хватает `go build`.
