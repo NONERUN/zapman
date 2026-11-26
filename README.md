@@ -45,7 +45,7 @@
 
 Кнопки, служба, трей (`zapman-tray`), IPSet, игры — [использование](docs/usage.md).
 
-Кнопка **Игры...** включает игровые модули: Sky: Children of the Light, Sker Ritual / Hazard Levels и общий профиль Photon. Их правила идут перед правилами любой стратегии. Подробнее — [Игры](docs/usage.md#игры).
+Кнопка **Игры...** включает игровые модули: Sky: Children of the Light и Photon (Sker Ritual, Hazard Levels и другие игры на Photon). Их правила идут перед правилами любой стратегии. Подробнее — [Игры](docs/usage.md#игры).
 
 ## Документация
 
