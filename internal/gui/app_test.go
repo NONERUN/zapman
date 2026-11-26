@@ -820,6 +820,73 @@ func TestIconFollowsStatus(t *testing.T) {
 	}
 }
 
+// trayAlert gives the alert of the last tray view.
+func (s *fakeShell) trayAlert() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.tray.Alert
+}
+
+func TestIconWarnAndError(t *testing.T) {
+	a, f, sh := start(t, withService)
+	a.TrayStop()
+	a.wait()
+	f.FailNext("StartService", errSample)
+	a.TrayStart()
+	a.wait()
+	a.refresh()
+	want := []Icon{IconLive, IconIdle, IconError}
+	if got := sh.iconCalls(); !slices.Equal(got, want) {
+		t.Fatalf("after a failed Start: icons = %v", got)
+	}
+	if got := sh.trayAlert(); got != en("AlertLastError") {
+		t.Errorf("tray alert = %q", got)
+	}
+	a.refresh()
+	if got := sh.iconCalls(); len(got) != len(want) {
+		t.Errorf("the same status sent the icon again: %v", got)
+	}
+
+	// A good Start clears the error.
+	a.TrayStart()
+	a.wait()
+	a.refresh()
+	want = append(want, IconLive)
+	if got := sh.iconCalls(); !slices.Equal(got, want) {
+		t.Fatalf("after Start: icons = %v", got)
+	}
+	if got := sh.trayAlert(); got != "" {
+		t.Errorf("tray alert = %q", got)
+	}
+
+	// Two engines that run are a warning.
+	f.Update(func(d *backend.FakeData) { d.Status.BypassExes = []string{"winws.exe", "winws2.exe"} })
+	a.refresh()
+	want = append(want, IconWarn)
+	if got := sh.iconCalls(); !slices.Equal(got, want) {
+		t.Fatalf("two engines: icons = %v", got)
+	}
+	if got := sh.trayAlert(); got != en("AlertTwoEngines") {
+		t.Errorf("tray alert = %q", got)
+	}
+
+	// No WinDivert64.sys and no bypass is an error.
+	f.Update(func(d *backend.FakeData) {
+		d.Status.DivertSys = false
+		d.Status.BypassRunning = false
+		d.Status.BypassExes = nil
+		d.Status.Service = backend.ServiceStopped
+	})
+	a.refresh()
+	want = append(want, IconError)
+	if got := sh.iconCalls(); !slices.Equal(got, want) {
+		t.Fatalf("no sys: icons = %v", got)
+	}
+	if got := sh.trayAlert(); got != en("AlertNoSys") {
+		t.Errorf("tray alert = %q", got)
+	}
+}
+
 func TestTrayWatchTask(t *testing.T) {
 	a, f, sh := start(t, nil)
 	a.SetTrayWatch(true)

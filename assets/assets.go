@@ -4,7 +4,7 @@ package assets
 // The go:embed directive needs the embed package.
 import _ "embed"
 
-//go:generate go run ../dev/grayicon -in app.ico -out app-idle.ico
+//go:generate go run ../dev/iconvariants -in app.ico -dir .
 
 // AppIcon is the blue icon of the program (app.ico). The exe file has it.
 // The windows and the tray show it while the bypass works.
@@ -18,3 +18,17 @@ var AppIcon []byte
 //
 //go:embed app-idle.ico
 var IdleIcon []byte
+
+// WarnIcon is the yellow icon (app-warn.ico): an amber square with a dark
+// lock. The windows and the tray show it for a warning. go generate makes
+// it from app.ico.
+//
+//go:embed app-warn.ico
+var WarnIcon []byte
+
+// ErrorIcon is the red icon (app-error.ico): a red square with a white
+// lock. The windows and the tray show it for an error. go generate makes it
+// from app.ico.
+//
+//go:embed app-error.ico
+var ErrorIcon []byte

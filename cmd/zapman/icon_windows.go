@@ -14,7 +14,7 @@ type winIcon struct {
 	small, big w32.HICON
 }
 
-// winIcons keeps the HICONs of each icon. There are only two icons, and the
+// winIcons keeps the HICONs of each icon. There are only four icons, and the
 // program keeps the handles until it ends, thus it does not destroy them.
 var (
 	winIconsMu sync.Mutex
