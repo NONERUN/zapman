@@ -20,7 +20,7 @@ import (
 type fakeService struct {
 	status ServiceStatus
 	rec    Record
-	legacy string // the value ValueLegacy
+	cfg    Config
 	// gone is the number of Query calls after Delete until the service is
 	// gone. -1: the service is not deleted.
 	gone int
@@ -53,7 +53,7 @@ func newFake() *fakeHost {
 }
 
 func (h *fakeHost) add(name string, st State, r Record) *fakeService {
-	s := &fakeService{status: ServiceStatus{State: st}, rec: r, gone: -1}
+	s := &fakeService{status: ServiceStatus{State: st}, rec: r, cfg: DefaultConfig(), gone: -1}
 	h.services[name] = s
 	return s
 }
@@ -87,7 +87,15 @@ func (h *fakeHost) Query(name string) (ServiceStatus, error) {
 	return s.status, nil
 }
 
-func (h *fakeHost) Create(name, displayName, description, imagePath string) error {
+func (h *fakeHost) ReadConfig(name string) (Config, error) {
+	s, err := h.get(name)
+	if err != nil {
+		return Config{}, err
+	}
+	return s.cfg, nil
+}
+
+func (h *fakeHost) Create(name, imagePath string, c *Config) error {
 	h.log = append(h.log, "create "+name)
 	if h.createFails > 0 {
 		h.createFails--
@@ -96,10 +104,10 @@ func (h *fakeHost) Create(name, displayName, description, imagePath string) erro
 	if _, ok := h.services[name]; ok {
 		return errors.New("ERROR_SERVICE_EXISTS")
 	}
-	if displayName != DisplayName || description != Description {
-		return fmt.Errorf("bad names %q %q", displayName, description)
+	if c.DisplayName == "" || c.StartType == 0 {
+		return fmt.Errorf("bad config %+v", *c)
 	}
-	h.add(name, Stopped, Record{ImagePath: imagePath})
+	h.add(name, Stopped, Record{ImagePath: imagePath}).cfg = *c
 	return nil
 }
 
@@ -165,9 +173,8 @@ func (h *fakeHost) WriteRecord(name string, r *Record) error {
 	if err != nil {
 		return err
 	}
-	s.rec.Strategy, s.rec.Version, s.rec.Hash = r.Strategy, r.Version, r.Hash
+	s.rec.Strategy, s.rec.Version, s.rec.Hash, s.rec.Legacy = r.Strategy, r.Version, r.Hash, r.Legacy
 	s.rec.Games = slices.Clone(r.Games)
-	s.legacy = ""
 	return nil
 }
 
@@ -232,6 +239,9 @@ func TestInstallNew(t *testing.T) {
 	if !reflect.DeepEqual(s.rec, want) {
 		t.Fatalf("record:\n got %+v\nwant %+v", s.rec, want)
 	}
+	if s.cfg != DefaultConfig() {
+		t.Errorf("config: %+v", s.cfg)
+	}
 	if want := []string{"kill", "create zapret", "write zapret", "start zapret"}; !reflect.DeepEqual(h.log, want) {
 		t.Errorf("log: %v", h.log)
 	}
@@ -244,7 +254,7 @@ func TestInstallNew(t *testing.T) {
 func TestInstallReplaces(t *testing.T) {
 	h := newFake()
 	old := h.add(Name, Running, oldRecord())
-	old.legacy = "old name"
+	old.rec.Legacy = "old name"
 	h.engines = 1
 	m := newManager(h)
 	if err := m.Install(testPlan()); err != nil {
@@ -255,7 +265,7 @@ func TestInstallReplaces(t *testing.T) {
 		t.Errorf("log: %v", h.log)
 	}
 	s := h.services[Name]
-	if s == old || s.rec.Strategy != testPlan().Strategy || s.legacy != "" {
+	if s == old || s.rec.Strategy != testPlan().Strategy || s.rec.Legacy != "" {
 		t.Errorf("service: %+v", s)
 	}
 }
@@ -327,6 +337,75 @@ func TestInstallRestoreNone(t *testing.T) {
 	}
 	if _, ok := h.services[Name]; ok {
 		t.Fatal("the failed service is still there")
+	}
+}
+
+// foreignConfig is the configuration of a service of an other program.
+func foreignConfig() Config {
+	return Config{DisplayName: "zapret DPI", Description: "made by service.bat", StartType: StartDemand, DelayedAutoStart: true}
+}
+
+func TestInstallRestoreConfig(t *testing.T) {
+	h := newFake()
+	old := h.add(Name, Stopped, Record{ImagePath: exe + " --foreign", Legacy: "general.bat"})
+	old.cfg = foreignConfig()
+	h.startCodes = []uint32{1}
+	m := newManager(h)
+	if err := m.Install(testPlan()); err == nil {
+		t.Fatal("no error")
+	}
+	s := h.services[Name]
+	if s == nil || s.cfg != foreignConfig() || s.rec.Legacy != "general.bat" || s.rec.ImagePath != exe+" --foreign" {
+		t.Fatalf("the old service is not back exactly: %+v", s)
+	}
+}
+
+func TestSnapshotRestore(t *testing.T) {
+	for _, before := range []State{Running, Stopped} {
+		t.Run(before.String(), func(t *testing.T) {
+			h := newFake()
+			rec := Record{ImagePath: exe + " --foreign", Strategy: "x", Version: "3", Games: []string{"g@1"}, Hash: "h", Legacy: "old"}
+			h.add(Name, before, rec).cfg = foreignConfig()
+			m := newManager(h)
+			snap, err := m.Snapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := Snapshot{Installed: true, Config: foreignConfig(), Record: rec, Running: before == Running}
+			if !reflect.DeepEqual(snap, want) {
+				t.Fatalf("snapshot:\n got %+v\nwant %+v", snap, want)
+			}
+			if err := m.Remove(); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.Restore(&snap); err != nil {
+				t.Fatal(err)
+			}
+			s := h.services[Name]
+			if s == nil || s.cfg != foreignConfig() || !reflect.DeepEqual(s.rec, rec) || s.status.State != before {
+				t.Fatalf("service: %+v", s)
+			}
+		})
+	}
+}
+
+func TestRestoreNone(t *testing.T) {
+	h := newFake()
+	h.elevated = false
+	m := newManager(h)
+	snap, err := m.Snapshot()
+	if err != nil || snap.Installed {
+		t.Fatalf("snapshot %+v, %v", snap, err)
+	}
+	if err := m.Restore(&snap); err != nil || len(h.log) != 0 {
+		t.Fatalf("restore: %v, log %v", err, h.log)
+	}
+	h.add(Name, Stopped, oldRecord()).cfg = DefaultConfig()
+	if snap, _ = m.Snapshot(); !snap.Installed {
+		t.Fatal("no service in the snapshot")
+	}
+	if err := m.Restore(&snap); !errors.Is(err, ErrNotElevated) {
+		t.Fatalf("got %v", err)
 	}
 }
 

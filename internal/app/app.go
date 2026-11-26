@@ -118,6 +118,18 @@ func mapErr(err error) error {
 	return err
 }
 
+// mapErrKey is mapErr, but an other error gets the UI text key with the
+// error text as {0}.
+func mapErrKey(err error, key string) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, service.ErrNotElevated) {
+		return backend.Msg("AdminRequired")
+	}
+	return backend.Msg(key, err.Error())
+}
+
 // Version implements backend.Backend.
 func (b *Backend) Version() backend.Version {
 	v := b.version

@@ -13,7 +13,8 @@ var errNotWindows = errors.New("the zapret service is only on Windows")
 
 func (otherHost) Elevated() bool                      { return false }
 func (otherHost) Query(string) (ServiceStatus, error) { return ServiceStatus{}, errNotWindows }
-func (otherHost) Create(_, _, _, _ string) error      { return errNotWindows }
+func (otherHost) ReadConfig(string) (Config, error)   { return Config{}, errNotWindows }
+func (otherHost) Create(_, _ string, _ *Config) error { return errNotWindows }
 func (otherHost) Delete(string) error                 { return errNotWindows }
 func (otherHost) Start(string) error                  { return errNotWindows }
 func (otherHost) Stop(string) error                   { return errNotWindows }

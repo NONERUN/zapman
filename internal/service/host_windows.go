@@ -91,9 +91,39 @@ func withService(name string, f func(s *mgr.Service) error) error {
 	return f(s)
 }
 
+// ReadConfig opens the SCM and the service only for a read, thus it does
+// not need administrator rights.
+func (windowsHost) ReadConfig(name string) (Config, error) {
+	scm, err := windows.OpenSCManager(nil, nil, windows.SC_MANAGER_CONNECT)
+	if err != nil {
+		return Config{}, fmt.Errorf("open the service manager: %w", err)
+	}
+	defer windows.CloseServiceHandle(scm) //nolint:errcheck // a close of a read handle.
+	n, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return Config{}, err
+	}
+	h, err := windows.OpenService(scm, n, windows.SERVICE_QUERY_CONFIG)
+	if err != nil {
+		return Config{}, notInstalled(name, err)
+	}
+	s := &mgr.Service{Name: name, Handle: h}
+	defer s.Close() //nolint:errcheck // a close of a read handle.
+	c, err := s.Config()
+	if err != nil {
+		return Config{}, err
+	}
+	return Config{
+		DisplayName:      c.DisplayName,
+		Description:      c.Description,
+		StartType:        c.StartType,
+		DelayedAutoStart: c.DelayedAutoStart,
+	}, nil
+}
+
 // Create calls CreateService directly: mgr.CreateService puts the path and
 // the arguments in quotes again.
-func (windowsHost) Create(name, displayName, description, imagePath string) error {
+func (windowsHost) Create(name, imagePath string, c *Config) error {
 	m, err := connect()
 	if err != nil {
 		return err
@@ -103,7 +133,7 @@ func (windowsHost) Create(name, displayName, description, imagePath string) erro
 	if err != nil {
 		return err
 	}
-	d, err := windows.UTF16PtrFromString(displayName)
+	d, err := windows.UTF16PtrFromString(c.DisplayName)
 	if err != nil {
 		return err
 	}
@@ -111,19 +141,30 @@ func (windowsHost) Create(name, displayName, description, imagePath string) erro
 	if err != nil {
 		return err
 	}
+	start := c.StartType
+	if start == 0 {
+		start = StartAuto
+	}
 	h, err := windows.CreateService(m.Handle, n, d, windows.SERVICE_ALL_ACCESS,
-		windows.SERVICE_WIN32_OWN_PROCESS, windows.SERVICE_AUTO_START, windows.SERVICE_ERROR_NORMAL,
+		windows.SERVICE_WIN32_OWN_PROCESS, start, windows.SERVICE_ERROR_NORMAL,
 		p, nil, nil, nil, nil, nil)
 	if err != nil {
 		return err
 	}
 	defer windows.CloseServiceHandle(h) //nolint:errcheck // the service is made.
-	desc, err := windows.UTF16PtrFromString(description)
+	desc, err := windows.UTF16PtrFromString(c.Description)
 	if err != nil {
 		return err
 	}
 	info := windows.SERVICE_DESCRIPTION{Description: desc}
-	return windows.ChangeServiceConfig2(h, windows.SERVICE_CONFIG_DESCRIPTION, (*byte)(unsafe.Pointer(&info))) //nolint:gosec // G103: the API takes a pointer to SERVICE_DESCRIPTION as *byte.
+	if err := windows.ChangeServiceConfig2(h, windows.SERVICE_CONFIG_DESCRIPTION, (*byte)(unsafe.Pointer(&info))); err != nil { //nolint:gosec // G103: the API takes a pointer to SERVICE_DESCRIPTION as *byte.
+		return err
+	}
+	if !c.DelayedAutoStart {
+		return nil
+	}
+	delayed := windows.SERVICE_DELAYED_AUTO_START_INFO{IsDelayedAutoStartUp: 1}
+	return windows.ChangeServiceConfig2(h, windows.SERVICE_CONFIG_DELAYED_AUTO_START_INFO, (*byte)(unsafe.Pointer(&delayed))) //nolint:gosec // G103: the API takes a pointer to SERVICE_DELAYED_AUTO_START_INFO as *byte.
 }
 
 func (windowsHost) Delete(name string) error {
@@ -183,6 +224,7 @@ func (windowsHost) ReadRecord(name string) (Record, error) {
 		{ValueStrategy, &r.Strategy},
 		{ValueVersion, &r.Version},
 		{ValueHash, &r.Hash},
+		{ValueLegacy, &r.Legacy},
 	} {
 		s, err := str(f.value)
 		if err != nil {
@@ -221,6 +263,7 @@ func (windowsHost) WriteRecord(name string, r *Record) error {
 		{ValueStrategy, r.Strategy},
 		{ValueVersion, r.Version},
 		{ValueHash, r.Hash},
+		{ValueLegacy, r.Legacy},
 	} {
 		if f.s == "" {
 			err = del(f.value)
@@ -238,9 +281,6 @@ func (windowsHost) WriteRecord(name string, r *Record) error {
 	}
 	if err != nil {
 		errs = append(errs, fmt.Errorf("write %s: %w", ValueGames, err))
-	}
-	if err := del(ValueLegacy); err != nil {
-		errs = append(errs, fmt.Errorf("delete %s: %w", ValueLegacy, err))
 	}
 	return errors.Join(errs...)
 }

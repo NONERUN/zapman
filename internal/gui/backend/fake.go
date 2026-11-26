@@ -459,7 +459,7 @@ func (f *Fake) SuspendService(context.Context) (ServiceSnapshot, error) {
 	if !st.HasService() {
 		return ServiceSnapshot{}, nil
 	}
-	snap := ServiceSnapshot{Strategy: st.Installed, Engine: f.d.Settings.Engine, Running: st.Service == ServiceRunning}
+	snap := ServiceSnapshot{Installed: true, Strategy: st.Installed, Engine: f.d.Settings.Engine, Running: st.Service == ServiceRunning}
 	f.removeServices()
 	return snap, nil
 }
@@ -471,7 +471,7 @@ func (f *Fake) RestoreService(_ context.Context, snap ServiceSnapshot) error {
 	if err != nil {
 		return err
 	}
-	if snap.Strategy == "" {
+	if !snap.Installed || snap.Strategy == "" {
 		return nil
 	}
 	if err := f.strategy(snap.Strategy, snap.Engine); err != nil {

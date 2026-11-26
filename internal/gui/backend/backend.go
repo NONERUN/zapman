@@ -229,11 +229,17 @@ type GameInfo struct {
 
 // ServiceSnapshot is the service that SuspendService removed.
 type ServiceSnapshot struct {
-	// Strategy is the strategy of the service. Empty means no service.
+	// Installed tells if SuspendService removed a service.
+	Installed bool
+	// Strategy is the strategy of the service. It is empty for a service
+	// of an other program.
 	Strategy string
 	Engine   spec.Engine
 	// Running tells if the service ran.
 	Running bool
+	// Data is the exact copy of the service that the Backend keeps for
+	// RestoreService. The GUI does not read it.
+	Data any
 }
 
 // FakeSlot is a slot of an active fake.

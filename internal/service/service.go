@@ -126,6 +126,33 @@ type Record struct {
 	Version   string
 	Games     []string
 	Hash      string
+	// Legacy is the value ValueLegacy of old versions. Install writes no
+	// Legacy; a Restore writes it again.
+	Legacy string
+}
+
+// The start types of a service. The values are the SERVICE_*_START values
+// of Windows.
+const (
+	StartAuto     uint32 = 2
+	StartDemand   uint32 = 3
+	StartDisabled uint32 = 4
+)
+
+// Config is the SCM configuration of a service that zapman keeps. The
+// ImagePath is in Record.
+type Config struct {
+	DisplayName string
+	Description string
+	// StartType is StartAuto, StartDemand or StartDisabled.
+	StartType uint32
+	// DelayedAutoStart is the "Automatic (Delayed Start)" type.
+	DelayedAutoStart bool
+}
+
+// DefaultConfig is the configuration of the service that Install makes.
+func DefaultConfig() Config {
+	return Config{DisplayName: DisplayName, Description: Description, StartType: StartAuto}
 }
 
 // Host is the system for the Manager.
@@ -136,9 +163,12 @@ type Host interface {
 	// is ErrNotInstalled (errors.Is) when the service does not exist. It
 	// does not need administrator rights.
 	Query(name string) (ServiceStatus, error)
-	// Create makes an auto-start service that runs imagePath as it is
-	// (no change of quotes).
-	Create(name, displayName, description, imagePath string) error
+	// ReadConfig gives the configuration of the service name. It does not
+	// need administrator rights.
+	ReadConfig(name string) (Config, error)
+	// Create makes a service with the configuration c that runs imagePath
+	// as it is (no change of quotes).
+	Create(name, imagePath string, c *Config) error
 	// Delete marks the service for deletion.
 	Delete(name string) error
 	// Start starts the service. A service that runs is not an error.
@@ -149,8 +179,8 @@ type Host interface {
 	// ReadRecord reads the record of the service. A missing value gives
 	// an empty field. It does not need administrator rights.
 	ReadRecord(name string) (Record, error)
-	// WriteRecord writes the strategy values of r (not the ImagePath) and
-	// deletes ValueLegacy. An empty field deletes its value.
+	// WriteRecord writes the strategy values and ValueLegacy of r (not the
+	// ImagePath). An empty field deletes its value.
 	WriteRecord(name string, r *Record) error
 	// KillEngines stops all winws.exe and winws2.exe processes. It gives
 	// the number of processes that it stopped.
@@ -366,20 +396,21 @@ func (m *Manager) Install(p Plan) error {
 	if err := m.EnableTCPTimestamps(); err != nil {
 		return err
 	}
-	old, err := m.snapshot()
+	old, err := m.Snapshot()
 	if err != nil {
 		return err
 	}
 	if err := m.stopAll(); err != nil {
 		return err
 	}
-	if old.had {
+	if old.Installed {
 		if err := m.deleteAndWait(Name); err != nil && !errors.Is(err, ErrNotInstalled) {
 			return err
 		}
 	}
 	rec := p.record()
-	err = m.create(&rec)
+	cfg := DefaultConfig()
+	err = m.create(&rec, &cfg)
 	if err == nil {
 		err = m.start()
 	}
@@ -392,40 +423,68 @@ func (m *Manager) Install(p Plan) error {
 	return err
 }
 
-// snapshot is the old service before Install.
-type snapshot struct {
-	rec     Record
-	had     bool // the service was installed
-	running bool // the service ran or was in a start
+// Snapshot is the exact state of the zapret service: the SCM
+// configuration, the registry values of zapman and the run state. It can
+// be a service of an other program.
+type Snapshot struct {
+	// Installed tells if the service was installed. The other fields are
+	// empty when it was not.
+	Installed bool
+	Config    Config
+	Record    Record
+	// Running tells if the service ran or was in a start.
+	Running bool
 }
 
-func (m *Manager) snapshot() (snapshot, error) {
+// Snapshot reads the state of the zapret service. It does not need
+// administrator rights.
+func (m *Manager) Snapshot() (Snapshot, error) {
 	ss, err := m.Host.Query(Name)
 	if errors.Is(err, ErrNotInstalled) {
-		return snapshot{}, nil
+		return Snapshot{}, nil
 	}
 	if err != nil {
-		return snapshot{}, err
+		return Snapshot{}, err
 	}
-	r, err := m.Host.ReadRecord(Name)
-	return snapshot{rec: r, had: true, running: ss.State != Stopped && ss.State != StopPending}, err
+	s := Snapshot{Installed: true, Running: ss.State != Stopped && ss.State != StopPending}
+	if s.Config, err = m.Host.ReadConfig(Name); err != nil {
+		return s, fmt.Errorf("read the configuration of the zapret service: %w", err)
+	}
+	if s.Record, err = m.Host.ReadRecord(Name); err != nil {
+		return s, fmt.Errorf("read the record of the zapret service: %w", err)
+	}
+	return s, nil
 }
 
-// restore deletes the new service and makes the old service again. When
-// the old service ran, restore starts it.
-func (m *Manager) restore(old *snapshot) error {
+// Restore makes the zapret service of s again: it deletes the service that
+// is installed now, makes the service with the same configuration and
+// registry values, and starts it when it ran. When s has no service,
+// Restore does nothing.
+func (m *Manager) Restore(s *Snapshot) error {
+	if !s.Installed {
+		return nil
+	}
+	if !m.Host.Elevated() {
+		return ErrNotElevated
+	}
+	return m.restore(s)
+}
+
+// restore deletes the service that is installed now and makes the service
+// of old again. When the old service ran, restore starts it.
+func (m *Manager) restore(old *Snapshot) error {
 	_ = m.Host.Stop(Name)
 	_ = m.waitState(Name, Stopped, or(m.StopTimeout, 8*time.Second))
 	if err := m.deleteAndWait(Name); err != nil && !errors.Is(err, ErrNotInstalled) {
 		return err
 	}
-	if !old.had || old.rec.ImagePath == "" {
+	if !old.Installed || old.Record.ImagePath == "" {
 		return nil
 	}
-	if err := m.create(&old.rec); err != nil {
+	if err := m.create(&old.Record, &old.Config); err != nil {
 		return err
 	}
-	if !old.running {
+	if !old.Running {
 		return nil
 	}
 	if err := m.start(); err != nil {
@@ -434,14 +493,15 @@ func (m *Manager) restore(old *snapshot) error {
 	return nil
 }
 
-// create makes the service with r.ImagePath and writes the record.
-func (m *Manager) create(r *Record) error {
+// create makes the service with r.ImagePath and the configuration c and
+// writes the record.
+func (m *Manager) create(r *Record, c *Config) error {
 	var err error
 	for try := range createTries {
 		if try > 0 {
 			m.sleep(createDelay)
 		}
-		if err = m.Host.Create(Name, DisplayName, Description, r.ImagePath); err == nil {
+		if err = m.Host.Create(Name, r.ImagePath, c); err == nil {
 			break
 		}
 	}
@@ -458,7 +518,8 @@ func (m *Manager) create(r *Record) error {
 	if got.ImagePath != r.ImagePath {
 		return errors.New("the ImagePath of the zapret service is not the ImagePath that zapman wrote")
 	}
-	if got.Strategy != r.Strategy || got.Version != r.Version || got.Hash != r.Hash || !slices.Equal(got.Games, r.Games) {
+	if got.Strategy != r.Strategy || got.Version != r.Version || got.Hash != r.Hash ||
+		got.Legacy != r.Legacy || !slices.Equal(got.Games, r.Games) {
 		return errors.New("the record of the zapret service is not the record that zapman wrote")
 	}
 	return nil

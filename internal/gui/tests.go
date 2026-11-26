@@ -78,14 +78,18 @@ func (a *App) testsFlow() {
 	}
 	a.testsRun(*choice)
 	a.logLine(a.t("TestsFinished"))
-	if snap.Strategy == "" {
+	if !snap.Installed {
 		return
 	}
 	a.action("BtnInstall", func(ctx context.Context) error {
 		if err := a.be.RestoreService(ctx, snap); err != nil {
 			return err
 		}
-		a.logLine(a.t("InstallDone", snap.Strategy))
+		name := snap.Strategy
+		if name == "" {
+			name = "zapret"
+		}
+		a.logLine(a.t("InstallDone", name))
 		return nil
 	})
 }

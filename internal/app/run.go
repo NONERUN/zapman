@@ -163,24 +163,25 @@ func (b *Backend) install(ctx context.Context, name string, e spec.Engine) error
 	return mapErr(b.mgr.Install(service.PlanFor(bd)))
 }
 
-// SuspendService implements backend.Backend. It removes the zapret service
-// and the WinDivert drivers. A service of an other program (no strategy in
-// its record) gives a snapshot with no strategy: RestoreService cannot make
-// it again.
+// SuspendService implements backend.Backend. It keeps an exact copy of the
+// zapret service (also of a service of an other program) and then removes
+// the service and the WinDivert drivers.
 func (b *Backend) SuspendService(context.Context) (backend.ServiceSnapshot, error) {
 	b.op.Lock()
 	defer b.op.Unlock()
 	if err := b.elevated(); err != nil {
 		return backend.ServiceSnapshot{}, err
 	}
-	st, err := b.mgr.Status(nil)
-	if err != nil || !st.Installed {
+	s, err := b.mgr.Snapshot()
+	if err != nil || !s.Installed {
 		return backend.ServiceSnapshot{}, err
 	}
 	snap := backend.ServiceSnapshot{
-		Strategy: st.Record.Strategy,
-		Engine:   st.Engine,
-		Running:  st.State == service.Running || st.State == service.StartPending,
+		Installed: true,
+		Strategy:  s.Record.Strategy,
+		Engine:    service.EngineOf(s.Record.ImagePath),
+		Running:   s.Running,
+		Data:      s,
 	}
 	if err := b.stopRun(); err != nil {
 		return backend.ServiceSnapshot{}, err
@@ -191,27 +192,25 @@ func (b *Backend) SuspendService(context.Context) (backend.ServiceSnapshot, erro
 	return snap, nil
 }
 
-// RestoreService implements backend.Backend. It installs the strategy of
-// the snapshot with the settings of now. When the service did not run, it
-// stops it after the install.
-func (b *Backend) RestoreService(ctx context.Context, snap backend.ServiceSnapshot) error {
-	if snap.Strategy == "" {
+// RestoreService implements backend.Backend. It makes the service of the
+// snapshot again with the same ImagePath, configuration and registry
+// values, and starts it when it ran. A snapshot that is not from
+// SuspendService of this package gives an error.
+func (b *Backend) RestoreService(_ context.Context, snap backend.ServiceSnapshot) error {
+	if !snap.Installed {
 		return nil
 	}
-	e := snap.Engine
-	if e == "" {
-		e = spec.Winws
+	s, ok := snap.Data.(service.Snapshot)
+	if !ok {
+		return errors.New("the service snapshot has no data of the zapret service")
 	}
 	b.op.Lock()
 	defer b.op.Unlock()
-	if err := b.install(ctx, snap.Strategy, e); err != nil {
+	if err := b.elevated(); err != nil {
 		return err
 	}
-	if snap.Running {
-		return nil
+	if err := b.stopRun(); err != nil {
+		return err
 	}
-	if err := b.mgr.Stop(); err != nil && !errors.Is(err, service.ErrNotInstalled) {
-		return mapErr(err)
-	}
-	return nil
+	return mapErrKey(b.mgr.Restore(&s), "ServiceRestoreFail")
 }

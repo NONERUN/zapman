@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -37,6 +38,7 @@ type fakeHost struct {
 type fakeSvc struct {
 	st  service.ServiceStatus
 	rec service.Record
+	cfg service.Config
 }
 
 func newHost() *fakeHost {
@@ -63,11 +65,21 @@ func (h *fakeHost) Query(name string) (service.ServiceStatus, error) {
 	return s.st, nil
 }
 
-func (h *fakeHost) Create(name, _, _, imagePath string) error {
+func (h *fakeHost) ReadConfig(name string) (service.Config, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	s, ok := h.svcs[name]
+	if !ok {
+		return service.Config{}, fmt.Errorf("%s: %w", name, service.ErrNotInstalled)
+	}
+	return s.cfg, nil
+}
+
+func (h *fakeHost) Create(name, imagePath string, c *service.Config) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.call("Create " + name)
-	h.svcs[name] = &fakeSvc{st: service.ServiceStatus{State: service.Stopped}, rec: service.Record{ImagePath: imagePath}}
+	h.svcs[name] = &fakeSvc{st: service.ServiceStatus{State: service.Stopped}, rec: service.Record{ImagePath: imagePath}, cfg: *c}
 	return nil
 }
 
@@ -535,7 +547,7 @@ func TestInstall(t *testing.T) {
 func TestSuspendRestore(t *testing.T) {
 	e := newEnv(t)
 	snap, err := e.b.SuspendService(ctx)
-	if err != nil || snap != (backend.ServiceSnapshot{}) {
+	if err != nil || snap.Installed || snap.Data != nil {
 		t.Fatalf("no service: %+v, %v", snap, err)
 	}
 	if err := e.b.RestoreService(ctx, snap); err != nil {
@@ -545,23 +557,46 @@ func TestSuspendRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	snap, err = e.b.SuspendService(ctx)
-	want := backend.ServiceSnapshot{Strategy: testStrategy, Engine: spec.Winws2, Running: true}
-	if err != nil || snap != want {
+	if err != nil || !snap.Installed || snap.Strategy != testStrategy || snap.Engine != spec.Winws2 || !snap.Running {
 		t.Fatalf("got %+v, %v", snap, err)
 	}
 	if st, _ := e.b.Status(ctx); st.HasService() {
 		t.Fatalf("service is still there: %+v", st)
 	}
-	snap.Running = false
 	if err := e.b.RestoreService(ctx, snap); err != nil {
 		t.Fatal(err)
 	}
 	st, _ := e.b.Status(ctx)
-	if st.Service != backend.ServiceStopped || st.Installed != testStrategy || st.BypassName != "winws2.exe" {
+	if st.Service != backend.ServiceRunning || st.Installed != testStrategy || st.BypassName != "winws2.exe" {
 		t.Errorf("after restore: %+v", st)
 	}
 }
 
+// TestSuspendRestoreForeign: a service of an other program comes back with
+// the same ImagePath, configuration and registry values, and stays stopped.
+func TestSuspendRestoreForeign(t *testing.T) {
+	e := newEnv(t)
+	cfg := service.Config{DisplayName: "zapret DPI", Description: "service.bat", StartType: service.StartDemand, DelayedAutoStart: true}
+	rec := service.Record{ImagePath: `"C:\zapret\bin\winws.exe" --wf-tcp=80`, Legacy: "general (ALT).bat"}
+	e.h.svcs[service.Name] = &fakeSvc{st: service.ServiceStatus{State: service.Stopped}, rec: rec, cfg: cfg}
+	snap, err := e.b.SuspendService(ctx)
+	if err != nil || !snap.Installed || snap.Strategy != "" || snap.Running || snap.Engine != spec.Winws {
+		t.Fatalf("got %+v, %v", snap, err)
+	}
+	if _, ok := e.h.svcs[service.Name]; ok {
+		t.Fatal("the service is still there")
+	}
+	if err := e.b.RestoreService(ctx, snap); err != nil {
+		t.Fatal(err)
+	}
+	s := e.h.svcs[service.Name]
+	if s == nil || s.cfg != cfg || !reflect.DeepEqual(s.rec, rec) || s.st.State != service.Stopped {
+		t.Fatalf("after restore: %+v", s)
+	}
+	if err := e.b.RestoreService(ctx, backend.ServiceSnapshot{Installed: true}); err == nil {
+		t.Error("a snapshot with no data: no error")
+	}
+}
 func TestIPSet(t *testing.T) {
 	e := newEnv(t)
 	if m, err := e.b.IPSet(ctx); err != nil || m != backend.IPSetNone {
