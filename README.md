@@ -39,13 +39,13 @@
 2. Скачайте архив со [страницы релизов](https://github.com/NONERUN/zapman/releases/latest) **этого** репозитория.
 3. Свойства архива → «Разблокировать» (7-Zip / PeaZip часто не требуют).
 4. Распакуйте в путь без кириллицы, пробелов и спецсимволов. Для обновления скопируйте старую папку `user/` в новую распаковку.
-5. Запустите `zapman.bat` из архива (права администратора будут запрошены автоматически).
+5. Запустите `zapman.exe` из архива. Windows спросит права администратора (UAC).
 
-На **Windows 10 LTSC** и новее с рабочим столом ничего ставить не нужно. На **Windows 7 SP1 x64** — WMF 5.1 и .NET 4.5+.
+Нужна Windows 10 или новее, x64, с WebView2 (в Windows 10 и 11 он обычно уже стоит). Windows 7 не поддерживается. Консольной версии (CLI) пока нет: всё делается в GUI.
 
-Кнопки, служба, трей (`zapman-tray`), IPSet, консоль `cli.bat` — [использование](docs/usage.md).
+Кнопки, служба, трей (`zapman-tray`), IPSet, игры — [использование](docs/usage.md).
 
-`general (ALT11 Photon)` включает обход для игроков, чата и заданий Sky: Children of the Light. Игровые IP хранит `user/ipset-sky.txt`, обновляет включённый трей. Проверено на `winws2`; подробнее — [Sky](docs/usage.md#sky-children-of-the-light). Там же отдельный профиль для Sker Ritual (подсети Photon в `user/ipset-sker.txt`): матч и голос проверены на `winws2`; подробнее — [Sker Ritual](docs/usage.md#sker-ritual).
+Кнопка **Игры...** включает игровые модули: Sky: Children of the Light, Sker Ritual / Hazard Levels и общий профиль Photon. Их правила идут перед правилами любой стратегии. Подробнее — [Игры](docs/usage.md#игры).
 
 ## Документация
 
@@ -57,12 +57,13 @@
 
 ## Разработка
 
-Ветка `go` — переписывание на Go; релизы (PowerShell-версия) собираются с `main`.
+Ветка `go` — переписывание на Go. PowerShell-версия — на ветке `main`. Сборка, версия и релиз — [Разработка](docs/dev.md#релиз).
 
-Тестирование:
+Проверки перед коммитом (в PowerShell флаг `-modfile` — в кавычках):
 
 ```text
-gofmt -l .
+go tool -modfile=tools/go.mod golangci-lint run ./...
+go tool -modfile=tools/go.mod govulncheck ./...
 go vet ./...
 go test ./...
 ```
