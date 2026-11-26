@@ -3,6 +3,7 @@ package gui
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 
@@ -166,8 +167,11 @@ func (a *App) FakesApply(discord, game int) {
 
 // GameItem is a game module of the Games dialog.
 type GameItem struct {
-	ID      string
-	Title   string
+	ID    string
+	Title string
+	// About is the text about the game in the UI language, or in the
+	// other language when the UI language has no text. It can be empty.
+	About   string
 	Checked bool
 }
 
@@ -199,9 +203,27 @@ func (a *App) GamesView() []GameItem {
 	defer a.mu.Unlock()
 	out := make([]GameItem, 0, len(a.games))
 	for _, g := range a.games {
-		out = append(out, GameItem{ID: g.ID, Title: g.Title, Checked: slices.Contains(a.settings.Games, g.ID)})
+		out = append(out, GameItem{ID: g.ID, Title: g.Title, About: pickAbout(g.About, a.lang), Checked: slices.Contains(a.settings.Games, g.ID)})
 	}
 	return out
+}
+
+// pickAbout gives the text of about in the language lang. When lang has no
+// text, it gives the en text, then the text of the first language in the
+// sort order.
+func pickAbout(about map[string]string, lang string) string {
+	if s := about[lang]; s != "" {
+		return s
+	}
+	if s := about["en"]; s != "" {
+		return s
+	}
+	for _, k := range slices.Sorted(maps.Keys(about)) {
+		if about[k] != "" {
+			return about[k]
+		}
+	}
+	return ""
 }
 
 // GamesApply closes the Games dialog with the checked game IDs.

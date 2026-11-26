@@ -342,5 +342,9 @@ func TestLoadCatalogInfo(t *testing.T) {
 		if g.ID == "" || g.Title == "" {
 			t.Errorf("game: %+v", g)
 		}
+		// Each stock game has a text for each UI language.
+		if g.About["ru"] == "" || g.About["en"] == "" {
+			t.Errorf("game %q: about = %q", g.ID, g.About)
+		}
 	}
 }

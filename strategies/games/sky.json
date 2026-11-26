@@ -2,6 +2,10 @@
   "$schema": "../schema/game.json",
   "id": "sky",
   "title": "Sky: Children of the Light",
+  "about": {
+    "ru": "UDP игры (IP из user/ipset-sky.txt) и WebSocket чата и заданий",
+    "en": "Game UDP (IPs from user/ipset-sky.txt) and the WebSocket of chat and quests"
+  },
   "version": 2,
   "order": 10,
   "lists": { "ipset-sky": { "ipset": ["user:ipset-sky.txt"], "seed": "lists:ipset-sky.default.txt" } },

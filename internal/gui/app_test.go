@@ -531,8 +531,13 @@ func TestGameFilterOpensStrategy(t *testing.T) {
 func TestGamesApply(t *testing.T) {
 	a, f, sh := start(t, nil)
 	sh.on(WinGames, func() {
-		if v := a.GamesView(); len(v) != 2 || v[0].Checked {
+		v := a.GamesView()
+		if len(v) != 2 || v[0].Checked {
 			t.Errorf("games view = %+v", v)
+		}
+		// The UI is in en. sker has only a ru text: the view shows it.
+		if len(v) == 2 && (v[0].About != "Game UDP" || v[1].About != "UDP Photon") {
+			t.Errorf("games about = %q, %q", v[0].About, v[1].About)
 		}
 		a.GamesApply([]string{"sker", "nope"})
 	})
@@ -543,6 +548,26 @@ func TestGamesApply(t *testing.T) {
 	}
 	if got := sh.get(&sh.infos); !slices.Equal(got, []string{en("FilterNeedRerun")}) {
 		t.Errorf("infos = %q", got)
+	}
+}
+
+func TestPickAbout(t *testing.T) {
+	both := map[string]string{"ru": "Р", "en": "E"}
+	for _, tc := range []struct {
+		about map[string]string
+		lang  string
+		want  string
+	}{
+		{both, "ru", "Р"},
+		{both, "en", "E"},
+		{both, "de", "E"},
+		{map[string]string{"ru": "Р"}, "en", "Р"},
+		{map[string]string{"en": "E", "ru": ""}, "ru", "E"},
+		{nil, "ru", ""},
+	} {
+		if got := pickAbout(tc.about, tc.lang); got != tc.want {
+			t.Errorf("pickAbout(%q, %q) = %q, want %q", tc.about, tc.lang, got, tc.want)
+		}
 	}
 }
 

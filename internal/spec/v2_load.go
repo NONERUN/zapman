@@ -338,6 +338,14 @@ func (c *Catalog) loadGame(path string) (*Game, error) {
 	if isBlank(g.Title) {
 		return nil, fmt.Errorf("%s: title is empty", file)
 	}
+	for _, lang := range sortedKeys(g.About) {
+		if !AboutLangs[lang] {
+			return nil, fmt.Errorf("%s: about: unknown language %q. Use en or ru", file, lang)
+		}
+		if isBlank(g.About[lang]) {
+			return nil, fmt.Errorf("%s: about: the %s text is empty", file, lang)
+		}
+	}
 	if g.GameFile.Version < 1 {
 		return nil, fmt.Errorf("%s: version must be 1 or more", file)
 	}

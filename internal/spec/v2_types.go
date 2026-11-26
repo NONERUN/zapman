@@ -191,11 +191,15 @@ type StrategyFile struct {
 	Rules    []Rule `json:"rules" doc:"rules in winws order (the first match wins)" schema:"required"`
 }
 
+// AboutLangs are the languages of GameFile.About.
+var AboutLangs = map[string]bool{"en": true, "ru": true}
+
 // GameFile is the JSON of strategies/games/<id>.json.
 type GameFile struct {
 	Schema  string                `json:"$schema,omitempty"`
 	ID      string                `json:"id" doc:"same as the file name" schema:"required"`
 	Title   string                `json:"title" doc:"name in the UI" schema:"required"`
+	About   map[string]string     `json:"about,omitempty" doc:"a short text for the UI: language (ru, en) to text" schema:"keys=lang,values=text"`
 	Version int                   `json:"version" doc:"the version of the game module; add 1 when the argv changes" schema:"required,min=1"`
 	Order   int                   `json:"order" doc:"games with a lower order go first" schema:"required"`
 	Lists   map[string]GameBundle `json:"lists,omitempty" doc:"bundles of this game"`

@@ -20,6 +20,13 @@ async function refresh() {
     cb.checked = it.Checked;
     const s = document.createElement("span");
     s.textContent = it.Title;
+    if (it.About) {
+      // The text about the game goes on a second line, under the title.
+      l.classList.add("about");
+      const a = document.createElement("small");
+      a.textContent = it.About;
+      s.append(a);
+    }
     l.append(cb, s);
     list.append(l);
   }

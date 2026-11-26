@@ -15,6 +15,17 @@
       "description": "name in the UI",
       "type": "string"
     },
+    "about": {
+      "description": "a short text for the UI: language (ru, en) to text",
+      "type": "object",
+      "patternProperties": {
+        "^(en|ru)$": {
+          "type": "string",
+          "pattern": "\\S"
+        }
+      },
+      "additionalProperties": false
+    },
     "version": {
       "description": "the version of the game module; add 1 when the argv changes",
       "type": "integer",

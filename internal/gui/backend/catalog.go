@@ -1,6 +1,8 @@
 package backend
 
 import (
+	"maps"
+
 	"github.com/NONERUN/zapman/internal/spec"
 )
 
@@ -32,7 +34,7 @@ func LoadCatalogInfo(dir string) ([]StrategyInfo, []GameInfo, error) {
 	}
 	games := make([]GameInfo, 0, len(cat.Games))
 	for _, g := range cat.Games {
-		games = append(games, GameInfo{ID: g.ID, Title: g.Title})
+		games = append(games, GameInfo{ID: g.ID, Title: g.Title, About: maps.Clone(g.About)})
 	}
 	return list, games, nil
 }

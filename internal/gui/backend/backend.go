@@ -225,6 +225,9 @@ func (s StrategyInfo) Supports(e spec.Engine) bool {
 type GameInfo struct {
 	ID    string
 	Title string
+	// About maps a UI language (ru, en) to a short text about the game.
+	// It can be empty.
+	About map[string]string
 }
 
 // ServiceSnapshot is the service that SuspendService removed.

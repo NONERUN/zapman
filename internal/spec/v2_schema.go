@@ -85,6 +85,10 @@ var schemaPatterns = map[string]string{
 	// relpath is a file path from the catalog root, with /.
 	"relpath": `^[^/\\]+(/[^/\\]+)*$`,
 	"sha256":  "^[0-9a-f]{64}$",
+	// lang is a UI language of the about texts (see AboutLangs).
+	"lang": "^(en|ru)$",
+	// text is a text that is not blank.
+	"text": `\S`,
 }
 
 // schemaEnums are the value lists for the enum and items struct tags.

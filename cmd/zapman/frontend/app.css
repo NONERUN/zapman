@@ -90,6 +90,10 @@ textarea {
 .list .item.sel { background: #cce8ff; }
 .list .item.off { color: gray; }
 .list label.check { padding: 2px 4px; }
+/* A check item with a second line of small gray text (the Games dialog). */
+.list label.check.about { align-items: flex-start; padding: 3px 4px; }
+.list label.check.about input { margin-top: 2px; }
+.list label.check.about small { display: block; color: #6d6d6d; white-space: normal; }
 
 /* Page with a grid layout, for the windows that can change size. */
 .page {

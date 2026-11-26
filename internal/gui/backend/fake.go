@@ -79,7 +79,10 @@ func NewFake() *Fake {
 			{Name: "general (ALT2)", Engines: []spec.Engine{spec.Winws}},
 			{Name: "general (FAKE TLS AUTO)", Engines: []spec.Engine{spec.Winws, spec.Winws2}},
 		},
-		Games: []GameInfo{{ID: "sky", Title: "Sky"}, {ID: "sker", Title: "Sker Ritual"}},
+		Games: []GameInfo{
+			{ID: "sky", Title: "Sky", About: map[string]string{"ru": "UDP игры", "en": "Game UDP"}},
+			{ID: "sker", Title: "Sker Ritual", About: map[string]string{"ru": "UDP Photon"}},
+		},
 		Fakes: FakeCatalog{
 			Files:        []string{"quic_initial_www_google_com.bin", "stun.bin", "tls_clienthello_www_google_com.bin"},
 			Discord:      "stun.bin",
