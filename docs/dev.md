@@ -228,6 +228,15 @@ Fooling не вешается на Lua-атаку `multisplit`.
 
 Файл PowerShell-версии (`language`, `engine`, `gameFilter`, `autoUpdateCheck`, `trayWatch`) читается как есть. Строки `"yes"` / `"1"` вместо bool PowerShell принимал, Go — нет (ошибка поля); сам PowerShell всегда писал bool.
 
+### `internal/engine`
+
+- `NewLayout(root)` — папки `bin/`, `strategies/`, `lists/`, `user/`. `Paths()` даёт `spec.Paths`; `ActiveFiles` — имена `X` файлов `user/fakes/ACTIVE_<X>.bin` (префикс и `.bin` без учёта регистра, `X` — имя active-fake).
+- `Exe(engine)` — нет exe выбранного движка — ошибка, другой exe не берётся.
+- `EnsureUserFiles(cat, games)` создаёт недостающие `user:`-списки бандлов каталога и включённых игр, существующие не трогает. Содержимое: `seed` игры; иначе `lists/<имя>.default.txt` (так `ipset-all.txt`); иначе одна неиспользуемая запись (`domain.example.abc` / `203.0.113.113/32`): пустой список совпадает со всеми хостами.
+- `CheckBin(bin)` сверяет файлы с `bin/versions.json` без сети: `ok` / `missing` / `hash mismatch`; `winws.exe` или `winws2.exe` нет в `versions.json` — `not in versions.json`. SHA256 `.lua` — после CRLF → LF, как в `dev/update-zapret`.
+- `Build(cat, cfg)` — стратегия, игры, Game Filter из конфига → `Build`. `CommandLine()` = `"<bin>\<exe>" <строки argv через пробел>`; для winws2 первым идёт `--chdir="<bin>"`. Та же строка — ImagePath службы. Длиннее 32766 символов UTF-16 (предел `CreateProcess`) — ошибка.
+- `Runner.Run(build)` — запуск на переднем плане, cwd = `bin/`, без окна, вывод — хвост 64 КБ. Выход в первые 2 с — ошибка (`ExitError`). Код `0xC0000142` (`STATUS_DLL_INIT_FAILED`) при первом запуске — пауза 1 с и один повтор; снова он — ошибка с кодом и советом про исключения антивируса. Запуск процесса (`Runner.Start`) подменяется в тестах. Что служба не запущена, проверяет вызывающий.
+
 ## Релиз
 
 Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` сам запускает [Release](../.github/workflows/release.yml) **с того коммита** (YAML в теге). Job собирает zip/rar/tar.gz и создаёт **черновик**. `/releases/latest` не меняется, пока не нажмёте **Publish release**.

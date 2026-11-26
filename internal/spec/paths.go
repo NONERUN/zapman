@@ -50,8 +50,10 @@ func (p Paths) ActivePath(name string) string {
 // extension. It is also the winws2 blob name.
 func activeStem(name string) string { return "ACTIVE_" + name }
 
-// isActiveName tells if s is a name of an active fake: A-Z and 0-9 in
+// IsActiveName tells if s is a name of an active fake: A-Z and 0-9 in
 // parts that _ separates.
+func IsActiveName(s string) bool { return isActiveName(s) }
+
 func isActiveName(s string) bool {
 	if s == "" || s[0] == '_' || s[len(s)-1] == '_' || strings.Contains(s, "__") {
 		return false
