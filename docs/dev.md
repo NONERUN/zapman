@@ -275,9 +275,22 @@ Fooling не вешается на Lua-атаку `multisplit`.
 GUI на [Wails v3](https://v3.wails.io/) `v3.1.0` (версия закреплена в `go.mod`). CLI `wails3` не нужен, npm тоже: хватает `go build`.
 
 ```text
-go run ./cmd/zapman           # главное окно
-go run ./cmd/zapman --tray    # старт в трее: главное окно скрыто, если включена «Иконка в трее»
+go build -o zapman.exe ./cmd/zapman   # exe в корень репозитория: рядом bin/, strategies/, lists/
+.\zapman.exe                          # главное окно (UAC: exe просит права администратора)
+.\zapman.exe --tray                   # старт в трее: главное окно скрыто, если включена «Иконка в трее»
+.\zapman.exe -fake                    # фейк в памяти: службы, winws и система не трогаются
+.\zapman.exe -root D:\zapman          # другая папка с bin/, strategies/, lists/, user/
 ```
+
+Корень — папка `zapman.exe`. У `go run` exe лежит во временной папке `go-build…`, поэтому корень — рабочая папка. Без прав администратора (например, `-fake` в обычном терминале): `$env:__COMPAT_LAYER = 'RunAsInvoker'` перед запуском — Windows не смотрит на `requireAdministrator`; действия со службой и winws тогда дают «нужны права администратора».
+
+Манифест и иконка exe — `cmd/zapman/rsrc_windows_amd64.syso` (в git). Его делает [go-winres](https://github.com/tc-hib/go-winres) (закреплён в `tools/go.mod`) из `cmd/zapman/winres.json`: `requireAdministrator`, Common Controls 6, DPI per-monitor v2, версия файла, `assets/app.ico` с ID 3 (этот ID грузят Wails и трей). После правки `winres.json` или `app.ico`:
+
+```text
+go generate ./cmd/zapman
+```
+
+go-winres, а не `akavel/rsrc`: тот же `tc-hib/winres` использует `wails3 generate syso`; манифест — поля JSON, а не XML руками; иконка и версия — в том же файле. CLI `wails3` в `tools/go.mod` тянуть не нужно. Из-за манифеста тестовый бинарник `cmd/zapman` тоже просил бы права, поэтому тестов в `cmd/zapman` нет: логика — в `internal/app` и `internal/gui`.
 
 | Путь | Роль |
 |---|---|
@@ -286,6 +299,7 @@ go run ./cmd/zapman --tray    # старт в трее: главное окно 
 | `internal/gui/` | Логика окон PS GUI (`src/gui` на `main`) без Wails: виды окон, кнопки, тексты, трей. Тесты — с фейковым `Shell` |
 | `internal/gui/backend/` | Интерфейс `Backend` (всё, что GUI просит у движка, службы и конфига) и детерминированный фейк в памяти |
 | `internal/gui/i18n/` | Строки RU / EN (копия таблиц `Ui.ps1`) и строки, которых нет в PS-версии |
+| `internal/app/` | Настоящий `Backend` поверх `internal/config`, `internal/engine` и `internal/service`; задача трея `zapman-tray` (`schtasks.exe`) |
 | `assets/assets.go` | `app.ico` для окон и трея (`go:embed`) |
 
 Как это связано:
@@ -297,7 +311,17 @@ go run ./cmd/zapman --tray    # старт в трее: главное окно 
 - Модальных окон в Wails нет: пока открыт диалог, остальные окна выключены (`SetEnabled(false)`), как у `ShowDialog` в WPF. Закрытое окно уничтожается и создаётся заново при следующем открытии.
 - Один процесс — и окна, и трей (в PS-версии трей — отдельная задача планировщика). «Иконка в трее» показывает или прячет иконку; второй запуск открывает главное окно (с `--tray` — ничего не делает).
 
-Сейчас `cmd/zapman` работает на фейке (`backend.NewFake()`): службы, winws и настройки системы не трогаются. Настоящий `Backend` поверх `internal/engine`, `internal/config` и `internal/service` подключается в `cmd/zapman/main.go` вместо фейка.
+### `internal/app`
+
+`app.New(Options)` — настоящий `Backend`; его создаёт `cmd/zapman/main.go` (`newBackend`). Пакет отдельно от `internal/gui/backend`: там остаются интерфейс и фейк без вызовов системы, а SCM, процессы и `schtasks.exe` — только здесь.
+
+- Настройки — `user/config.json` через `internal/config`; неизвестные поля и поля, которых нет в GUI, сохраняются. Плохой файл — дефолты и ошибка (`ConfigError`); «Запуск» и «Установка» его не перезаписывают.
+- «Запуск» — проверка exe и сборки, стоп службы и всех `winws` / `winws2`, TCP timestamps, `Runner.Run` на переднем плане. Ошибка старта — текст `EngineStartFailText` с выводом движка. Процесс остаётся после выхода GUI; после перезапуска GUI он — «чужой» `winws`.
+- «Установка» — `service.Install(PlanFor(build))`; стратегия и движок пишутся в конфиг после успеха.
+- `SuspendService` / `RestoreService` (тесты стратегий) — удаление службы и установка снова с текущими настройками. Чужая служба (без `zapman`) не восстанавливается.
+- Fake — список `strategies/fakes/*.bin`; активный — `user/fakes/ACTIVE_DISCORD_UDP.bin` / `ACTIVE_GAME_UDP.bin` (в PS-версии — в `bin/`). Выбор = копия файла; совпадение ищется по SHA256.
+- «Иконка в трее» при входе — задача планировщика `zapman-tray` (имя PS-версии): `schtasks /Create /SC ONLOGON /RL HIGHEST /F /TR "\"<zapman.exe>\" --tray"`; выключение — `/Delete`, если задача есть.
+- Сеть, hosts, загрузки, диагностика и тесты стратегий — интерфейс `app.Tools`. Пока его нет, методы дают ошибку `NotWired` с именем метода. Реализация передаётся в `app.Options.Tools` в `newBackend` (или `Backend.SetTools` до первого вызова, если ей нужен сам `Backend`).
 
 ## Релиз
 

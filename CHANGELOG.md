@@ -23,11 +23,12 @@
 - Go: [`internal/service`](internal/service/) — служба `zapret` (имя PowerShell-версии): установка с восстановлением старой службы при ошибке, удаление (с WinDivert), старт, стоп, статус. В ключе службы — стратегия (`zapman`), версия, игры и SHA256 ImagePath; статус говорит, устарела ли служба и почему. Без прав администратора — понятная ошибка.
 - Go: TCP timestamps (нужны `fooling=ts`) включаются при установке и старте службы, как в PowerShell-версии; проверка для диагностики — `TCPTimestamps()`.
 - Go: при ошибке установки службы старая служба создаётся снова и запускается, если работала до установки.
-- GUI на Go: `cmd/zapman` (Wails v3.1.0) — окна PS GUI (главное, «Стратегия», «Статус», тесты, hosts, fake, загрузка, диагностика) и трей в одном процессе; новое окно «Игры...» для игровых модулей. Пока на фейковом бэкенде. См. [`docs/dev.md`](docs/dev.md).
+- GUI на Go: `cmd/zapman` (Wails v3.1.0) — окна PS GUI (главное, «Стратегия», «Статус», тесты, hosts, fake, загрузка, диагностика) и трей в одном процессе; новое окно «Игры...» для игровых модулей. Бэкенд — [`internal/app`](internal/app/) поверх config, engine и service (запуск, служба, IPSet, fake, задача трея `zapman-tray`); сеть, hosts, загрузки, диагностика и тесты стратегий пока дают «не подключено». Флаги `-fake` (фейк в памяти) и `-root`. Exe просит права администратора (манифест через go-winres). См. [`docs/dev.md`](docs/dev.md).
 - Fake из upstream (сейчас в `strategies/fakes/`): `tls_clienthello_www_sferum_ru`, `tls_clienthello_awswaf_com`, `tls_clienthello_steam_chat_com`, `tls_clienthello_steamstatic_com`, `tls_clienthello_teamspeak_com`, `quic_initial_lemana_pro`, `quic_initial_steam_chat_com`, `quic_initial_steamstatic_com`.
 
 ### Changed
 
+- Go GUI: активные fake — `user\fakes\ACTIVE_<ИМЯ>.bin` (в PowerShell-версии — `bin\`); выбор в окне fake копирует файл туда.
 - zapret2 v1.0.4 → [v1.0.8](https://github.com/bol-van/zapret2/releases/tag/v1.0.8): `bin/winws2.exe`, `bin/lua/zapret-lib.lua`, `bin/lua/zapret-antidpi.lua`.
 - Раскладка каталога: `strategies/catalog.json` (`id` `stock`, `title`, `spec`); стратегии Flowseal — `strategies/<имя>.json` → `strategies/flowseal/<имя>.json` (имена те же); свои стратегии — в `strategies/zapman/`. Кирпичи (`lists.json`, `targets.json`, `actions.json`) и `games/` — в корне каталога. Стратегия в корне — ошибка загрузки.
 - Стратегии v2: в `strategies/actions.json` только действия, которые используются 3+ раза (11 пресетов вместо 32); остальные — прямо в правиле стратегии. Argv не меняется.
