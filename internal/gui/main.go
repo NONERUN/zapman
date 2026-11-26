@@ -431,7 +431,8 @@ func compareRelease(a, b [3]int) int {
 func (a *App) Tray() TrayView {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return trayView(a.lang, a.status)
+	_, alert := a.iconLocked()
+	return trayView(a.lang, a.status, alert)
 }
 
 // TrayOpen shows the main window.

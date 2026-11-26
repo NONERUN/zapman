@@ -295,21 +295,30 @@ func (a *App) refresh() {
 	}
 	lang := a.lang
 	tray := a.settings.TrayWatch
+	_, alert := a.iconLocked()
 	a.mu.Unlock()
 	a.syncIcon()
-	a.shell.SetTray(trayView(lang, st), tray)
+	a.shell.SetTray(trayView(lang, st, alert), tray)
 	a.emit(EvMain)
 }
 
-// syncIcon sends the icon of the last status to the shell when it is not
+// iconLocked gives the icon and the alert key of the state of now. The
+// caller holds a.mu.
+func (a *App) iconLocked() (Icon, string) {
+	return iconOf(a.status, len(a.strategies) > 0, a.lastError)
+}
+
+// syncIcon sends the icon of the last state to the shell when it is not
 // the icon that the shell has. Thus the icon does not flicker. Two refreshes
 // can run at the same time: iconMu puts the calls in sequence, and each call
-// reads the status of now, thus the last call sends the icon of the last
-// status.
+// reads the state of now, thus the last call sends the icon of the last
+// state.
 func (a *App) syncIcon() {
 	a.iconMu.Lock()
 	defer a.iconMu.Unlock()
-	icon := iconOf(a.statusNow())
+	a.mu.Lock()
+	icon, _ := a.iconLocked()
+	a.mu.Unlock()
 	if a.iconSet && icon == a.icon {
 		return
 	}

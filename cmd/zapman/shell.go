@@ -412,8 +412,13 @@ func (s *shell) OpenURL(url string) error {
 
 // iconData gives the ICO file of the icon.
 func iconData(icon gui.Icon) []byte {
-	if icon == gui.IconLive {
+	switch icon {
+	case gui.IconLive:
 		return assets.AppIcon
+	case gui.IconWarn:
+		return assets.WarnIcon
+	case gui.IconError:
+		return assets.ErrorIcon
 	}
 	return assets.IdleIcon
 }
@@ -456,7 +461,8 @@ func (s *shell) SetTray(v gui.TrayView, visible bool) {
 			return
 		}
 		t := s.app.SystemTray.New()
-		t.SetIcon(assets.AppIcon)
+		// SetIcon can come before the tray is made: use its icon.
+		t.SetIcon(iconData(s.trayIcon))
 		// As the NotifyIcon of the PS tray: a double click opens the main
 		// window, a right click opens the menu, a left click does nothing.
 		t.OnClick(func() {})
@@ -477,6 +483,9 @@ func (s *shell) SetTray(v gui.TrayView, visible bool) {
 	}
 	s.trayView = v
 	m := s.app.NewMenu()
+	if v.Alert != "" {
+		m.Add(v.Alert).SetEnabled(false)
+	}
 	for _, l := range v.Lines {
 		m.Add(l).SetEnabled(false)
 	}

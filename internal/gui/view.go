@@ -89,6 +89,12 @@ func statusLabels(lang string, st backend.Status, hasStrategies bool, lastError 
 		b = Banner{Text: t("BannerStopPending"), Bg: bannerRedBg, Fg: bannerRedFg}
 	case lastError != "":
 		b = Banner{Text: t("BannerLastError"), Bg: bannerRedBg, Fg: bannerRedFg}
+	case !st.DivertSys && !st.Live():
+		b = Banner{Text: t("BannerNoSys"), Bg: bannerRedBg, Fg: bannerRedFg}
+	case !st.DivertSys:
+		b = Banner{Text: t("BannerNoSys"), Bg: bannerYellowBg, Fg: bannerYellowFg}
+	case len(st.BypassExes) > 1:
+		b = Banner{Text: t("BannerTwoEngines"), Bg: bannerYellowBg, Fg: bannerYellowFg}
 	case !hasStrategies:
 		b = Banner{Text: t("BannerNoStrategies"), Bg: bannerYellowBg, Fg: bannerYellowFg}
 	case svc && !st.BypassRunning:
@@ -108,22 +114,58 @@ func statusLabels(lang string, st backend.Status, hasStrategies bool, lastError 
 type Icon int
 
 const (
-	// IconIdle is the gray icon: the bypass does not work.
+	// IconIdle is the gray icon: the bypass does not work, and nothing is
+	// wrong. For example, the user stopped it.
 	IconIdle Icon = iota
-	// IconLive is the blue icon: the zapret service or a winws runs.
+	// IconLive is the blue icon: the zapret service or a winws runs, and
+	// nothing is wrong.
 	IconLive
+	// IconWarn is the yellow icon: the bypass works, but a thing is wrong;
+	// or the bypass does not work, and a thing is wrong that does not stop
+	// a start.
+	IconWarn
+	// IconError is the red icon: the bypass does not work and cannot start,
+	// or WinDivert is stuck.
+	IconError
 )
 
-// iconOf gives the icon for the status.
-func iconOf(st backend.Status) Icon {
-	if st.Live() {
-		return IconLive
+// iconOf gives the icon for the state and the key of the text that tells
+// why the icon is yellow or red. The key is empty for the blue and the gray
+// icon. iconOf uses only the data of the banner of the main window, thus
+// the icon and the banner tell the same thing.
+//
+// A service that is installed and stopped gives the gray icon: the Stop
+// button makes this state, and the status cannot tell a stop by the user
+// from a failure. A failed action gives the red icon only while the bypass
+// does not work.
+func iconOf(st backend.Status, hasStrategies bool, lastError string) (Icon, string) {
+	live := st.Live()
+	switch {
+	case st.Divert == backend.ServiceStopPending:
+		return IconError, "AlertStopPending"
+	case lastError != "" && !live:
+		return IconError, "AlertLastError"
+	case !st.DivertSys && !live:
+		return IconError, "AlertNoSys"
+	case lastError != "":
+		return IconWarn, "AlertLastError"
+	case !st.DivertSys:
+		return IconWarn, "AlertNoSys"
+	case len(st.BypassExes) > 1:
+		return IconWarn, "AlertTwoEngines"
+	case !hasStrategies:
+		return IconWarn, "AlertNoStrategies"
+	case live:
+		return IconLive, ""
 	}
-	return IconIdle
+	return IconIdle, ""
 }
 
 // TrayView is the state of the tray icon and its menu.
 type TrayView struct {
+	// Alert tells why the icon is yellow or red. When it is not empty, it
+	// is the first item of the menu and the first line of the tooltip.
+	Alert string
 	// Lines are the three status items of the menu.
 	Lines   [3]string
 	Tooltip string
@@ -137,10 +179,14 @@ type TrayView struct {
 	StopEnabled  bool
 }
 
-// trayView gives the tray state, as Tray.ps1 does.
-func trayView(lang string, st backend.Status) TrayView {
+// trayView gives the tray state, as Tray.ps1 does. alertKey is the key of
+// the text from iconOf, or empty.
+func trayView(lang string, st backend.Status, alertKey string) TrayView {
 	t := func(key string, args ...any) string { return i18n.T(lang, key, args...) }
 	var v TrayView
+	if alertKey != "" {
+		v.Alert = t(alertKey)
+	}
 	if st.BypassRunning {
 		v.Lines[0] = t("StatusBypassOn", st.BypassName)
 	} else {
@@ -160,7 +206,12 @@ func trayView(lang string, st backend.Status) TrayView {
 	} else {
 		v.Lines[2] = t("StatusStrategyNone")
 	}
-	v.Tooltip = trayTooltip(strings.Join(v.Lines[:], "\n"))
+	tip := strings.Join(v.Lines[:], "\n")
+	if v.Alert != "" {
+		// The alert is first: the cut of a long tooltip removes the end.
+		tip = v.Alert + "\n" + tip
+	}
+	v.Tooltip = trayTooltip(tip)
 	v.Open, v.Start, v.Stop, v.Exit = t("TrayOpen"), t("TrayStart"), t("TrayStop"), t("TrayExit")
 	v.StartEnabled = st.Service == backend.ServiceStopped
 	v.StopEnabled = st.BypassRunning || (st.HasService() && st.Service != backend.ServiceStopped)
