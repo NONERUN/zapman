@@ -14,7 +14,8 @@ import (
 
 // fakeShell records the calls of App. The answers of Ask come from a
 // queue; an empty queue gives false. onOpen runs in OpenWindow, as a click
-// of the user in the new window.
+// of the user in the new window. modal follows the windows and the message
+// boxes as the shell of cmd/zapman does.
 type fakeShell struct {
 	mu      sync.Mutex
 	opened  []string
@@ -28,9 +29,16 @@ type fakeShell struct {
 	tray    TrayView
 	trayOn  bool
 	onOpen  map[string]func()
+
+	modal Modal
+	// mainBusy reads the Busy field of the main view. Emit of EvMain keeps
+	// its value in lastBusy, as the page of the main window reads it.
+	mainBusy func() bool
+	lastBusy bool
 }
 
 func (s *fakeShell) OpenWindow(name, _ string) {
+	s.modal.Open(name)
 	s.mu.Lock()
 	s.opened = append(s.opened, name)
 	fn := s.onOpen[name]
@@ -41,9 +49,29 @@ func (s *fakeShell) OpenWindow(name, _ string) {
 }
 
 func (s *fakeShell) CloseWindow(name string) {
+	s.modal.Close(name)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.closed = append(s.closed, name)
+}
+
+// box counts a message box as the shell does. It gives the function that
+// closes it.
+func (s *fakeShell) box() func() {
+	s.modal.BoxOpen()
+	return s.modal.BoxClose
+}
+
+// userClose does what the shell does when the user closes the window with
+// the close button.
+func (s *fakeShell) userClose(a *App, name string) bool {
+	if !Closing(a, name) {
+		return false
+	}
+	if name != WinMain {
+		s.CloseWindow(name)
+	}
+	return true
 }
 
 func (s *fakeShell) HideWindow(name string) {
@@ -54,9 +82,24 @@ func (s *fakeShell) HideWindow(name string) {
 
 func (s *fakeShell) SetTitle(string, string) {}
 
-func (s *fakeShell) Emit(string) {}
+func (s *fakeShell) Emit(ev string) {
+	if ev != EvMain {
+		return
+	}
+	s.mu.Lock()
+	fn := s.mainBusy
+	s.mu.Unlock()
+	if fn == nil {
+		return
+	}
+	busy := fn()
+	s.mu.Lock()
+	s.lastBusy = busy
+	s.mu.Unlock()
+}
 
 func (s *fakeShell) Ask(text string, _ bool) bool {
+	defer s.box()()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.asks = append(s.asks, text)
@@ -69,12 +112,14 @@ func (s *fakeShell) Ask(text string, _ bool) bool {
 }
 
 func (s *fakeShell) Info(text string) {
+	defer s.box()()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.infos = append(s.infos, text)
 }
 
 func (s *fakeShell) Error(text string) {
+	defer s.box()()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.errors = append(s.errors, text)
@@ -128,6 +173,7 @@ func start(t *testing.T, setup func(f *backend.Fake)) (*App, *backend.Fake, *fak
 	}
 	sh := &fakeShell{}
 	a := New(f, sh, Options{Culture: "en-US", Tick: time.Hour})
+	sh.mainBusy = func() bool { return a.Main().Busy }
 	if err := Start(a); err != nil {
 		t.Fatal(err)
 	}

@@ -70,11 +70,16 @@ func (a *App) testsFlow() {
 	}
 	var snap backend.ServiceSnapshot
 	if a.hasService() {
-		a.action("TestsNeedNoService", func(ctx context.Context) error {
+		// The tests cannot run while the service runs. When the service
+		// does not stop, the action shows the error and the flow stops.
+		ok := a.action("TestsNeedNoService", func(ctx context.Context) error {
 			var err error
 			snap, err = a.be.SuspendService(ctx)
 			return err
 		})
+		if !ok {
+			return
+		}
 	}
 	a.testsRun(*choice)
 	a.logLine(a.t("TestsFinished"))

@@ -43,9 +43,12 @@ func (a *App) waitDialog(name string, d *dialog) any {
 	return d.result
 }
 
-// dropDialog removes the dialog and wakes its flow. It gives false when the
-// dialog is not open.
-func (a *App) dropDialog(name string, result any) bool {
+// closeDialog closes the window of the dialog and then wakes its flow with
+// the result. All the close paths of a dialog come here: the buttons, the
+// close button of the window and the stop of the App. The window closes
+// before the flow continues, thus a message box of the flow does not attach
+// to a window that closes. It does nothing when the dialog is not open.
+func (a *App) closeDialog(name string, result any) {
 	a.mu.Lock()
 	d, ok := a.dialogs[name]
 	if ok {
@@ -53,22 +56,16 @@ func (a *App) dropDialog(name string, result any) bool {
 	}
 	a.mu.Unlock()
 	if !ok {
-		return false
+		return
 	}
+	a.shell.CloseWindow(name)
 	d.result = result
 	close(d.done)
-	return true
-}
-
-// closeDialog closes the window of the dialog with the result.
-func (a *App) closeDialog(name string, result any) {
-	if a.dropDialog(name, result) {
-		a.shell.CloseWindow(name)
-	}
 }
 
 // Closing is called when the user closes a window. It gives false when the
-// window must stay open.
+// window must stay open. When it gives true for a dialog, the window is
+// closed already.
 //
 // The main window hides when the tray icon is on. The tests window and the
 // download window stay open while their work runs: the close cancels the
@@ -93,7 +90,7 @@ func Closing(a *App, name string) bool {
 			return false
 		}
 	}
-	a.dropDialog(name, nil)
+	a.closeDialog(name, nil)
 	return true
 }
 

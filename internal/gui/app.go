@@ -264,6 +264,8 @@ func (a *App) emit(ev string) { a.shell.Emit(ev) }
 
 // refresh gets the status and the IPSet Filter mode and updates the main
 // window and the tray. When the mode cannot be read, the old mode stays.
+// It always sends EvMain: the main window must show the busy state of now
+// also when the status cannot be read.
 func (a *App) refresh() {
 	st, err := a.be.Status(a.ctx)
 	mode, ipErr := a.be.IPSet(a.ctx)
@@ -275,6 +277,7 @@ func (a *App) refresh() {
 		if warn {
 			a.logLine(a.t("StatusRefreshFail") + " " + a.errText(err))
 		}
+		a.emit(EvMain)
 		return
 	}
 	a.status = st
