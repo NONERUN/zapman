@@ -104,6 +104,7 @@ type App struct {
 	settings   backend.Settings
 	configErr  string
 	status     backend.Status
+	ipset      backend.IPSetMode
 	strategies []backend.StrategyInfo
 	games      []backend.GameInfo
 	lastError  string
@@ -186,6 +187,14 @@ func Start(a *App) error {
 	a.refresh()
 	a.tick.Add(1)
 	go a.timer()
+	// As Sync-ZapmanTrayWatch at the start of the PS GUI: the logon task
+	// follows the Tray icon box. An error goes only to the journal.
+	trayOn := s.TrayWatch
+	a.goTask(func() {
+		if err := a.be.SetTrayAtLogon(a.ctx, trayOn); err != nil {
+			a.logLine(a.t("TrayTaskFail", a.errText(err)))
+		}
+	})
 	if s.AutoUpdateCheck {
 		a.goTask(func() { a.versionCheck(false) })
 	}
@@ -253,9 +262,11 @@ func (a *App) logLine(msg string) {
 
 func (a *App) emit(ev string) { a.shell.Emit(ev) }
 
-// refresh gets the status and updates the main window and the tray.
+// refresh gets the status and the IPSet Filter mode and updates the main
+// window and the tray. When the mode cannot be read, the old mode stays.
 func (a *App) refresh() {
 	st, err := a.be.Status(a.ctx)
+	mode, ipErr := a.be.IPSet(a.ctx)
 	a.mu.Lock()
 	if err != nil {
 		warn := !a.refreshErr
@@ -267,6 +278,9 @@ func (a *App) refresh() {
 		return
 	}
 	a.status = st
+	if ipErr == nil {
+		a.ipset = mode
+	}
 	lang := a.lang
 	tray := a.settings.TrayWatch
 	a.mu.Unlock()

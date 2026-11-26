@@ -119,7 +119,7 @@ func (s *fakeShell) get(list *[]string) []string {
 func en(key string, args ...any) string { return i18n.T(i18n.EN, key, args...) }
 
 // start gives a started App on a Fake. setup changes the Fake before the
-// start.
+// start. The calls of Start are cleared.
 func start(t *testing.T, setup func(f *backend.Fake)) (*App, *backend.Fake, *fakeShell) {
 	t.Helper()
 	f := backend.NewFake()
@@ -133,6 +133,7 @@ func start(t *testing.T, setup func(f *backend.Fake)) (*App, *backend.Fake, *fak
 	}
 	t.Cleanup(func() { Stop(a) })
 	a.wait()
+	f.ResetCalls()
 	return a, f, sh
 }
 
@@ -603,5 +604,96 @@ func TestStartTwice(t *testing.T) {
 	a.wait()
 	if n := len(f.Calls()); n != before {
 		t.Errorf("the second Start made %d calls", n-before)
+	}
+}
+
+func TestSetIPSetChangesFile(t *testing.T) {
+	a, f, sh := start(t, nil)
+	a.SetIPSet(slices.Index(backend.IPSetModes, backend.IPSetAny))
+	a.wait()
+	if m := f.Data().IPSet; m != backend.IPSetAny {
+		t.Errorf("ipset = %q", m)
+	}
+	if v := a.Main(); v.IPSet != slices.Index(backend.IPSetModes, backend.IPSetAny) {
+		t.Errorf("combo index = %d", v.IPSet)
+	}
+	if got := sh.get(&sh.infos); !slices.Equal(got, []string{en("FilterNeedRerun")}) {
+		t.Errorf("infos = %q", got)
+	}
+	if slices.Contains(f.Calls(), "SaveSettings") {
+		t.Error("SetIPSet saved the settings")
+	}
+	// With no backup, "loaded" fails and the combo box shows the file.
+	f.Update(func(d *backend.FakeData) { d.IPSetBackup = false })
+	a.SetIPSet(slices.Index(backend.IPSetModes, backend.IPSetLoaded))
+	a.wait()
+	if got := sh.get(&sh.errors); !slices.Equal(got, []string{en("IpsetNoBackup")}) {
+		t.Errorf("errors = %q", got)
+	}
+	if v := a.Main(); v.IPSet != slices.Index(backend.IPSetModes, backend.IPSetAny) {
+		t.Errorf("combo index after the error = %d", v.IPSet)
+	}
+}
+
+func TestStartSyncsTrayTask(t *testing.T) {
+	_, f, _ := start(t, func(f *backend.Fake) {
+		f.Update(func(d *backend.FakeData) { d.Settings.TrayWatch = true })
+	})
+	if !f.Data().TrayTask {
+		t.Error("Start did not make the tray task")
+	}
+}
+
+func TestTrayWatchTask(t *testing.T) {
+	a, f, sh := start(t, nil)
+	a.SetTrayWatch(true)
+	a.wait()
+	if d := f.Data(); !d.TrayTask || !d.Settings.TrayWatch {
+		t.Errorf("task %v, setting %v", d.TrayTask, d.Settings.TrayWatch)
+	}
+	f.FailNext("SetTrayAtLogon", errSample)
+	a.SetTrayWatch(false)
+	a.wait()
+	if d := f.Data(); !d.TrayTask || !d.Settings.TrayWatch {
+		t.Errorf("after a fail: task %v, setting %v", d.TrayTask, d.Settings.TrayWatch)
+	}
+	if got := sh.get(&sh.errors); !slices.Equal(got, []string{en("TrayTaskFail", "sample")}) {
+		t.Errorf("errors = %q", got)
+	}
+	if a.Main().TrayWatch != true {
+		t.Error("the box changed after a fail")
+	}
+}
+
+func TestForeignEngineAsk(t *testing.T) {
+	foreign := func(f *backend.Fake) {
+		f.Update(func(d *backend.FakeData) { d.Foreign = []string{"winws.exe (PID 7)"} })
+	}
+	a, f, sh := start(t, foreign)
+	a.StrategyRun("general", string(spec.Winws))
+	a.wait()
+	if slices.Contains(f.Calls(), "Run") {
+		t.Fatal("Run ran with the answer No")
+	}
+	want := en("EngineForeignAsk", "winws.exe (PID 7)")
+	if got := sh.get(&sh.asks); !slices.Equal(got, []string{want}) {
+		t.Errorf("asks = %q", got)
+	}
+	if !strings.Contains(a.StatusText(), en("EngineForeignKeep", "winws.exe (PID 7)")) {
+		t.Error("the journal has no EngineForeignKeep")
+	}
+	a.StrategyInstall("general", string(spec.Winws))
+	a.wait()
+	if slices.Contains(f.Calls(), "Install") {
+		t.Fatal("Install ran with the answer No")
+	}
+	sh.answer(true)
+	a.StrategyInstall("general", string(spec.Winws))
+	a.wait()
+	if d := f.Data(); d.Status.Installed != "general" || len(d.Foreign) != 0 {
+		t.Errorf("installed %q, foreign %v", d.Status.Installed, d.Foreign)
+	}
+	if len(sh.get(&sh.errors)) != 0 {
+		t.Errorf("errors = %q", sh.get(&sh.errors))
 	}
 }

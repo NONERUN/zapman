@@ -30,6 +30,15 @@ type FakeData struct {
 	// TCPTimestamps tells if the TCP timestamps are on. A start of the
 	// bypass turns them on. The item "tcp" of Diag shows it.
 	TCPTimestamps bool
+	// IPSet is the IPSet Filter mode of user/ipset-all.txt.
+	IPSet IPSetMode
+	// IPSetBackup tells if the loaded list is in the backup.
+	IPSetBackup bool
+	// Foreign are the winws processes that zapman did not start. Run and
+	// Install clear them.
+	Foreign []string
+	// TrayTask tells if the scheduled task of the tray is there.
+	TrayTask bool
 	// Counters of the actions that have no state.
 	IPSetDownloads int
 	HostsOpened    int
@@ -60,9 +69,9 @@ func NewFake() *Fake {
 		Settings: Settings{
 			Engine:          spec.Winws,
 			GameFilter:      GameFilterDisabled,
-			IPSet:           IPSetLoaded,
 			AutoUpdateCheck: true,
 		},
+		IPSet:  IPSetLoaded,
 		Status: Status{BypassName: ExeName(spec.Winws), DivertSys: true},
 		Strategies: []StrategyInfo{
 			{Name: "general", Engines: []spec.Engine{spec.Winws, spec.Winws2}},
@@ -126,6 +135,13 @@ func (f *Fake) Calls() []string {
 	return slices.Clone(f.calls)
 }
 
+// ResetCalls clears the list of Calls.
+func (f *Fake) ResetCalls() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = nil
+}
+
 // begin locks f, records the call and gives the injected error. The caller
 // must call f.mu.Unlock.
 func (f *Fake) begin(method string, record bool) error {
@@ -148,6 +164,7 @@ func (d *FakeData) clone() FakeData {
 	c.Games = slices.Clone(d.Games)
 	c.Fakes.Files = slices.Clone(d.Fakes.Files)
 	c.Diag = slices.Clone(d.Diag)
+	c.Foreign = slices.Clone(d.Foreign)
 	c.EngineMissing = map[spec.Engine]bool{}
 	for k, v := range d.EngineMissing {
 		c.EngineMissing[k] = v
@@ -189,9 +206,6 @@ func (f *Fake) SaveSettings(_ context.Context, s Settings) error {
 	if !slices.Contains(GameFilterModes, s.GameFilter) {
 		return fmt.Errorf("unknown Game Filter mode %q", s.GameFilter)
 	}
-	if !slices.Contains(IPSetModes, s.IPSet) {
-		return fmt.Errorf("unknown IPSet Filter mode %q", s.IPSet)
-	}
 	for _, id := range s.Games {
 		if !slices.ContainsFunc(f.d.Games, func(g GameInfo) bool { return g.ID == id }) {
 			return fmt.Errorf("unknown game %q", id)
@@ -206,6 +220,64 @@ func (f *Fake) SaveSettings(_ context.Context, s Settings) error {
 		f.d.Status.BypassName = ExeName(s.Engine)
 	}
 	return nil
+}
+
+// SetTrayAtLogon implements Backend.
+func (f *Fake) SetTrayAtLogon(_ context.Context, on bool) error {
+	err := f.begin("SetTrayAtLogon", true)
+	defer f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	f.d.TrayTask = on
+	return nil
+}
+
+// IPSet implements Backend.
+func (f *Fake) IPSet(context.Context) (IPSetMode, error) {
+	err := f.begin("IPSet", false)
+	defer f.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
+	return f.d.IPSet, nil
+}
+
+// SetIPSet implements Backend. It follows the rules of the backup of
+// internal/engine.
+func (f *Fake) SetIPSet(_ context.Context, mode IPSetMode) error {
+	err := f.begin("SetIPSet", true)
+	defer f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(IPSetModes, mode) {
+		return fmt.Errorf("unknown IPSet Filter mode %q", mode)
+	}
+	if mode == f.d.IPSet {
+		return nil
+	}
+	if f.d.IPSet == IPSetLoaded {
+		f.d.IPSetBackup = true
+	}
+	if mode == IPSetLoaded {
+		if !f.d.IPSetBackup {
+			return Msg("IpsetNoBackup")
+		}
+		f.d.IPSetBackup = false
+	}
+	f.d.IPSet = mode
+	return nil
+}
+
+// ForeignEngines implements Backend.
+func (f *Fake) ForeignEngines(context.Context) ([]string, error) {
+	err := f.begin("ForeignEngines", false)
+	defer f.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	return slices.Clone(f.d.Foreign), nil
 }
 
 // Status implements Backend.
@@ -350,6 +422,7 @@ func (f *Fake) Run(_ context.Context, name string, e spec.Engine) error {
 		return err
 	}
 	f.stopProcess()
+	f.d.Foreign = nil
 	f.d.Settings.Engine = e
 	f.startProcess(name, e)
 	return nil
@@ -366,6 +439,7 @@ func (f *Fake) Install(_ context.Context, name string, e spec.Engine) error {
 		return err
 	}
 	f.removeServices()
+	f.d.Foreign = nil
 	f.d.Settings.Engine = e
 	f.d.Settings.Strategy = name
 	f.startProcess(name, e)

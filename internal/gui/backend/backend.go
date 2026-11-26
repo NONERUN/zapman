@@ -25,6 +25,16 @@ type Backend interface {
 	LoadSettings(ctx context.Context) (Settings, error)
 	// SaveSettings writes user/config.json.
 	SaveSettings(ctx context.Context, s Settings) error
+	// SetTrayAtLogon makes or removes the scheduled task that starts the
+	// tray at logon (zapman.exe --tray). SaveSettings does not do it.
+	SetTrayAtLogon(ctx context.Context, on bool) error
+
+	// IPSet gives the IPSet Filter mode. It is not a setting: it is the
+	// state of the content of user/ipset-all.txt.
+	IPSet(ctx context.Context) (IPSetMode, error)
+	// SetIPSet changes user/ipset-all.txt to the mode. The mode "loaded"
+	// needs the list that an other mode moved to the backup.
+	SetIPSet(ctx context.Context, mode IPSetMode) error
 
 	// Status gives the state of the bypass, the services and WinDivert.
 	Status(ctx context.Context) (Status, error)
@@ -34,6 +44,11 @@ type Backend interface {
 	Games(ctx context.Context) ([]GameInfo, error)
 	// CheckEngine returns nil when bin has the files of the engine.
 	CheckEngine(ctx context.Context, e spec.Engine) error
+	// ForeignEngines gives the winws.exe and winws2.exe processes that
+	// zapman did not start: not the process of Run and not the process of
+	// the zapret service. Each item is a text such as "winws.exe (PID 42)".
+	// Run and Install stop these processes.
+	ForeignEngines(ctx context.Context) ([]string, error)
 
 	// StartService starts the installed zapret service. It turns on the TCP
 	// timestamps first, as Run and Install do.
@@ -112,7 +127,8 @@ const (
 // GameFilterModes are the Game Filter modes in the order of the combo box.
 var GameFilterModes = []GameFilterMode{GameFilterDisabled, GameFilterAll, GameFilterTCP, GameFilterUDP}
 
-// IPSetMode is the IPSet Filter mode.
+// IPSetMode is the IPSet Filter mode. The values are the values of
+// internal/engine.
 type IPSetMode string
 
 // The IPSet Filter modes, in the order of the combo box.
@@ -126,7 +142,8 @@ const (
 var IPSetModes = []IPSetMode{IPSetNone, IPSetLoaded, IPSetAny}
 
 // Settings are the user settings. The field names are the names of
-// internal/config.Config. IPSet is not in internal/config yet.
+// internal/config.Config. The IPSet Filter mode is not a setting: see
+// Backend.IPSet.
 type Settings struct {
 	// Language is "ru", "en" or empty (the language of Windows).
 	Language        string
@@ -134,7 +151,6 @@ type Settings struct {
 	Strategy        string
 	Games           []string
 	GameFilter      GameFilterMode
-	IPSet           IPSetMode
 	AutoUpdateCheck bool
 	TrayWatch       bool
 }

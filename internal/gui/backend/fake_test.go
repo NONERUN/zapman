@@ -150,9 +150,9 @@ func TestFakeSettings(t *testing.T) {
 	if err := f.SaveSettings(ctx, s); err == nil {
 		t.Fatal("unknown game: no error")
 	}
-	s.Games, s.IPSet = nil, "bad"
+	s.Games, s.GameFilter = nil, "bad"
 	if err := f.SaveSettings(ctx, s); err == nil {
-		t.Fatal("bad IPSet mode: no error")
+		t.Fatal("bad Game Filter mode: no error")
 	}
 
 	f.Update(func(d *FakeData) { d.ConfigErr = errors.New("bad JSON") })
@@ -160,6 +160,43 @@ func TestFakeSettings(t *testing.T) {
 	var ce *ConfigError
 	if !errors.As(err, &ce) {
 		t.Fatalf("LoadSettings with a bad file: %v", err)
+	}
+}
+
+func TestFakeIPSet(t *testing.T) {
+	f := NewFake()
+	if m, err := f.IPSet(ctx); err != nil || m != IPSetLoaded {
+		t.Fatalf("IPSet = %q, %v", m, err)
+	}
+	for _, m := range []IPSetMode{IPSetAny, IPSetNone, IPSetLoaded} {
+		if err := f.SetIPSet(ctx, m); err != nil {
+			t.Fatalf("SetIPSet(%q): %v", m, err)
+		}
+	}
+	if err := f.SetIPSet(ctx, IPSetNone); err != nil {
+		t.Fatal(err)
+	}
+	f.Update(func(d *FakeData) { d.IPSetBackup = false })
+	var m *MsgError
+	if err := f.SetIPSet(ctx, IPSetLoaded); !errors.As(err, &m) || m.Key != "IpsetNoBackup" {
+		t.Fatalf("loaded with no backup: %v", err)
+	}
+	if err := f.SetIPSet(ctx, "bad"); err == nil {
+		t.Fatal("bad mode: no error")
+	}
+}
+
+func TestFakeForeignEngines(t *testing.T) {
+	f := NewFake()
+	f.Update(func(d *FakeData) { d.Foreign = []string{"winws.exe (PID 7)"} })
+	if got, _ := f.ForeignEngines(ctx); len(got) != 1 {
+		t.Fatalf("foreign = %v", got)
+	}
+	if err := f.Run(ctx, "general", "winws"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.ForeignEngines(ctx); len(got) != 0 {
+		t.Fatalf("foreign after Run = %v", got)
 	}
 }
 

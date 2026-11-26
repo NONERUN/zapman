@@ -14,6 +14,11 @@ var (
 		"GamesHintInstall":  "Games saved. Install the service again to apply.",
 		"GamesHintRerun":    "Games saved. Stop, then run without install.",
 		"StatusRefreshFail": "Status refresh failed.",
+		"IpsetNoBackup":     "No IPSet backup found. Download the ipset list first.",
+		"EngineForeignAsk":  "{0} is already running (not started by zapman). Stop it and continue?",
+		"EngineForeignKeep": "Cancelled: {0} is still running.",
+		"TrayTaskFail":      "Cannot change the start of the tray at logon: {0}",
+		"NotWired":          "{0}: this action is not available in this build yet.",
 	}
 	extraRU = map[string]string{
 		"BtnYes":            "Да",
@@ -26,6 +31,11 @@ var (
 		"GamesHintInstall":  "Игры сохранены. Поставьте службу снова, чтобы применить.",
 		"GamesHintRerun":    "Игры сохранены. Стоп, затем запуск без установки.",
 		"StatusRefreshFail": "Не удалось обновить статус.",
+		"IpsetNoBackup":     "Нет копии списка IPSet. Сначала скачайте список ipset.",
+		"EngineForeignAsk":  "{0} уже работает (запущен не zapman). Остановить его и продолжить?",
+		"EngineForeignKeep": "Отменено: {0} продолжает работать.",
+		"TrayTaskFail":      "Не удалось изменить запуск трея при входе: {0}",
+		"NotWired":          "{0}: это действие пока недоступно в этой сборке.",
 	}
 )
 

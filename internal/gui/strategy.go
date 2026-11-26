@@ -2,6 +2,7 @@ package gui
 
 import (
 	"context"
+	"strings"
 
 	"github.com/NONERUN/zapman/internal/gui/backend"
 	"github.com/NONERUN/zapman/internal/spec"
@@ -112,6 +113,10 @@ func (a *App) StrategyRun(name, engine string) {
 		if st.Live() && !a.shell.Ask(a.t("ConfirmRunOver"), false) {
 			return
 		}
+		if !a.foreignOK() {
+			a.emit(EvStrategy)
+			return
+		}
 		a.action("BtnRunSelected", func(ctx context.Context) error {
 			if err := a.saveSettings(func(s *backend.Settings) { s.Engine = e }); err != nil {
 				return err
@@ -136,6 +141,10 @@ func (a *App) StrategyInstall(name, engine string) {
 		return
 	}
 	a.goTask(func() {
+		if !a.foreignOK() {
+			a.emit(EvStrategy)
+			return
+		}
 		done := a.action("BtnInstall", func(ctx context.Context) error {
 			if err := a.saveSettings(func(s *backend.Settings) { s.Engine = e }); err != nil {
 				return err
@@ -154,6 +163,27 @@ func (a *App) StrategyInstall(name, engine string) {
 			a.emit(EvStrategy)
 		}
 	})
+}
+
+// foreignOK asks the user when a winws.exe or winws2.exe runs that zapman
+// did not start: Run and Install stop it. It returns false when the user
+// says No. When the list of processes cannot be read, it writes the error
+// to the journal and returns true.
+func (a *App) foreignOK() bool {
+	list, err := a.be.ForeignEngines(a.ctx)
+	if err != nil {
+		a.logLine(a.errText(err))
+		return true
+	}
+	if len(list) == 0 {
+		return true
+	}
+	names := strings.Join(list, ", ")
+	if a.shell.Ask(a.t("EngineForeignAsk", names), false) {
+		return true
+	}
+	a.logLine(a.t("EngineForeignKeep", names))
+	return false
 }
 
 // pickStrategy checks the strategy name and the engine of the dialog. On a

@@ -35,7 +35,7 @@ func (a *App) Main() MainView {
 		HasSvc:     a.status.HasService(),
 		HasStrt:    len(a.strategies) > 0,
 		GameFilter: max(0, slices.Index(backend.GameFilterModes, a.settings.GameFilter)),
-		IPSet:      max(0, slices.Index(backend.IPSetModes, a.settings.IPSet)),
+		IPSet:      max(0, slices.Index(backend.IPSetModes, a.ipset)),
 		AutoUpdate: a.settings.AutoUpdateCheck,
 		TrayWatch:  a.settings.TrayWatch,
 	}
@@ -179,16 +179,21 @@ func (a *App) afterGameChange(hintInstall, hintRerun, askKey string) {
 	}
 }
 
-// SetIPSet saves the IPSet Filter mode of the combo box index.
+// SetIPSet changes user/ipset-all.txt to the IPSet Filter mode of the
+// combo box index.
 func (a *App) SetIPSet(idx int) {
 	if idx < 0 || idx >= len(backend.IPSetModes) {
 		return
 	}
+	mode := backend.IPSetModes[idx]
 	a.goFlow(func() {
-		if err := a.saveSettings(func(s *backend.Settings) { s.IPSet = backend.IPSetModes[idx] }); err != nil {
+		if err := a.be.SetIPSet(a.ctx, mode); err != nil {
 			a.fail(err)
 			return
 		}
+		a.mu.Lock()
+		a.ipset = mode
+		a.mu.Unlock()
 		svc := a.hasService()
 		if svc {
 			a.logLine(a.t("IpsetHintRestart"))
@@ -222,9 +227,16 @@ func (a *App) SetAutoUpdate(on bool) {
 	})
 }
 
-// SetTrayWatch saves the Tray icon box and shows or removes the icon.
+// SetTrayWatch makes or removes the logon task of the tray, saves the Tray
+// icon box and shows or removes the icon. As Set-ZapmanTrayWatchEnabled,
+// it changes the task first; when the task fails, the box does not change.
 func (a *App) SetTrayWatch(on bool) {
 	a.goTask(func() {
+		if err := a.be.SetTrayAtLogon(a.ctx, on); err != nil {
+			a.fail(backend.Msg("TrayTaskFail", a.errText(err)))
+			a.emit(EvMain)
+			return
+		}
 		if err := a.saveSettings(func(s *backend.Settings) { s.TrayWatch = on }); err != nil {
 			a.fail(err)
 			return
