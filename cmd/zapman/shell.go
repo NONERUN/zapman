@@ -2,6 +2,7 @@ package main
 
 import (
 	"maps"
+	"os"
 	"sync"
 	"time"
 
@@ -91,11 +92,20 @@ func (s *shell) start(tray bool) {
 
 func (s *shell) openMain() { go s.ui.TrayOpen() }
 
-// quit ends the program.
+// quitTimeout is the time limit of the Wails quit. After it the process
+// ends. It is more than stopTimeout, thus shutdown can end first.
+const quitTimeout = stopTimeout + 10*time.Second
+
+// quit ends the program. Normally app.Quit ends the main loop and run
+// returns. If the main loop does not end (for example a message box keeps
+// it), the timer ends the process after quitTimeout. The winws of the
+// foreground start is not a part of the process, thus it continues to run,
+// as in the PS GUI.
 func (s *shell) quit() {
 	s.mu.Lock()
 	s.quitting = true
 	s.mu.Unlock()
+	time.AfterFunc(quitTimeout, func() { os.Exit(0) })
 	s.app.Quit()
 }
 

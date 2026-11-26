@@ -288,12 +288,14 @@ Fooling не вешается на Lua-атаку `multisplit`.
 GUI на [Wails v3](https://v3.wails.io/) `v3.1.0` (версия закреплена в `go.mod`). CLI `wails3` не нужен, npm тоже: хватает `go build`.
 
 ```text
-go build -o zapman.exe ./cmd/zapman   # exe в корень репозитория: рядом bin/, strategies/, lists/
+go build -ldflags "-H windowsgui" -o zapman.exe ./cmd/zapman   # exe в корень репозитория: рядом bin/, strategies/, lists/
 .\zapman.exe                          # главное окно (UAC: exe просит права администратора)
 .\zapman.exe --tray                   # старт в трее: главное окно скрыто, если включена «Иконка в трее»
 .\zapman.exe -fake                    # фейк в памяти: службы, winws и система не трогаются
 .\zapman.exe -root D:\zapman          # другая папка с bin/, strategies/, lists/, user/
 ```
+
+`-H windowsgui` — exe без окна консоли. Без флага Go собирает консольное приложение: при запуске из проводника открывается окно консоли, оно живёт, пока работает GUI. `go run ./cmd/zapman` тоже без флага — для отладки это удобно (лог Wails и паника видны в терминале). Дочерние процессы (winws и системные утилиты) всегда без окна: `HideWindow` и `CREATE_NO_WINDOW`.
 
 Корень — папка `zapman.exe`. У `go run` exe лежит во временной папке `go-build…`, поэтому корень — рабочая папка. Без прав администратора (например, `-fake` в обычном терминале): `$env:__COMPAT_LAYER = 'RunAsInvoker'` перед запуском — Windows не смотрит на `requireAdministrator`; действия со службой и winws тогда дают «нужны права администратора».
 
