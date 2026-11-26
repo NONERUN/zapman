@@ -28,6 +28,7 @@ type fakeShell struct {
 	urls    []string
 	tray    TrayView
 	trayOn  bool
+	icons   []Icon
 	onOpen  map[string]func()
 
 	modal Modal
@@ -136,6 +137,19 @@ func (s *fakeShell) SetTray(v TrayView, visible bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tray, s.trayOn = v, visible
+}
+
+func (s *fakeShell) SetIcon(icon Icon) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.icons = append(s.icons, icon)
+}
+
+// iconCalls gives the icons of the SetIcon calls.
+func (s *fakeShell) iconCalls() []Icon {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.icons)
 }
 
 // on sets the action of the user for a window.
@@ -737,6 +751,36 @@ func TestStartSyncsTrayTask(t *testing.T) {
 	})
 	if !f.Data().TrayTask {
 		t.Error("Start did not make the tray task")
+	}
+}
+
+// TestIconFollowsStatus checks that the icon follows the status of each
+// refresh, also after the tray menu items, and that a status that does not
+// change sends no icon again.
+func TestIconFollowsStatus(t *testing.T) {
+	a, _, sh := start(t, nil)
+	if got := sh.iconCalls(); !slices.Equal(got, []Icon{IconIdle}) {
+		t.Fatalf("no service: icons = %v", got)
+	}
+	a.refresh()
+	if got := sh.iconCalls(); len(got) != 1 {
+		t.Errorf("the same status sent the icon again: %v", got)
+	}
+
+	a, f, sh := start(t, withService)
+	if got := sh.iconCalls(); !slices.Equal(got, []Icon{IconLive}) {
+		t.Fatalf("service runs: icons = %v", got)
+	}
+	a.TrayStop()
+	a.wait()
+	if got := sh.iconCalls(); !slices.Equal(got, []Icon{IconLive, IconIdle}) {
+		t.Fatalf("after Stop: icons = %v (service %q)", got, f.Data().Status.Service)
+	}
+	a.TrayStart()
+	a.wait()
+	a.refresh()
+	if got := sh.iconCalls(); !slices.Equal(got, []Icon{IconLive, IconIdle, IconLive}) {
+		t.Errorf("after Start: icons = %v", got)
 	}
 }
 
