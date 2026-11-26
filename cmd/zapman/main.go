@@ -55,7 +55,13 @@ func run() error {
 	tray := flag.Bool(trayFlag[2:], false, "start in the tray, with the main window hidden")
 	root := flag.String("root", "", "the folder with bin, strategies, lists and user (default: the folder of zapman.exe)")
 	useFake := flag.Bool("fake", false, "use the in-memory fake backend: no admin rights, no changes to the system")
+	afterPID := flag.Int(afterPIDFlag[1:], 0, "wait until the process with this PID ends (a takeover start, see instance.go)")
 	flag.Parse()
+
+	in := newInstance()
+	if *afterPID > 0 {
+		waitPID(*afterPID, afterPIDTimeout)
+	}
 
 	pages, err := fs.Sub(frontend, "frontend")
 	if err != nil {
@@ -75,14 +81,11 @@ func run() error {
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(pages),
 		},
-		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "com.github.nonerun.zapman",
-			OnSecondInstanceLaunch: func(d application.SecondInstanceData) {
-				if !slices.Contains(d.Args, trayFlag) {
-					sh.openMain()
-				}
-			},
-		},
+		SingleInstance: in.options(sh, func(d application.SecondInstanceData) {
+			if !slices.Contains(d.Args, trayFlag) {
+				sh.openMain()
+			}
+		}),
 		Windows: application.WindowsOptions{
 			// The tray icon keeps the program on when the main window hides.
 			DisableQuitOnLastWindowClosed: true,
