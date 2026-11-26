@@ -128,11 +128,11 @@ func start(t *testing.T, setup func(f *backend.Fake)) (*App, *backend.Fake, *fak
 	}
 	sh := &fakeShell{}
 	a := New(f, sh, Options{Culture: "en-US", Tick: time.Hour})
-	if err := a.Start(); err != nil {
+	if err := Start(a); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(a.Stop)
-	a.Wait()
+	t.Cleanup(func() { Stop(a) })
+	a.wait()
 	return a, f, sh
 }
 
@@ -206,7 +206,7 @@ func TestInstallFromStrategyDialog(t *testing.T) {
 		a.StrategyInstall("general (ALT)", string(spec.Winws2))
 	})
 	a.ClickStrategy()
-	a.Wait()
+	a.wait()
 	d := f.Data()
 	if d.Status.Installed != "general (ALT)" || d.Settings.Engine != spec.Winws2 {
 		t.Errorf("installed %q with %q", d.Status.Installed, d.Settings.Engine)
@@ -220,7 +220,7 @@ func TestInstallFromStrategyDialog(t *testing.T) {
 	// The settings in memory have the strategy of Install: a later save
 	// must not lose it.
 	a.SetAutoUpdate(false)
-	a.Wait()
+	a.wait()
 	if s := f.Data().Settings; s.Strategy != "general (ALT)" || s.AutoUpdateCheck {
 		t.Errorf("settings = %+v", s)
 	}
@@ -241,7 +241,7 @@ func TestActionErrorKeepsLastError(t *testing.T) {
 	a, f, sh := start(t, withService)
 	f.FailNext("Stop", backend.Msg("NoStrategies"))
 	a.ClickStop()
-	a.Wait()
+	a.wait()
 	if got := sh.get(&sh.errors); !slices.Equal(got, []string{en("NoStrategies")}) {
 		t.Errorf("errors = %q", got)
 	}
@@ -249,7 +249,7 @@ func TestActionErrorKeepsLastError(t *testing.T) {
 		t.Errorf("banner = %q", b)
 	}
 	a.ClickStart()
-	a.Wait()
+	a.wait()
 	if b := a.Main().Status.Banner.Text; b != "" {
 		t.Errorf("banner after start = %q", b)
 	}
@@ -258,7 +258,7 @@ func TestActionErrorKeepsLastError(t *testing.T) {
 func TestRunAsksWhenLive(t *testing.T) {
 	a, f, sh := start(t, withService)
 	a.StrategyRun("general (ALT)", string(spec.Winws))
-	a.Wait()
+	a.wait()
 	if slices.Contains(f.Calls(), "Run") {
 		t.Fatal("Run ran with the answer No")
 	}
@@ -267,7 +267,7 @@ func TestRunAsksWhenLive(t *testing.T) {
 	}
 	sh.answer(true)
 	a.StrategyRun("general (ALT)", string(spec.Winws))
-	a.Wait()
+	a.wait()
 	if d := f.Data(); d.Status.Running != "general (ALT)" {
 		t.Errorf("running = %q", d.Status.Running)
 	}
@@ -276,7 +276,7 @@ func TestRunAsksWhenLive(t *testing.T) {
 func TestRunBadName(t *testing.T) {
 	a, f, sh := start(t, nil)
 	a.StrategyRun("nope", string(spec.Winws))
-	a.Wait()
+	a.wait()
 	if slices.Contains(f.Calls(), "Run") || len(sh.get(&sh.errors)) != 1 {
 		t.Errorf("calls %v, errors %q", f.Calls(), sh.get(&sh.errors))
 	}
@@ -299,7 +299,7 @@ func TestTestsFlowSuspendsService(t *testing.T) {
 		}()
 	})
 	a.ClickStrategy()
-	a.Wait()
+	a.wait()
 	calls := f.Calls()
 	want := []string{"SaveSettings", "SuspendService", "RunTests", "RestoreService"}
 	if !slices.Equal(calls, want) {
@@ -326,18 +326,18 @@ func TestTestsCloseCancels(t *testing.T) {
 	sh.on(WinTestsSetup, func() { a.TestsStart("dpi", []string{"general"}) })
 	sh.on(WinTests, func() {
 		go func() {
-			if a.WindowClosing(WinTests) {
+			if Closing(a, WinTests) {
 				t.Error("the tests window closed while the tests run")
 			}
 			eventually(t, func() bool { return a.TestsView().Done })
-			if !a.WindowClosing(WinTests) {
+			if !Closing(a, WinTests) {
 				t.Error("the tests window did not close at the end")
 			}
 		}()
 	})
 	sh.on(WinStrategy, func() { a.StrategyTests(string(spec.Winws)) })
 	a.ClickStrategy()
-	a.Wait()
+	a.wait()
 	if v := a.TestsView(); v.Status != en("TestsCancelledShort") || len(v.Tabs) != 0 {
 		t.Errorf("view = %+v", v)
 	}
@@ -351,7 +351,7 @@ func TestTestsNeedOne(t *testing.T) {
 	sh.on(WinStrategy, func() { a.StrategyTests(string(spec.Winws)) })
 	sh.on(WinTestsSetup, func() { a.TestsStart("standard", nil) })
 	a.ClickStrategy()
-	a.Wait()
+	a.wait()
 	if got := sh.get(&sh.errors); !slices.Equal(got, []string{en("TestsNeedOne")}) {
 		t.Errorf("errors = %q", got)
 	}
@@ -368,13 +368,13 @@ func TestDownloadCancel(t *testing.T) {
 			if v := a.DownloadView(); v.Status != en("DownloadConnecting") || v.Percent != -1 {
 				t.Errorf("download view = %+v", v)
 			}
-			if a.WindowClosing(WinDownload) {
+			if Closing(a, WinDownload) {
 				t.Error("the download window closed while it runs")
 			}
 		}()
 	})
 	a.ClickIPSet()
-	a.Wait()
+	a.wait()
 	if f.Data().IPSetDownloads != 0 {
 		t.Error("the download ended")
 	}
@@ -389,7 +389,7 @@ func TestDownloadCancel(t *testing.T) {
 func TestDownloadIPSet(t *testing.T) {
 	a, f, sh := start(t, nil)
 	a.ClickIPSet()
-	a.Wait()
+	a.wait()
 	if f.Data().IPSetDownloads != 1 || !strings.Contains(a.StatusText(), en("IpsetOk")) {
 		t.Errorf("downloads %d", f.Data().IPSetDownloads)
 	}
@@ -411,13 +411,13 @@ func TestHostsNeedsUpdate(t *testing.T) {
 		a.CloseDialog(WinHosts)
 	})
 	a.ClickHosts()
-	a.Wait()
+	a.wait()
 	if f.Data().HostsOpened != 1 || !strings.Contains(a.StatusText(), en("HostsNeed")) {
 		t.Errorf("opened %d", f.Data().HostsOpened)
 	}
 	f.FailNext("CheckHosts", errSample)
 	a.ClickHosts()
-	a.Wait()
+	a.wait()
 	if got := sh.get(&sh.errors); !slices.Equal(got, []string{en("HostsFail")}) {
 		t.Errorf("errors = %q", got)
 	}
@@ -433,7 +433,7 @@ func TestFakesApply(t *testing.T) {
 		a.FakesApply(2, 1)
 	})
 	a.ClickFakes()
-	a.Wait()
+	a.wait()
 	d := f.Data().Fakes
 	if d.Discord != "tls_clienthello_www_google_com.bin" || d.Game != "quic_initial_www_google_com.bin" {
 		t.Errorf("fakes = %+v", d)
@@ -447,14 +447,14 @@ func TestFakesRestartService(t *testing.T) {
 	a, f, sh := start(t, withService)
 	sh.on(WinFake, func() { a.FakesApply(1, 0) })
 	a.ClickFakes()
-	a.Wait()
+	a.wait()
 	if c := f.Calls(); len(c) != 0 {
 		t.Errorf("calls with no change = %v", c)
 	}
 	sh.on(WinFake, func() { a.FakesApply(0, 2) })
 	sh.answer(true)
 	a.ClickFakes()
-	a.Wait()
+	a.wait()
 	want := []string{"SetFake", "SetFake", "Stop", "StartService"}
 	if c := f.Calls(); !slices.Equal(c, want) {
 		t.Errorf("calls = %v, want %v", c, want)
@@ -466,7 +466,7 @@ func TestGameFilterOpensStrategy(t *testing.T) {
 	sh.answer(true)
 	sh.on(WinStrategy, func() { a.CloseDialog(WinStrategy) })
 	a.SetGameFilter(2)
-	a.Wait()
+	a.wait()
 	if g := f.Data().Settings.GameFilter; g != backend.GameFilterModes[2] {
 		t.Errorf("game filter = %q", g)
 	}
@@ -490,7 +490,7 @@ func TestGamesApply(t *testing.T) {
 		a.GamesApply([]string{"sker", "nope"})
 	})
 	a.ClickGames()
-	a.Wait()
+	a.wait()
 	if g := f.Data().Settings.Games; !slices.Equal(g, []string{"sker"}) {
 		t.Errorf("games = %v", g)
 	}
@@ -501,12 +501,12 @@ func TestGamesApply(t *testing.T) {
 
 func TestMainCloseWithTray(t *testing.T) {
 	a, _, sh := start(t, nil)
-	if !a.WindowClosing(WinMain) {
+	if !Closing(a, WinMain) {
 		t.Error("main did not close with the tray off")
 	}
 	a.SetTrayWatch(true)
-	a.Wait()
-	if a.WindowClosing(WinMain) {
+	a.wait()
+	if Closing(a, WinMain) {
 		t.Error("main closed with the tray on")
 	}
 	if got := sh.get(&sh.hidden); !slices.Equal(got, []string{WinMain}) {
@@ -525,13 +525,13 @@ func TestVersionNew(t *testing.T) {
 	f.Update(func(d *backend.FakeData) { d.Latest = "v9.9.9" })
 	sh.answer(true)
 	a.ClickVersion()
-	a.Wait()
+	a.wait()
 	if got := sh.get(&sh.urls); !slices.Equal(got, []string{f.Version().ReleasesURL}) {
 		t.Errorf("urls = %v", got)
 	}
 	f.Update(func(d *backend.FakeData) { d.Latest = d.Version.App })
 	a.ClickVersion()
-	a.Wait()
+	a.wait()
 	if got := sh.get(&sh.infos); !slices.Equal(got, []string{en("VersionLatest", f.Version().App)}) {
 		t.Errorf("infos = %q", got)
 	}
@@ -555,7 +555,7 @@ func TestDiagRun(t *testing.T) {
 		}()
 	})
 	a.ClickDiag()
-	a.Wait()
+	a.wait()
 	if c := f.Calls(); !slices.Equal(c, []string{"RunDiagAction"}) {
 		t.Errorf("calls = %v", c)
 	}
@@ -568,14 +568,14 @@ func TestStrategyNoneReboot(t *testing.T) {
 	a, f, sh := start(t, nil)
 	sh.answer(true, true)
 	a.StrategyNone()
-	a.Wait()
+	a.wait()
 	if d := f.Data(); d.NetworkResets != 1 || d.Reboots != 1 {
 		t.Errorf("resets %d, reboots %d", d.NetworkResets, d.Reboots)
 	}
 	f.FailNext("NetworkReset", errSample)
 	sh.answer(true)
 	a.StrategyNone()
-	a.Wait()
+	a.wait()
 	want := en("StratNoneFail") + "\n\nnetsh winsock reset: FAIL"
 	if got := sh.get(&sh.errors); !slices.Equal(got, []string{want}) {
 		t.Errorf("errors = %q", got)
@@ -588,8 +588,20 @@ func TestStopClosesDialog(t *testing.T) {
 	sh.on(WinStatus, func() { close(opened) })
 	a.ClickStatus()
 	<-opened
-	a.Stop()
+	Stop(a)
 	if got := sh.get(&sh.closed); !slices.Equal(got, []string{WinStatus}) {
 		t.Errorf("closed = %v", got)
+	}
+}
+
+func TestStartTwice(t *testing.T) {
+	a, f, _ := start(t, nil)
+	before := len(f.Calls())
+	if err := Start(a); err != nil {
+		t.Fatal(err)
+	}
+	a.wait()
+	if n := len(f.Calls()); n != before {
+		t.Errorf("the second Start made %d calls", n-before)
 	}
 }

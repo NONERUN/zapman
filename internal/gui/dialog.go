@@ -67,13 +67,13 @@ func (a *App) closeDialog(name string, result any) {
 	}
 }
 
-// WindowClosing is called when the user closes a window. It gives false
-// when the window must stay open.
+// Closing is called when the user closes a window. It gives false when the
+// window must stay open.
 //
 // The main window hides when the tray icon is on. The tests window and the
 // download window stay open while their work runs: the close cancels the
 // work, as in the PS GUI.
-func (a *App) WindowClosing(name string) bool {
+func Closing(a *App, name string) bool {
 	switch name {
 	case WinMain:
 		a.mu.Lock()

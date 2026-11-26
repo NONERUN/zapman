@@ -4,6 +4,8 @@ package i18n
 // PowerShell version has no game modules.
 var (
 	extraEN = map[string]string{
+		"BtnYes":            "Yes",
+		"BtnNo":             "No",
 		"BtnGames":          "Games...",
 		"TipGames":          "Game modules: the rules for the selected games go before the strategy rules.",
 		"GamesTitle":        "Games",
@@ -14,6 +16,8 @@ var (
 		"StatusRefreshFail": "Status refresh failed.",
 	}
 	extraRU = map[string]string{
+		"BtnYes":            "Да",
+		"BtnNo":             "Нет",
 		"BtnGames":          "Игры...",
 		"TipGames":          "Игровые модули: правила выбранных игр идут перед правилами стратегии.",
 		"GamesTitle":        "Игры",

@@ -99,6 +99,7 @@ type App struct {
 	tick sync.WaitGroup
 
 	mu         sync.Mutex
+	started    bool
 	lang       string
 	settings   backend.Settings
 	configErr  string
@@ -141,8 +142,19 @@ func New(be backend.Backend, shell Shell, opt Options) *App {
 
 // Start reads the settings and the catalog, gets the status and starts the
 // status timer and the auto version check. It returns an error only when
-// the catalog cannot be read.
-func (a *App) Start() error {
+// the catalog cannot be read. A second call does nothing.
+//
+// Start, Stop and Closing are functions, not methods: Wails binds all
+// exported methods of App to the frontend, and the frontend must not call
+// them.
+func Start(a *App) error {
+	a.mu.Lock()
+	if a.started {
+		a.mu.Unlock()
+		return nil
+	}
+	a.started = true
+	a.mu.Unlock()
 	s, err := a.be.LoadSettings(a.ctx)
 	var cfgErr *backend.ConfigError
 	switch {
@@ -182,15 +194,15 @@ func (a *App) Start() error {
 
 // Stop ends the timer and the flows. It cancels the long actions and waits
 // for the goroutines.
-func (a *App) Stop() {
+func Stop(a *App) {
 	a.cancel()
 	a.wg.Wait()
 	a.tick.Wait()
 }
 
-// Wait waits until the flows and the tasks end. It does not wait for the
+// wait waits until the flows and the tasks end. It does not wait for the
 // timer. It is for the tests.
-func (a *App) Wait() { a.wg.Wait() }
+func (a *App) wait() { a.wg.Wait() }
 
 func (a *App) timer() {
 	defer a.tick.Done()
