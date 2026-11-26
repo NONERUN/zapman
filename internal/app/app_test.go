@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -415,6 +417,53 @@ func TestCheckEngine(t *testing.T) {
 	}
 	if err := e.b.CheckEngine(ctx, "bad"); err == nil {
 		t.Error("bad engine: no error")
+	}
+}
+
+// TestCheckEngineHashes: a file of the engine that is not the file of
+// versions.json gives EngineBinBad. The files of the other engine do not
+// count.
+func TestCheckEngineHashes(t *testing.T) {
+	e := newEnv(t)
+	bin := t.TempDir()
+	e.b.l.Bin = bin
+	write := func(name, data string) {
+		t.Helper()
+		p := filepath.Join(bin, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sum := func(s string) string {
+		h := sha256.Sum256([]byte(s))
+		return hex.EncodeToString(h[:])
+	}
+	write("winws.exe", "w1")
+	if k := msgKey(e.b.CheckEngine(ctx, spec.Winws)); k != "EngineBinBad" {
+		t.Errorf("no versions.json: %q", k)
+	}
+	write("versions.json", `{"files":[`+
+		`{"path":"winws.exe","sha256":"`+sum("w1")+`"},`+
+		`{"path":"winws2.exe","sha256":"`+sum("w2")+`"},`+
+		`{"path":"lua/zapret-lib.lua","sha256":"`+sum("lua")+`"}]}`)
+	if err := e.b.CheckEngine(ctx, spec.Winws); err != nil {
+		t.Errorf("winws with no winws2 files: %v", err)
+	}
+	write("winws2.exe", "w2")
+	write("lua/zapret-lib.lua", "lua\r\n")
+	if err := e.b.CheckEngine(ctx, spec.Winws2); msgKey(err) != "EngineBinBad" || !strings.Contains(err.Error(), "lua/zapret-lib.lua: hash mismatch") {
+		t.Errorf("winws2 with a changed lua file: %v", err)
+	}
+	write("lua/zapret-lib.lua", "lua")
+	write("winws.exe", "changed")
+	if err := e.b.CheckEngine(ctx, spec.Winws2); err != nil {
+		t.Errorf("winws2 with a changed winws.exe: %v", err)
+	}
+	if k := msgKey(e.b.CheckEngine(ctx, spec.Winws)); k != "EngineBinBad" {
+		t.Errorf("winws with a changed winws.exe: %q", k)
 	}
 }
 

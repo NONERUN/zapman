@@ -230,24 +230,49 @@ func (b *Backend) Games(context.Context) ([]backend.GameInfo, error) {
 	return games, err
 }
 
-// CheckEngine implements backend.Backend. winws2 also needs bin\lua.
+// CheckEngine implements backend.Backend. winws2 also needs bin\lua. Then
+// the files of the engine must have the SHA256 of bin\versions.json, as
+// Confirm-ZapretEngineReady does: winws does not need winws2.exe and
+// lua/*, winws2 does not need winws.exe.
 func (b *Backend) CheckEngine(_ context.Context, e spec.Engine) error {
 	switch e {
 	case spec.Winws:
 		if _, err := b.l.Exe(e); err != nil {
 			return backend.Msg("EngineNoWinws")
 		}
-		return nil
 	case spec.Winws2:
 		_, err := b.l.Exe(e)
 		st, lerr := os.Stat(filepath.Join(b.l.Bin, "lua"))
 		if err != nil || lerr != nil || !st.IsDir() {
 			return backend.Msg("EngineNoWinws2")
 		}
-		return nil
+	default:
+		_, err := engine.ExeName(e)
+		return err
 	}
-	_, err := engine.ExeName(e)
-	return err
+	return checkBin(b.l.Bin, e)
+}
+
+// checkBin gives EngineBinBad when a file of the engine e is not the file
+// of bin\versions.json.
+func checkBin(bin string, e spec.Engine) error {
+	r, err := engine.CheckBin(bin)
+	if err != nil {
+		return backend.Msg("EngineBinBad", err.Error())
+	}
+	var lines []string
+	for _, f := range r.Problems() {
+		p := strings.ToLower(f.Path)
+		if e == spec.Winws && (p == "winws2.exe" || strings.HasPrefix(p, "lua/")) ||
+			e == spec.Winws2 && p == "winws.exe" {
+			continue
+		}
+		lines = append(lines, f.Path+": "+f.State.String())
+	}
+	if len(lines) > 0 {
+		return backend.Msg("EngineBinBad", strings.Join(lines, "\n"))
+	}
+	return nil
 }
 
 // IPSet implements backend.Backend.

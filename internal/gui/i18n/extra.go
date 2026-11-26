@@ -22,6 +22,7 @@ var (
 		"EngineStartFailText": "{0} did not start. Check the bin folder and antivirus exclusions.\n\n{1}",
 		"ServiceInstallFail":  "The zapret service was not installed.\n\n{0}",
 		"ServiceRestoreFail":  "The zapret service was not restored after the tests.\n\n{0}",
+		"EngineBinBad":        "The engine files in bin are not the files of the pinned release (bin\\versions.json). Update the engine files.\n\n{0}",
 	}
 	extraRU = map[string]string{
 		"BtnYes":              "Да",
@@ -42,6 +43,7 @@ var (
 		"EngineStartFailText": "{0} не запустился. Проверьте папку bin и исключения антивируса.\n\n{1}",
 		"ServiceInstallFail":  "Служба zapret не установлена.\n\n{0}",
 		"ServiceRestoreFail":  "Служба zapret не восстановлена после тестов.\n\n{0}",
+		"EngineBinBad":        "Файлы движка в bin не совпадают с файлами закреплённого релиза (bin\\versions.json). Обновите файлы движка.\n\n{0}",
 	}
 )
 
