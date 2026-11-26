@@ -52,12 +52,12 @@
 - [Использование](docs/usage.md)
 - [Проблемы](docs/troubleshooting.md)
 - [Окна GUI](docs/ui/index.md)
-- [Разработка](docs/dev.md) — JSON → флаги, `go run ./dev/update-zapret`
+- [Разработка](https://github.com/NONERUN/zapman/blob/go/docs/dev.md) — как устроен код, JSON → флаги, обновление движков, релиз (на GitHub: в архиве релиза этого файла нет)
 - [AGENTS.md](AGENTS.md) — правила для агента (раскладка, проверки, что не делать)
 
 ## Разработка
 
-Ветка `go` — переписывание на Go. PowerShell-версия — на ветке `main`. Сборка, версия и релиз — [Разработка](docs/dev.md#релиз).
+Ветка `go` — переписывание на Go. PowerShell-версия — на ветке `main`. Сборка, версия и релиз — [Разработка](https://github.com/NONERUN/zapman/blob/go/docs/dev.md#релиз).
 
 Проверки перед коммитом (в PowerShell флаг `-modfile` — в кавычках):
 

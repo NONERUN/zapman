@@ -351,7 +351,7 @@ Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` 
 
 `app.BuildVersion()` (заголовок окна, «Статус», проверка версии): `app.Version` из `-X`, если задан; иначе версия модуля из build info (у `go build` в git-копии — тег или псевдоверсия, `+dirty` при правках); иначе `dev-<коммит>`. Проверка версии сравнивает её с последним тегом GitHub как числа `vMAJOR.MINOR.PATCH`, поэтому в `-X` — тег целиком, с `v`. Версия не в этом виде (`dev-<коммит>`, псевдоверсия, `+dirty`) — сборка для разработки: обновление не предлагается, «Проверить версию» только показывает последний релиз.
 
-В архиве: `zapman.exe`, `bin/`, `strategies/`, `lists/`, `docs/`, `README.md`, `LICENSE.txt`, `CHANGELOG.md`, `assets/app.LICENSE.txt` (лицензия иконки; сама иконка — в exe). `.service/` не нужен: «Скачать ipset» и «Сверить hosts» берут файлы с GitHub (ветка `main`). `user/` и `test-results/` exe создаёт сам.
+В архиве: `zapman.exe`, `bin/`, `strategies/`, `lists/`, `docs/` без этого файла (`dev.md` — для разработчиков; `README.md` ссылается на него на GitHub), `README.md`, `LICENSE.txt`, `CHANGELOG.md`, `assets/app.LICENSE.txt` (лицензия иконки; сама иконка — в exe). `.service/` не нужен: «Скачать ipset» и «Сверить hosts» берут файлы с GitHub (ветка `main`). `user/` и `test-results/` exe создаёт сам.
 
 1. Если менялась схема JSON — `spec` в `strategies/`.
 2. Секция `## vX.Y.Z - <дата>` в [`CHANGELOG.md`](../CHANGELOG.md) на этот тег (из неё — текст релиза), коммит **с актуальным** `release.yml`.
