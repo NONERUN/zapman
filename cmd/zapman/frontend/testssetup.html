@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Run Tests</title>
+<link rel="stylesheet" href="app.css">
+<script type="module" src="testssetup.js"></script>
+</head>
+<body>
+<!-- The places and sizes are the ones of src/gui/TestsSetup.xaml. -->
+<span class="abs" style="left:12px;top:12px" data-t="TestsType"></span>
+<label class="radio abs" style="left:12px;top:32px"><input type="radio" name="type" id="rbStd" value="standard" checked><span data-t="TestsTypeStd"></span></label>
+<label class="radio abs" style="left:220px;top:32px"><input type="radio" name="type" id="rbDpi" value="dpi"><span data-t="TestsTypeDpi"></span></label>
+<span id="lblPick" class="abs" style="left:12px;top:62px"></span>
+<div id="list" class="list abs" style="left:12px;top:82px;width:416px;height:250px;border:none;background:transparent"></div>
+<button id="btnAll" class="abs" style="left:12px;top:344px;width:80px;height:28px" data-t="TestsAll"></button>
+<button id="btnNone" class="abs" style="left:98px;top:344px;width:80px;height:28px" data-t="TestsNone"></button>
+<button id="btnRun" class="abs" style="left:248px;top:378px;width:90px;height:28px" data-t="TestsStart" data-default></button>
+<button id="btnCancel" class="abs" style="left:344px;top:378px;width:84px;height:28px" data-t="BtnCancel" data-cancel></button>
+</body>
+</html>

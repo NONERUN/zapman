@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Tests</title>
+<link rel="stylesheet" href="app.css">
+<script type="module" src="tests.js"></script>
+</head>
+<body>
+<!-- The layout of src/gui/Tests.xaml: the status, the bar, three groups
+     (120 / * / 150) and the button at the bottom right. -->
+<div class="page">
+  <div id="lblStatus" style="height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+  <progress id="bar" style="margin:0 0 2px"></progress>
+  <div class="box" style="flex:0 0 120px">
+    <span class="hdr" data-t="TestsGrpHead"></span>
+    <div id="txtHead" class="fill mono" style="user-select:text"></div>
+  </div>
+  <div class="box grow">
+    <span class="hdr" data-t="TestsGrpStrats"></span>
+    <div class="fill tabs" id="tabs">
+      <div class="tablist" id="tabList"></div>
+      <div class="pane" id="pane"></div>
+    </div>
+    <div id="lblWait" class="fill" style="display:none;align-items:center;justify-content:center;color:gray" data-t="TestsWaitStrat"></div>
+  </div>
+  <div class="box" style="flex:0 0 150px">
+    <span class="hdr" data-t="TestsGrpSum"></span>
+    <div class="fill" style="overflow:auto">
+      <div id="sum" style="margin-top:4px"></div>
+      <div id="lblBest" style="margin-top:8px;font-weight:bold"></div>
+    </div>
+  </div>
+  <div class="foot" style="margin-top:4px">
+    <button id="btnStop" style="width:95px;height:28px" data-cancel></button>
+  </div>
+</div>
+</body>
+</html>
