@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"os"
@@ -29,7 +29,7 @@ func TestRootFolder(t *testing.T) {
 	if err := os.WriteFile(exe, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	got, err := rootFolder(exe)
+	got, err := RootFolder(exe)
 	want, _ := filepath.EvalSymlinks(dir)
 	if err != nil || got != want {
 		t.Errorf("got %q, %v; want %q", got, err, want)
@@ -37,7 +37,7 @@ func TestRootFolder(t *testing.T) {
 }
 
 func TestAppVersion(t *testing.T) {
-	if appVersion() == "" {
+	if BuildVersion() == "" {
 		t.Error("empty version")
 	}
 }

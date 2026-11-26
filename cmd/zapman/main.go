@@ -19,9 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -33,6 +31,11 @@ import (
 	"github.com/NONERUN/zapman/internal/gui"
 	"github.com/NONERUN/zapman/internal/gui/backend"
 )
+
+// rsrc_windows_amd64.syso has the icon, the manifest (admin rights, common
+// controls 6, per-monitor DPI) and the version info of winres.json. Run
+// "go generate ./cmd/zapman" after a change of winres.json or app.ico.
+//go:generate go tool -modfile=../../tools/go.mod go-winres make --in winres.json --arch amd64 --out rsrc
 
 //go:embed all:frontend
 var frontend embed.FS
@@ -108,70 +111,15 @@ func newBackend(root string, useFake bool) (backend.Backend, error) {
 		return nil, err
 	}
 	if root == "" {
-		if root, err = rootFolder(exe); err != nil {
+		if root, err = app.RootFolder(exe); err != nil {
 			return nil, err
 		}
 	}
 	if root, err = filepath.Abs(root); err != nil {
 		return nil, err
 	}
-	o := app.Options{Layout: engine.NewLayout(root), AppVersion: appVersion()}
+	o := app.Options{Layout: engine.NewLayout(root), AppVersion: app.BuildVersion()}
 	// A bad exe path is an error of SetTrayAtLogon only.
 	o.TrayCommand, _ = app.TrayCommand(exe)
 	return app.New(o), nil
-}
-
-// rootFolder gives the folder of the exe. When the exe is in a temporary
-// go-build folder ("go run"), it gives the working folder.
-func rootFolder(exe string) (string, error) {
-	if exe, err := filepath.EvalSymlinks(exe); err == nil {
-		dir := filepath.Dir(exe)
-		if !isGoBuildDir(dir) {
-			return dir, nil
-		}
-	}
-	return os.Getwd()
-}
-
-// isGoBuildDir tells if dir is in a temporary folder of "go run".
-func isGoBuildDir(dir string) bool {
-	tmp, err := filepath.EvalSymlinks(os.TempDir())
-	if err != nil {
-		tmp = os.TempDir()
-	}
-	rel, err := filepath.Rel(tmp, dir)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return false
-	}
-	return strings.HasPrefix(strings.ToLower(rel), "go-build")
-}
-
-// appVersion gives the module version of the build. A build from a
-// checkout gives "dev" with the short commit hash.
-func appVersion() string {
-	bi, ok := debug.ReadBuildInfo()
-	if !ok {
-		return ""
-	}
-	if v := bi.Main.Version; v != "" && v != "(devel)" {
-		return v
-	}
-	var rev, dirty string
-	for _, s := range bi.Settings {
-		switch s.Key {
-		case "vcs.revision":
-			rev = s.Value
-		case "vcs.modified":
-			if s.Value == "true" {
-				dirty = "-dirty"
-			}
-		}
-	}
-	if len(rev) > 7 {
-		rev = rev[:7]
-	}
-	if rev == "" {
-		return "dev"
-	}
-	return "dev-" + rev + dirty
 }
