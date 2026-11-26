@@ -270,6 +270,35 @@ Fooling не вешается на Lua-атаку `multisplit`.
 | `edited` | ImagePath поменяли после установки |
 | `argv` | версии те же, другая командная строка (движок, Game Filter, active-fake, папка) |
 
+## GUI (Wails)
+
+GUI на [Wails v3](https://v3.wails.io/) `v3.1.0` (версия закреплена в `go.mod`). CLI `wails3` не нужен, npm тоже: хватает `go build`.
+
+```text
+go run ./cmd/zapman           # главное окно
+go run ./cmd/zapman --tray    # старт в трее: главное окно скрыто, если включена «Иконка в трее»
+```
+
+| Путь | Роль |
+|---|---|
+| `cmd/zapman/` | Точка входа: окна Wails, диалоги, трей (`shell.go` — реализация `gui.Shell`) |
+| `cmd/zapman/frontend/` | Страницы: простые HTML, CSS и JS (ES-модули), по странице на окно; `index.html` — главное окно |
+| `internal/gui/` | Логика окон PS GUI (`src/gui` на `main`) без Wails: виды окон, кнопки, тексты, трей. Тесты — с фейковым `Shell` |
+| `internal/gui/backend/` | Интерфейс `Backend` (всё, что GUI просит у движка, службы и конфига) и детерминированный фейк в памяти |
+| `internal/gui/i18n/` | Строки RU / EN (копия таблиц `Ui.ps1`) и строки, которых нет в PS-версии |
+| `assets/assets.go` | `app.ico` для окон и трея (`go:embed`) |
+
+Как это связано:
+
+- `frontend/` вшит в бинарник (`//go:embed all:frontend`) и отдаётся через `application.AssetFileServerFS`. Этому серверу нужен `index.html`, поэтому главное окно — `index.html`, остальные — `<имя окна>.html`.
+- Рантайм Wails отдаёт сам asset server по адресу `/wails/runtime.js`. Страницы импортируют его как ES-модуль (`import { Call, Events, Clipboard } from "/wails/runtime.js"` в `common.js`); копии рантайма в репозитории нет.
+- `gui.App` зарегистрирован как сервис Wails. JS зовёт его методы по имени: `Call.ByName("github.com/NONERUN/zapman/internal/gui.App.<Метод>", ...)`. Методы — виды окон (`Main`, `StrategyView`, `TestsView`, …) и действия (`ClickStart`, `StrategyRun`, `CloseDialog`, …). Длинная работа идёт в горутине; метод сразу возвращается.
+- Когда вид меняется, Go шлёт событие без данных (`main`, `strategy`, `tests`, `download`, `diag`; `lang` — смена языка), и страница заново читает свой вид. Все решения — в Go; JS только рисует вид.
+- Модальных окон в Wails нет: пока открыт диалог, остальные окна выключены (`SetEnabled(false)`), как у `ShowDialog` в WPF. Закрытое окно уничтожается и создаётся заново при следующем открытии.
+- Один процесс — и окна, и трей (в PS-версии трей — отдельная задача планировщика). «Иконка в трее» показывает или прячет иконку; второй запуск открывает главное окно (с `--tray` — ничего не делает).
+
+Сейчас `cmd/zapman` работает на фейке (`backend.NewFake()`): службы, winws и настройки системы не трогаются. Настоящий `Backend` поверх `internal/engine`, `internal/config` и `internal/service` подключается в `cmd/zapman/main.go` вместо фейка.
+
 ## Релиз
 
 Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` сам запускает [Release](../.github/workflows/release.yml) **с того коммита** (YAML в теге). Job собирает zip/rar/tar.gz и создаёт **черновик**. `/releases/latest` не меняется, пока не нажмёте **Publish release**.

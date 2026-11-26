@@ -23,6 +23,7 @@
 - Go: [`internal/service`](internal/service/) — служба `zapret` (имя PowerShell-версии): установка с восстановлением старой службы при ошибке, удаление (с WinDivert), старт, стоп, статус. В ключе службы — стратегия (`zapman`), версия, игры и SHA256 ImagePath; статус говорит, устарела ли служба и почему. Без прав администратора — понятная ошибка.
 - Go: TCP timestamps (нужны `fooling=ts`) включаются при установке и старте службы, как в PowerShell-версии; проверка для диагностики — `TCPTimestamps()`.
 - Go: при ошибке установки службы старая служба создаётся снова и запускается, если работала до установки.
+- GUI на Go: `cmd/zapman` (Wails v3.1.0) — окна PS GUI (главное, «Стратегия», «Статус», тесты, hosts, fake, загрузка, диагностика) и трей в одном процессе; новое окно «Игры...» для игровых модулей. Пока на фейковом бэкенде. См. [`docs/dev.md`](docs/dev.md).
 - Fake из upstream (сейчас в `strategies/fakes/`): `tls_clienthello_www_sferum_ru`, `tls_clienthello_awswaf_com`, `tls_clienthello_steam_chat_com`, `tls_clienthello_steamstatic_com`, `tls_clienthello_teamspeak_com`, `quic_initial_lemana_pro`, `quic_initial_steam_chat_com`, `quic_initial_steamstatic_com`.
 
 ### Changed

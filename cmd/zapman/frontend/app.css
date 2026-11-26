@@ -1,0 +1,157 @@
+/* The look of the WPF windows of the PS GUI: Segoe UI 12, the system gray
+   background, the controls at the places of the XAML. */
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #f0f0f0;
+  color: #000;
+  font: 12px "Segoe UI", sans-serif;
+  user-select: none;
+  cursor: default;
+}
+
+* { box-sizing: border-box; }
+
+.abs { position: absolute; }
+
+button, select, input, textarea { font: inherit; }
+
+button {
+  background: #e1e1e1;
+  border: 1px solid #adadad;
+  color: #000;
+  padding: 0 6px;
+}
+button:hover:not(:disabled) { background: #e5f1fb; border-color: #0078d7; }
+button:active:not(:disabled) { background: #cce4f7; border-color: #005499; }
+button:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+button:disabled { color: #838383; background: #cccccc; border-color: #bfbfbf; }
+
+select { height: 24px; background: #fff; border: 1px solid #acacac; }
+
+label.check, label.radio {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+label.check input, label.radio input { margin: 0; }
+label.disabled { color: #838383; }
+
+textarea {
+  resize: none;
+  background: #fff;
+  border: 1px solid #abadb3;
+  padding: 2px 4px;
+  user-select: text;
+  cursor: text;
+}
+
+.dim { color: dimgray; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* GroupBox: a frame with the header on the top line. The children of .in
+   have the coordinates of the Canvas inside the GroupBox. */
+.group { position: absolute; }
+.group::before {
+  content: "";
+  position: absolute;
+  inset: 7px 0 0 0;
+  border: 1px solid #d5dfe5;
+  border-radius: 3px;
+}
+.group > .hdr {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  padding: 0 3px;
+  background: #f0f0f0;
+  white-space: nowrap;
+  line-height: 15px;
+}
+.group > .in { position: absolute; left: 4px; top: 18px; right: 4px; bottom: 4px; }
+.group.click { cursor: pointer; }
+.group.click:hover::before { border-color: #0078d7; }
+.group.off { pointer-events: none; color: #838383; }
+
+.banner {
+  padding: 4px 6px;
+  overflow: hidden;
+}
+.banner:empty { display: none; }
+
+/* ListBox. */
+.list {
+  background: #fff;
+  border: 1px solid #828790;
+  overflow-y: auto;
+}
+.list .item { padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list .item.sel { background: #cce8ff; }
+.list .item.off { color: gray; }
+.list label.check { padding: 2px 4px; }
+
+/* Page with a grid layout, for the windows that can change size. */
+.page {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.page .grow { flex: 1 1 auto; min-height: 0; }
+.page .foot { display: flex; justify-content: flex-end; gap: 6px; }
+
+progress { width: 100%; height: 18px; }
+
+/* The groups of the tests window. */
+.box {
+  position: relative;
+  border: 1px solid #d5dfe5;
+  border-radius: 3px;
+  padding: 12px 6px 6px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.box > .hdr {
+  position: absolute;
+  top: -9px;
+  left: 6px;
+  padding: 0 3px;
+  background: #f0f0f0;
+}
+.box > .fill { flex: 1 1 auto; min-height: 0; }
+
+.mono { font-family: Consolas, monospace; font-size: 11px; white-space: pre; overflow: auto; }
+
+.tabs { display: flex; gap: 6px; min-height: 0; }
+.tabs .tablist {
+  flex: 0 0 180px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #828790;
+}
+.tabs .tablist .item { padding: 2px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.tabs .tablist .item.sel { background: #cce8ff; }
+.tabs .tablist .item.bad { color: firebrick; }
+.tabs .pane { flex: 1 1 auto; overflow: auto; background: #fff; border: 1px solid #828790; }
+
+table { border-collapse: collapse; width: 100%; background: #fff; }
+th, td { border: 1px solid #d9d9d9; padding: 2px 6px; text-align: left; white-space: nowrap; }
+th { background: #f5f5f5; font-weight: 600; }
+.cell-info { color: #000; }
+.cell-ok { color: #1e7b34; background: #e6f4ea; }
+.cell-warn { color: #9a6700; background: #fff4d6; }
+.cell-err { color: #b42318; background: #fde8e6; }
+.tbl-error { padding: 6px; white-space: pre-wrap; }
+
+/* The rows of the diagnostics window. */
+.diag { overflow-y: auto; background: #fff; border: 1px solid #828790; }
+.diag .row { display: flex; align-items: center; height: 30px; padding: 0 6px; gap: 6px; }
+.diag .row .text { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diag .row button { flex: 0 0 84px; height: 24px; }
+.diag .row .mark { flex: 0 0 22px; font-size: 14px; text-align: center; font-weight: bold; }
+.mark.ok { color: forestgreen; }
+.mark.warn { color: darkorange; }
+.mark.fail { color: firebrick; }
