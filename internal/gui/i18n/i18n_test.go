@@ -1,6 +1,9 @@
 package i18n
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -43,6 +46,8 @@ func TestT(t *testing.T) {
 		{EN, "StatusStrategy", []any{"a {1} b"}, "Strategy: a {1} b"},
 		{EN, "NoSuchKey", nil, "NoSuchKey"},
 		{RU, "BtnGames", nil, "Игры..."},
+		{RU, "DiagFix", nil, "Исправить"},
+		{EN, "DiagFix", nil, "Fix"},
 	}
 	for _, tt := range tests {
 		if got := T(tt.lang, tt.key, tt.args...); got != tt.want {
@@ -82,6 +87,52 @@ func TestPick(t *testing.T) {
 		if got := Pick(tt.config, tt.culture); got != tt.want {
 			t.Errorf("Pick(%q, %q) = %q, want %q", tt.config, tt.culture, got, tt.want)
 		}
+	}
+}
+
+// TestDiagFixIsNotAButton makes sure that the button of a Diagnostics row
+// does not have the text of a main window button: the row button does a fix,
+// not a run of the bypass.
+func TestDiagFixIsNotAButton(t *testing.T) {
+	for _, tab := range []map[string]string{en, ru} {
+		for k, v := range tab {
+			if strings.HasPrefix(k, "Btn") && v == tab["DiagFix"] {
+				t.Errorf("DiagFix %q is the same as %s", v, k)
+			}
+		}
+	}
+}
+
+// keyRefs finds the keys in t("Key") calls and data-t="Key" attributes.
+var keyRefs = regexp.MustCompile(`\bt\("([A-Za-z0-9]+)"|data-t="([A-Za-z0-9]+)"`)
+
+// TestFrontendKeys makes sure that each key of the frontend pages is in the
+// tables.
+func TestFrontendKeys(t *testing.T) {
+	dir := filepath.Join("..", "..", "..", "cmd", "zapman", "frontend")
+	files, err := filepath.Glob(filepath.Join(dir, "*.*"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no frontend files: %v", err)
+	}
+	n := 0
+	for _, f := range files {
+		if ext := filepath.Ext(f); ext != ".js" && ext != ".html" {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range keyRefs.FindAllStringSubmatch(string(b), -1) {
+			k := m[1] + m[2]
+			n++
+			if _, ok := en[k]; !ok {
+				t.Errorf("%s: key %q is not in the tables", filepath.Base(f), k)
+			}
+		}
+	}
+	if n == 0 {
+		t.Fatal("no keys in the frontend files")
 	}
 }
 

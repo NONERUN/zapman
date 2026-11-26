@@ -9,7 +9,7 @@ body:
       value: |
         Сначала [README](https://github.com/NONERUN/zapman/blob/main/README.md) и [проблемы](https://github.com/NONERUN/zapman/blob/main/docs/troubleshooting.md). Кратко:
 
-        - `zapman.exe` → **Диагностика**. Если не открывается Discord — очистите кэш (кнопка **Запуск** в строке кэша Discord).
+        - `zapman.exe` → **Диагностика**. Если не открывается Discord — очистите кэш (кнопка **Исправить** в строке кэша Discord).
         - `zapman.exe` → **Сверить hosts**.
         - Другие стратегии и другой движок: **Стратегия...**. Если ни одна не подходит — там же **Ни одна не подходит**, затем перезагрузка Windows.
         - Если без zapret всё работает: **Game Filter** = `disabled`, **IPSet Filter** = `none`, лишние галки в **Игры...** сняты, затем снова **Установить службу** или запуск стратегии.

@@ -16,7 +16,7 @@ async function refresh() {
     text.textContent = r.Text;
     text.title = r.Text;
     const btn = document.createElement("button");
-    btn.textContent = t("DiagRun");
+    btn.textContent = t("DiagFix");
     btn.disabled = v.Busy;
     btn.style.visibility = r.HasAction ? "visible" : "hidden";
     btn.addEventListener("click", () => call("DiagRun", i));
