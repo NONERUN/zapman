@@ -56,7 +56,9 @@ var DriverServices = []string{"WinDivert", "WinDivert14"}
 
 // The errors of the Manager.
 var (
-	ErrNotInstalled = errors.New("the zapret service is not installed")
+	// ErrNotInstalled is also the error for the WinDivert drivers. The host
+	// adds the service name before it.
+	ErrNotInstalled = errors.New("the service is not installed")
 	ErrNotElevated  = errors.New("administrator rights are necessary to change the zapret service. Start zapman as administrator")
 )
 
@@ -585,10 +587,19 @@ func (m *Manager) stopAndWait(name string) error {
 	if ss.State == Stopped {
 		return nil
 	}
+	// A service can go while it stops: the WinDivert driver deletes its
+	// service when it unloads. A service that is gone is stopped.
 	if err := m.Host.Stop(name); err != nil {
+		if errors.Is(err, ErrNotInstalled) {
+			return nil
+		}
 		return fmt.Errorf("stop the %s service: %w", name, err)
 	}
-	return m.waitState(name, Stopped, or(m.StopTimeout, 8*time.Second))
+	err = m.waitState(name, Stopped, or(m.StopTimeout, 8*time.Second))
+	if errors.Is(err, ErrNotInstalled) {
+		return nil
+	}
+	return err
 }
 
 // deleteAndWait deletes the service name and waits until it is gone.

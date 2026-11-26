@@ -43,6 +43,9 @@ type fakeHost struct {
 	tcpFails bool
 	// badReadBack: ReadRecord gives an other ImagePath for this ImagePath.
 	badReadBack string
+	// goneOnStop: Stop of this service deletes it, as the WinDivert driver
+	// does when it unloads.
+	goneOnStop string
 }
 
 func newFake() *fakeHost {
@@ -137,6 +140,9 @@ func (h *fakeHost) Stop(name string) error {
 		return err
 	}
 	s.status.State = Stopped
+	if name == h.goneOnStop {
+		delete(h.services, name)
+	}
 	return nil
 }
 
@@ -406,6 +412,22 @@ func TestRemove(t *testing.T) {
 	// Nothing installed is not an error.
 	if err := m.Remove(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The WinDivert driver deletes its service when it unloads. Seen on a real
+// computer: Remove gave "WinDivert: ... not installed".
+func TestRemoveDriverGoneOnStop(t *testing.T) {
+	h := newFake()
+	h.add(Name, Running, oldRecord())
+	h.add("WinDivert", Running, Record{})
+	h.goneOnStop = "WinDivert"
+	m := newManager(h)
+	if err := m.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.services) != 0 {
+		t.Errorf("services: %v", h.services)
 	}
 }
 
