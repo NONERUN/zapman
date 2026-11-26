@@ -42,8 +42,10 @@ type FakeData struct {
 	// Counters of the actions that have no state.
 	IPSetDownloads int
 	HostsOpened    int
-	Reboots        int
-	NetworkResets  int
+	// ListsOpened are the user lists that OpenGameLists opened.
+	ListsOpened   []string
+	Reboots       int
+	NetworkResets int
 }
 
 // Fake is a Backend in memory. It does not touch the system, the disk or
@@ -80,8 +82,9 @@ func NewFake() *Fake {
 			{Name: "general (FAKE TLS AUTO)", Engines: []spec.Engine{spec.Winws, spec.Winws2}},
 		},
 		Games: []GameInfo{
-			{ID: "sky", Title: "Sky", About: map[string]string{"ru": "UDP игры", "en": "Game UDP"}},
-			{ID: "sker", Title: "Sker Ritual", About: map[string]string{"ru": "UDP Photon"}},
+			{ID: "sky", Title: "Sky", About: map[string]string{"ru": "UDP игры", "en": "Game UDP"}, UserLists: []string{"ipset-sky.txt"}},
+			{ID: "photon", Title: "Photon", About: map[string]string{"ru": "UDP Photon"}, UserLists: []string{"ipset-photon.txt"},
+				Options: []GameOptionInfo{{ID: "ipset", Title: map[string]string{"ru": "Только подсети из списка", "en": "Only the subnets of the list"}}}},
 		},
 		Fakes: FakeCatalog{
 			Files:        []string{"quic_initial_www_google_com.bin", "stun.bin", "tls_clienthello_www_google_com.bin"},
@@ -162,12 +165,14 @@ func (f *Fake) begin(method string, record bool) error {
 func (d *FakeData) clone() FakeData {
 	c := *d
 	c.Settings.Games = slices.Clone(d.Settings.Games)
+	c.Settings.GameOptions = CloneGameOptions(d.Settings.GameOptions)
 	c.Status.BypassExes = slices.Clone(d.Status.BypassExes)
 	c.Strategies = slices.Clone(d.Strategies)
 	c.Games = slices.Clone(d.Games)
 	c.Fakes.Files = slices.Clone(d.Fakes.Files)
 	c.Diag = slices.Clone(d.Diag)
 	c.Foreign = slices.Clone(d.Foreign)
+	c.ListsOpened = slices.Clone(d.ListsOpened)
 	c.EngineMissing = map[spec.Engine]bool{}
 	for k, v := range d.EngineMissing {
 		c.EngineMissing[k] = v
@@ -214,6 +219,11 @@ func (f *Fake) SaveSettings(_ context.Context, s Settings) error {
 			return fmt.Errorf("unknown game %q", id)
 		}
 	}
+	opts, err := GameOverrides(f.d.Games, s.GameOptions)
+	if err != nil {
+		return err
+	}
+	s.GameOptions = opts
 	s.Games = slices.Clone(s.Games)
 	sort.Strings(s.Games)
 	s.Games = slices.Compact(s.Games)
@@ -622,6 +632,24 @@ func (f *Fake) OpenHosts(context.Context) error {
 		return err
 	}
 	f.d.HostsOpened++
+	return nil
+}
+
+// OpenGameLists implements Backend. It adds the lists to ListsOpened.
+func (f *Fake) OpenGameLists(_ context.Context, id string) error {
+	err := f.begin("OpenGameLists", true)
+	defer f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	i := slices.IndexFunc(f.d.Games, func(g GameInfo) bool { return g.ID == id })
+	if i < 0 {
+		return fmt.Errorf("unknown game %q", id)
+	}
+	if len(f.d.Games[i].UserLists) == 0 {
+		return fmt.Errorf("game %q has no user lists", id)
+	}
+	f.d.ListsOpened = append(f.d.ListsOpened, f.d.Games[i].UserLists...)
 	return nil
 }
 

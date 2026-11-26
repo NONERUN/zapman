@@ -173,6 +173,28 @@ type GameItem struct {
 	// other language when the UI language has no text. It can be empty.
 	About   string
 	Checked bool
+	// Options are the options of the game. The dialog shows them under
+	// the game; they are disabled while the game is off.
+	Options []GameOptionItem
+	// HasLists tells if the game has user lists: the dialog then shows a
+	// button that opens them (GamesOpenLists).
+	HasLists bool
+}
+
+// GameOptionItem is an option of a game in the Games dialog.
+type GameOptionItem struct {
+	ID    string
+	Title string
+	About string
+	// Checked is the value of the option: the value in the settings, or
+	// the default of the catalog.
+	Checked bool
+}
+
+// gamesResult is the result of the Games dialog.
+type gamesResult struct {
+	ids  []string
+	opts map[string]map[string]bool
 }
 
 // ClickGames opens the Games dialog. The PS GUI has no game modules.
@@ -185,11 +207,11 @@ func (a *App) ClickGames() {
 			a.shell.Info(a.t("GamesNone"))
 			return
 		}
-		ids, ok := a.showDialog(WinGames, "GamesTitle").([]string)
+		r, ok := a.showDialog(WinGames, "GamesTitle").(gamesResult)
 		if !ok {
 			return
 		}
-		if err := a.saveSettings(func(s *backend.Settings) { s.Games = ids }); err != nil {
+		if err := a.saveSettings(func(s *backend.Settings) { s.Games, s.GameOptions = r.ids, r.opts }); err != nil {
 			a.fail(err)
 			return
 		}
@@ -203,9 +225,32 @@ func (a *App) GamesView() []GameItem {
 	defer a.mu.Unlock()
 	out := make([]GameItem, 0, len(a.games))
 	for _, g := range a.games {
-		out = append(out, GameItem{ID: g.ID, Title: g.Title, About: pickAbout(g.About, a.lang), Checked: slices.Contains(a.settings.Games, g.ID)})
+		it := GameItem{
+			ID: g.ID, Title: g.Title, About: pickAbout(g.About, a.lang),
+			Checked: slices.Contains(a.settings.Games, g.ID), HasLists: len(g.UserLists) > 0,
+		}
+		for _, o := range g.Options {
+			v, set := a.settings.GameOptions[g.ID][o.ID]
+			if !set {
+				v = o.Default
+			}
+			it.Options = append(it.Options, GameOptionItem{
+				ID: o.ID, Title: pickAbout(o.Title, a.lang), About: pickAbout(o.About, a.lang), Checked: v,
+			})
+		}
+		out = append(out, it)
 	}
 	return out
+}
+
+// GamesOpenLists opens the user lists of the game in Notepad. The Games
+// dialog stays open.
+func (a *App) GamesOpenLists(id string) {
+	a.goTask(func() {
+		if err := a.be.OpenGameLists(a.ctx, id); err != nil {
+			a.shell.Error(a.errText(err))
+		}
+	})
 }
 
 // pickAbout gives the text of about in the language lang. When lang has no
@@ -226,17 +271,36 @@ func pickAbout(about map[string]string, lang string) string {
 	return ""
 }
 
-// GamesApply closes the Games dialog with the checked game IDs.
-func (a *App) GamesApply(ids []string) {
+// GamesApply closes the Games dialog with the checked game IDs and the
+// option values (game ID to option ID to value). It keeps only the games
+// and the options of the catalog, and only the option values that are not
+// the defaults. An option that is not in opts keeps its value.
+func (a *App) GamesApply(ids []string, opts map[string]map[string]bool) {
 	a.mu.Lock()
-	keep := []string{}
+	r := gamesResult{ids: []string{}}
 	for _, g := range a.games {
 		if slices.Contains(ids, g.ID) {
-			keep = append(keep, g.ID)
+			r.ids = append(r.ids, g.ID)
+		}
+		for _, o := range g.Options {
+			v, set := opts[g.ID][o.ID]
+			if !set {
+				v, set = a.settings.GameOptions[g.ID][o.ID]
+			}
+			if !set || v == o.Default {
+				continue
+			}
+			if r.opts == nil {
+				r.opts = map[string]map[string]bool{}
+			}
+			if r.opts[g.ID] == nil {
+				r.opts[g.ID] = map[string]bool{}
+			}
+			r.opts[g.ID][o.ID] = v
 		}
 	}
 	a.mu.Unlock()
-	a.closeDialog(WinGames, keep)
+	a.closeDialog(WinGames, r)
 }
 
 // diagDialog is the state of the Diagnostics dialog.

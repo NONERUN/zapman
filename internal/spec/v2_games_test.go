@@ -3,6 +3,7 @@ package spec
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -86,4 +87,6 @@ func TestGames(t *testing.T) {
 	on := strings.Join(build(Winws2), "\n")
 	check(strings.Contains(on, `--filter-udp=5055-5058,27000-27002 --ipset="C:\zapman\lists\ipset-photon.txt" --ipset="C:\zapman\user\ipset-photon.txt" `), "Photon with the ipset option must use the stock list and the user list.")
 	check(!cat.Game("photon").Values()["ipset"], "With must not change the catalog game.")
+	check(slices.Equal(cat.Game("photon").UserLists(), []string{"ipset-photon.txt"}), "Photon must have one user list, also when the option is off.")
+	check(slices.Equal(cat.Game("sky").UserLists(), []string{"ipset-sky.txt"}), "Sky must have one user list.")
 }

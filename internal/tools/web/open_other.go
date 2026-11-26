@@ -4,7 +4,7 @@ package web
 
 import "errors"
 
-// OpenHosts gives an error: Notepad is a program of Windows.
-func OpenHosts(string) error {
-	return errors.New("the hosts file opens only on Windows")
+// OpenNotepad gives an error: Notepad is a program of Windows.
+func OpenNotepad(string) error {
+	return errors.New("notepad is available only on Windows")
 }

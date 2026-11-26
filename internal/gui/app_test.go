@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -549,19 +550,54 @@ func TestGamesApply(t *testing.T) {
 		if len(v) != 2 || v[0].Checked {
 			t.Errorf("games view = %+v", v)
 		}
-		// The UI is in en. sker has only a ru text: the view shows it.
+		// The UI is in en. photon has only a ru text: the view shows it.
 		if len(v) == 2 && (v[0].About != "Game UDP" || v[1].About != "UDP Photon") {
 			t.Errorf("games about = %q, %q", v[0].About, v[1].About)
 		}
-		a.GamesApply([]string{"sker", "nope"})
+		if len(v) == 2 && (len(v[0].Options) != 0 || !v[0].HasLists || len(v[1].Options) != 1 ||
+			v[1].Options[0].ID != "ipset" || v[1].Options[0].Checked || v[1].Options[0].Title != "Only the subnets of the list") {
+			t.Errorf("games options = %+v", v)
+		}
+		a.GamesApply([]string{"photon", "nope"}, map[string]map[string]bool{"photon": {"ipset": true, "nope": true}, "nope": {"x": true}})
 	})
 	a.ClickGames()
 	a.wait()
-	if g := f.Data().Settings.Games; !slices.Equal(g, []string{"sker"}) {
-		t.Errorf("games = %v", g)
+	s := f.Data().Settings
+	if !slices.Equal(s.Games, []string{"photon"}) {
+		t.Errorf("games = %v", s.Games)
+	}
+	if !reflect.DeepEqual(s.GameOptions, map[string]map[string]bool{"photon": {"ipset": true}}) {
+		t.Errorf("game options = %v", s.GameOptions)
 	}
 	if got := sh.get(&sh.infos); !slices.Equal(got, []string{en("FilterNeedRerun")}) {
 		t.Errorf("infos = %q", got)
+	}
+
+	// The view shows the saved value. A default value is not saved.
+	sh.on(WinGames, func() {
+		if v := a.GamesView(); len(v) != 2 || !v[1].Checked || !v[1].Options[0].Checked {
+			t.Errorf("games view = %+v", v)
+		}
+		a.GamesApply([]string{"photon"}, map[string]map[string]bool{"photon": {"ipset": false}})
+	})
+	a.ClickGames()
+	a.wait()
+	if s := f.Data().Settings; s.GameOptions != nil {
+		t.Errorf("game options = %v", s.GameOptions)
+	}
+}
+
+func TestGamesOpenLists(t *testing.T) {
+	a, f, sh := start(t, nil)
+	a.GamesOpenLists("sky")
+	a.wait()
+	if got := f.Data().ListsOpened; !slices.Equal(got, []string{"ipset-sky.txt"}) {
+		t.Errorf("opened %v", got)
+	}
+	a.GamesOpenLists("nope")
+	a.wait()
+	if got := sh.get(&sh.errors); len(got) != 1 {
+		t.Errorf("errors = %q", got)
 	}
 }
 

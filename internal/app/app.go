@@ -152,6 +152,7 @@ func toSettings(c *config.Config) backend.Settings {
 		Engine:          c.Engine,
 		Strategy:        c.Strategy,
 		Games:           slices.Clone(c.Games),
+		GameOptions:     backend.CloneGameOptions(c.GameOptions),
 		GameFilter:      backend.GameFilterMode(c.GameFilter),
 		AutoUpdateCheck: c.AutoUpdateCheck,
 		TrayWatch:       c.TrayWatch,
@@ -182,6 +183,12 @@ func (b *Backend) SaveSettings(_ context.Context, s backend.Settings) error {
 			return fmt.Errorf("unknown game %q", id)
 		}
 	}
+	// The file keeps only the values that are not the defaults: a new
+	// default of the catalog then applies to the user.
+	opts, err := backend.GameOverrides(backend.GameInfos(cat), s.GameOptions)
+	if err != nil {
+		return err
+	}
 	b.cfg.Lock()
 	defer b.cfg.Unlock()
 	// A file that is not correct gets the new settings: the user saves
@@ -196,6 +203,7 @@ func (b *Backend) SaveSettings(_ context.Context, s backend.Settings) error {
 	games := slices.Clone(s.Games)
 	sort.Strings(games)
 	c.Games = slices.Compact(games)
+	c.GameOptions = opts
 	return config.Save(b.l.ConfigPath(), &c)
 }
 

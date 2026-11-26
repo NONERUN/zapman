@@ -352,6 +352,31 @@ func TestSettingsKeepUnknownFields(t *testing.T) {
 	if err != nil || got.Language != "ru" || got.GameFilter != backend.GameFilterUDP || !slices.Equal(got.Games, []string{"sky"}) {
 		t.Fatalf("got %+v, %v", got, err)
 	}
+	// The file keeps only the values that are not the defaults.
+	s.GameOptions = map[string]map[string]bool{"photon": {"ipset": true}}
+	if err := e.b.SaveSettings(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(e.l.ConfigPath()); !strings.Contains(string(data), `"gameOptions"`) {
+		t.Errorf("gameOptions is not saved: %s", data)
+	}
+	if got, _ := e.b.LoadSettings(ctx); !reflect.DeepEqual(got.GameOptions, s.GameOptions) {
+		t.Errorf("GameOptions = %v", got.GameOptions)
+	}
+	s.GameOptions = map[string]map[string]bool{"photon": {"ipset": false}}
+	if err := e.b.SaveSettings(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(e.l.ConfigPath()); strings.Contains(string(data), `"gameOptions"`) {
+		t.Errorf("a default value is saved: %s", data)
+	}
+	for _, opts := range []map[string]map[string]bool{{"nogame": {}}, {"photon": {"nope": true}}} {
+		s.GameOptions = opts
+		if err := e.b.SaveSettings(ctx, s); err == nil {
+			t.Errorf("options %v: no error", opts)
+		}
+	}
+	s.GameOptions = nil
 	s.Games = []string{"nogame"}
 	if err := e.b.SaveSettings(ctx, s); err == nil {
 		t.Error("unknown game: no error")
@@ -835,6 +860,39 @@ func TestNotWired(t *testing.T) {
 type stubTools struct{ NotWired }
 
 func (stubTools) LatestVersion(context.Context) (string, error) { return "v1", nil }
+
+// fileTools records the paths of OpenFile.
+type fileTools struct {
+	NotWired
+	paths *[]string
+}
+
+func (f fileTools) OpenFile(_ context.Context, path string) error {
+	*f.paths = append(*f.paths, path)
+	return nil
+}
+
+func TestOpenGameLists(t *testing.T) {
+	e := newEnv(t)
+	if err := e.b.OpenGameLists(ctx, "photon"); msgKey(err) != "NotWired" {
+		t.Errorf("NotWired: %v", err)
+	}
+	var paths []string
+	e.b.SetTools(fileTools{paths: &paths})
+	if err := e.b.OpenGameLists(ctx, "photon"); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(e.l.User, "ipset-photon.txt")
+	if !slices.Equal(paths, []string{want}) {
+		t.Fatalf("opened %v, want %s", paths, want)
+	}
+	if data, err := os.ReadFile(want); err != nil || !strings.Contains(string(data), "203.0.113.113/32") {
+		t.Errorf("the user list is not made: %q, %v", data, err)
+	}
+	if err := e.b.OpenGameLists(ctx, "nogame"); err == nil {
+		t.Error("unknown game: no error")
+	}
+}
 
 func TestStateText(t *testing.T) {
 	for s, want := range map[service.State]backend.ServiceState{

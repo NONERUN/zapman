@@ -392,6 +392,7 @@ func (a *App) saveSettings(fn func(s *backend.Settings)) error {
 	a.mu.Lock()
 	s := a.settings
 	s.Games = slices.Clone(s.Games)
+	s.GameOptions = backend.CloneGameOptions(s.GameOptions)
 	a.mu.Unlock()
 	fn(&s)
 	if err := a.be.SaveSettings(a.ctx, s); err != nil {

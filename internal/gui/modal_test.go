@@ -235,7 +235,7 @@ func TestModalPaths(t *testing.T) {
 		}, run: (*App).ClickGames},
 		{name: "games save error", prepare: func(e *flowEnv) {
 			e.f.FailNext("SaveSettings", errSample)
-			e.sh.on(WinGames, func() { e.a.GamesApply([]string{"sky"}) })
+			e.sh.on(WinGames, func() { e.a.GamesApply([]string{"sky"}, nil) })
 		}, run: (*App).ClickGames, errors: 1},
 		{name: "diagnostics error", prepare: fail("Diagnostics"), run: (*App).ClickDiag, errors: 1},
 		{name: "diagnostics action error, then close", prepare: func(e *flowEnv) {

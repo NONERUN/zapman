@@ -94,6 +94,13 @@ textarea {
 .list label.check.about { align-items: flex-start; padding: 3px 4px; }
 .list label.check.about input { margin-top: 2px; }
 .list label.check.about small { display: block; color: #6d6d6d; white-space: normal; }
+/* A game of the Games dialog: the game, the button of its list, then its
+   options with an indent. */
+.list .game-row { display: flex; align-items: flex-start; gap: 4px; }
+.list .game-row label.check { flex: 1; min-width: 0; }
+.list .game-row button { flex: none; margin: 2px 4px 0 0; padding: 0 8px; height: 22px; }
+.list label.check.option { padding-left: 24px; }
+.list label.check.option.disabled small { color: #a0a0a0; }
 
 /* Page with a grid layout, for the windows that can change size. */
 .page {

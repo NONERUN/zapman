@@ -2,8 +2,11 @@ package app
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/NONERUN/zapman/internal/gui/backend"
+	"github.com/NONERUN/zapman/internal/spec"
 )
 
 // Tools are the actions of the network, the hosts file, the downloads, the
@@ -16,6 +19,8 @@ type Tools interface {
 	DownloadIPSet(ctx context.Context, progress backend.Progress) error
 	CheckHosts(ctx context.Context, progress backend.Progress) (backend.HostsCheck, error)
 	OpenHosts(ctx context.Context) error
+	// OpenFile opens the file at path in Notepad. OpenGameLists uses it.
+	OpenFile(ctx context.Context, path string) error
 	LatestVersion(ctx context.Context) (string, error)
 	Diagnostics(ctx context.Context) ([]backend.DiagItem, error)
 	RunDiagAction(ctx context.Context, item backend.DiagItem) error
@@ -63,6 +68,9 @@ func (NotWired) CheckHosts(context.Context, backend.Progress) (backend.HostsChec
 // OpenHosts implements Tools.
 func (NotWired) OpenHosts(context.Context) error { return notWired("OpenHosts") }
 
+// OpenFile implements Tools.
+func (NotWired) OpenFile(context.Context, string) error { return notWired("OpenFile") }
+
 // LatestVersion implements Tools.
 func (NotWired) LatestVersion(context.Context) (string, error) {
 	return "", notWired("LatestVersion")
@@ -103,6 +111,36 @@ func (b *Backend) CheckHosts(ctx context.Context, progress backend.Progress) (ba
 
 // OpenHosts implements backend.Backend with Options.Tools.
 func (b *Backend) OpenHosts(ctx context.Context) error { return b.tools.OpenHosts(ctx) }
+
+// OpenGameLists implements backend.Backend. It makes the missing user
+// files of the game (EnsureUserFiles), then opens each user list of the
+// game with Options.Tools.
+func (b *Backend) OpenGameLists(ctx context.Context, id string) error {
+	cat, err := b.l.LoadCatalog()
+	if err != nil {
+		return err
+	}
+	g := cat.Game(id)
+	if g == nil {
+		return fmt.Errorf("unknown game %q", id)
+	}
+	names := g.UserLists()
+	if len(names) == 0 {
+		return fmt.Errorf("game %q has no user lists", id)
+	}
+	if err := b.l.EnsureUserFiles(cat, []*spec.Game{g}); err != nil {
+		return fmt.Errorf("make the user files: %w", err)
+	}
+	var errs []error
+	for _, name := range names {
+		path, err := b.l.UserFile(name)
+		if err == nil {
+			err = b.tools.OpenFile(ctx, path)
+		}
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
 
 // LatestVersion implements backend.Backend with Options.Tools.
 func (b *Backend) LatestVersion(ctx context.Context) (string, error) {

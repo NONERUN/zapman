@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -522,6 +523,24 @@ func (g *Game) With(vals map[string]bool) (*Game, error) {
 	}
 	out.rules = g.variants[optionText(sortedKeys(g.Options), out.values)]
 	return &out, nil
+}
+
+// UserLists gives the names of the user: lists of all bundles of the game
+// (the part after user:), sorted, each one time. The bundles with an
+// option that is off are also in the result.
+func (g *Game) UserLists() []string {
+	var out []string
+	for _, b := range g.Lists {
+		for _, refs := range [][]string{b.Hostlist, b.HostlistExclude, b.Ipset, b.IpsetExclude} {
+			for _, r := range refs {
+				if name, ok := strings.CutPrefix(r, PrefixUser); ok {
+					out = append(out, name)
+				}
+			}
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
 }
 
 // resolveRules gives the rules as checked v0.1 profiles.

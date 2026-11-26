@@ -35,8 +35,8 @@ type wired struct {
 	web *web.Client
 	// hosts gives the path of the system hosts file.
 	hosts func() string
-	// openHosts opens the hosts file in Notepad.
-	openHosts func(path string) error
+	// notepad opens a file in Notepad.
+	notepad func(path string) error
 	// diag gives the Checker of the diagnostics.
 	diag func() *diag.Checker
 	// tester gives the tests for the folder, the catalog and the config.
@@ -49,13 +49,13 @@ var _ Tools = (*wired)(nil)
 // b.SetTools.
 func NewTools(b *Backend) Tools {
 	return &wired{
-		b:         b,
-		run:       command.Run,
-		web:       &web.Client{},
-		hosts:     web.HostsPath,
-		openHosts: web.OpenHosts,
-		diag:      func() *diag.Checker { return diag.New(b.l.Root, b.l.Bin) },
-		tester:    newTester,
+		b:       b,
+		run:     command.Run,
+		web:     &web.Client{},
+		hosts:   web.HostsPath,
+		notepad: web.OpenNotepad,
+		diag:    func() *diag.Checker { return diag.New(b.l.Root, b.l.Bin) },
+		tester:  newTester,
 	}
 }
 
@@ -113,7 +113,10 @@ func (w *wired) CheckHosts(ctx context.Context, p backend.Progress) (backend.Hos
 }
 
 // OpenHosts implements Tools.
-func (w *wired) OpenHosts(context.Context) error { return w.openHosts(w.hosts()) }
+func (w *wired) OpenHosts(context.Context) error { return w.notepad(w.hosts()) }
+
+// OpenFile implements Tools.
+func (w *wired) OpenFile(_ context.Context, path string) error { return w.notepad(path) }
 
 // LatestVersion implements Tools. An answer with no version tag gives ""
 // and no error; the GUI tells that the check failed.
@@ -230,7 +233,9 @@ func (w *wired) RunTests(ctx context.Context, req backend.TestRequest, sink back
 	}, testSink{sink})
 }
 
-// gamesOf gives the games of cfg that are in the catalog.
+// gamesOf gives the games of cfg that are in the catalog, for
+// EnsureUserFiles. The option values are not necessary: EnsureUserFiles
+// makes the lists of all bundles of a game.
 func gamesOf(cat *spec.Catalog, cfg *config.Config) []*spec.Game {
 	var out []*spec.Game
 	for _, id := range cfg.Games {

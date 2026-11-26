@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -136,16 +137,34 @@ func TestFakeSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Games = []string{"sky", "sker", "sky"}
+	s.Games = []string{"sky", "photon", "sky"}
+	s.GameOptions = map[string]map[string]bool{"photon": {"ipset": true}, "sky": {}}
 	s.GameFilter = GameFilterUDP
 	s.Language = "en"
 	if err := f.SaveSettings(ctx, s); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := f.LoadSettings(ctx)
-	if !slices.Equal(got.Games, []string{"sker", "sky"}) || got.GameFilter != GameFilterUDP || got.Language != "en" {
+	if !slices.Equal(got.Games, []string{"photon", "sky"}) || got.GameFilter != GameFilterUDP || got.Language != "en" {
 		t.Fatalf("saved: %+v", got)
 	}
+	if !reflect.DeepEqual(got.GameOptions, map[string]map[string]bool{"photon": {"ipset": true}}) {
+		t.Fatalf("saved options: %v", got.GameOptions)
+	}
+	s.GameOptions = map[string]map[string]bool{"photon": {"ipset": false}}
+	if err := f.SaveSettings(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.LoadSettings(ctx); got.GameOptions != nil {
+		t.Fatalf("a default value is kept: %v", got.GameOptions)
+	}
+	for _, opts := range []map[string]map[string]bool{{"nope": {}}, {"photon": {"nope": true}}, {"sky": {"ipset": true}}} {
+		s.GameOptions = opts
+		if err := f.SaveSettings(ctx, s); err == nil {
+			t.Fatalf("options %v: no error", opts)
+		}
+	}
+	s.GameOptions = nil
 	s.Games = []string{"nope"}
 	if err := f.SaveSettings(ctx, s); err == nil {
 		t.Fatal("unknown game: no error")
@@ -160,6 +179,19 @@ func TestFakeSettings(t *testing.T) {
 	var ce *ConfigError
 	if !errors.As(err, &ce) {
 		t.Fatalf("LoadSettings with a bad file: %v", err)
+	}
+}
+
+func TestFakeOpenGameLists(t *testing.T) {
+	f := NewFake()
+	if err := f.OpenGameLists(ctx, "photon"); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.Data().ListsOpened; !slices.Equal(got, []string{"ipset-photon.txt"}) {
+		t.Fatalf("ListsOpened = %v", got)
+	}
+	if err := f.OpenGameLists(ctx, "nope"); err == nil {
+		t.Fatal("unknown game: no error")
 	}
 }
 

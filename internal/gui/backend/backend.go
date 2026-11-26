@@ -87,6 +87,9 @@ type Backend interface {
 	CheckHosts(ctx context.Context, progress Progress) (HostsCheck, error)
 	// OpenHosts opens the system hosts file in Notepad.
 	OpenHosts(ctx context.Context) error
+	// OpenGameLists makes the missing user lists of the game and opens them
+	// in Notepad.
+	OpenGameLists(ctx context.Context, id string) error
 	// LatestVersion gives the tag of the latest release.
 	LatestVersion(ctx context.Context) (string, error)
 
@@ -146,10 +149,13 @@ var IPSetModes = []IPSetMode{IPSetNone, IPSetLoaded, IPSetAny}
 // Backend.IPSet.
 type Settings struct {
 	// Language is "ru", "en" or empty (the language of Windows).
-	Language        string
-	Engine          spec.Engine
-	Strategy        string
-	Games           []string
+	Language string
+	Engine   spec.Engine
+	Strategy string
+	Games    []string
+	// GameOptions maps a game ID to the option values that are not the
+	// defaults of the catalog. It can have games that are off.
+	GameOptions     map[string]map[string]bool
 	GameFilter      GameFilterMode
 	AutoUpdateCheck bool
 	TrayWatch       bool
@@ -228,6 +234,22 @@ type GameInfo struct {
 	// About maps a UI language (ru, en) to a short text about the game.
 	// It can be empty.
 	About map[string]string
+	// Options are the options of the game, sorted by ID.
+	Options []GameOptionInfo
+	// UserLists are the names of the user lists of the game (the files in
+	// the user folder). OpenGameLists opens them.
+	UserLists []string
+}
+
+// GameOptionInfo is an option of a game module.
+type GameOptionInfo struct {
+	ID string
+	// Title and About map a UI language (ru, en) to a text. About can be
+	// empty.
+	Title map[string]string
+	About map[string]string
+	// Default is the value when Settings.GameOptions does not set it.
+	Default bool
 }
 
 // ServiceSnapshot is the service that SuspendService removed.
