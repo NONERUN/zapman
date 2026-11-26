@@ -93,6 +93,12 @@ func withService(name string, f func(s *mgr.Service) error) error {
 
 // ReadConfig opens the SCM and the service only for a read, thus it does
 // not need administrator rights.
+//
+// The RPC of QueryServiceConfig (mgr.Service.Config) has a limit of 8 KB.
+// The ImagePath of a strategy is frequently longer than 4096 characters.
+// Then QueryServiceConfig fails with RPC_S_INVALID_BOUND ("The array bounds
+// are invalid"), also with a large buffer; "sc qc zapret" fails in the same
+// way. Then ReadConfig uses readLongConfig.
 func (windowsHost) ReadConfig(name string) (Config, error) {
 	scm, err := windows.OpenSCManager(nil, nil, windows.SC_MANAGER_CONNECT)
 	if err != nil {
@@ -107,9 +113,12 @@ func (windowsHost) ReadConfig(name string) (Config, error) {
 	if err != nil {
 		return Config{}, notInstalled(name, err)
 	}
+	defer windows.CloseServiceHandle(h) //nolint:errcheck // a close of a read handle.
 	s := &mgr.Service{Name: name, Handle: h}
-	defer s.Close() //nolint:errcheck // a close of a read handle.
 	c, err := s.Config()
+	if errors.Is(err, windows.RPC_S_INVALID_BOUND) {
+		return readLongConfig(h, name)
+	}
 	if err != nil {
 		return Config{}, err
 	}
@@ -119,6 +128,66 @@ func (windowsHost) ReadConfig(name string) (Config, error) {
 		StartType:        c.StartType,
 		DelayedAutoStart: c.DelayedAutoStart,
 	}, nil
+}
+
+// readLongConfig reads the configuration of the service h without
+// QueryServiceConfig. The start type and the display name come from the key
+// of the service, and the description and the delayed start come from
+// QueryServiceConfig2. The display name is the value of the key as it is:
+// an indirect string ("@file,-id") stays indirect, and CreateService accepts
+// it again.
+func readLongConfig(h windows.Handle, name string) (Config, error) {
+	var c Config
+	b, err := queryConfig2(h, windows.SERVICE_CONFIG_DESCRIPTION)
+	if err != nil {
+		return Config{}, fmt.Errorf("read the description: %w", err)
+	}
+	c.Description = windows.UTF16PtrToString((*windows.SERVICE_DESCRIPTION)(unsafe.Pointer(&b[0])).Description) //nolint:gosec // G103: the buffer has a SERVICE_DESCRIPTION.
+	b, err = queryConfig2(h, windows.SERVICE_CONFIG_DELAYED_AUTO_START_INFO)
+	if err != nil {
+		return Config{}, fmt.Errorf("read the delayed start: %w", err)
+	}
+	c.DelayedAutoStart = (*windows.SERVICE_DELAYED_AUTO_START_INFO)(unsafe.Pointer(&b[0])).IsDelayedAutoStartUp != 0 //nolint:gosec // G103: the buffer has a SERVICE_DELAYED_AUTO_START_INFO.
+
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, servicesKey+name, registry.QUERY_VALUE)
+	if errors.Is(err, fs.ErrNotExist) {
+		return Config{}, fmt.Errorf("%s: %w", name, ErrNotInstalled)
+	}
+	if err != nil {
+		return Config{}, err
+	}
+	defer k.Close() //nolint:errcheck // a close of a read key.
+	start, _, err := k.GetIntegerValue("Start")
+	if err != nil {
+		return Config{}, fmt.Errorf("read Start: %w", err)
+	}
+	c.StartType = uint32(start) //nolint:gosec // G115: Start is a REG_DWORD.
+	// The SCM shows the service name when the key has no DisplayName.
+	c.DisplayName, _, err = k.GetStringValue("DisplayName")
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		c.DisplayName = name
+	case err != nil:
+		return Config{}, fmt.Errorf("read DisplayName: %w", err)
+	}
+	return c, nil
+}
+
+// queryConfig2 calls QueryServiceConfig2 for the level. It gives a buffer
+// that is not empty. When the buffer is too small, it calls again with the
+// size that the API gives.
+func queryConfig2(h windows.Handle, level uint32) ([]byte, error) {
+	n := uint32(1024)
+	for {
+		b := make([]byte, n)
+		err := windows.QueryServiceConfig2(h, level, &b[0], n, &n)
+		if err == nil {
+			return b, nil
+		}
+		if !errors.Is(err, windows.ERROR_INSUFFICIENT_BUFFER) || n <= uint32(len(b)) { //nolint:gosec // G115: the buffer is less than 4 GB.
+			return nil, err
+		}
+	}
 }
 
 // Create calls CreateService directly: mgr.CreateService puts the path and
