@@ -237,6 +237,38 @@ Fooling не вешается на Lua-атаку `multisplit`.
 - `Build(cat, cfg)` — стратегия, игры, Game Filter из конфига → `Build`. `CommandLine()` = `"<bin>\<exe>" <строки argv через пробел>`; для winws2 первым идёт `--chdir="<bin>"`. Та же строка — ImagePath службы. Длиннее 32766 символов UTF-16 (предел `CreateProcess`) — ошибка.
 - `Runner.Run(build)` — запуск на переднем плане, cwd = `bin/`, без окна, вывод — хвост 64 КБ. Выход в первые 2 с — ошибка (`ExitError`). Код `0xC0000142` (`STATUS_DLL_INIT_FAILED`) при первом запуске — пауза 1 с и один повтор; снова он — ошибка с кодом и советом про исключения антивируса. Запуск процесса (`Runner.Start`) подменяется в тестах. Что служба не запущена, проверяет вызывающий.
 
+### `internal/service`
+
+Служба `zapret` (то же имя, что у PowerShell-версии и Flowseal `service.bat`). Она запускает `winws.exe` / `winws2.exe` напрямую: ImagePath = `Build.CommandLine()` как есть, без второго экранирования (`CreateService` вызывается напрямую, не через `mgr.CreateService`). Вызовы SCM, реестра и процессов — за интерфейсом `Host`; тесты используют подделку и не трогают службы машины.
+
+- `PlanFor(build)` → `Plan{Strategy, Version, Games, ImagePath}`. `Install(plan)` — шаги PowerShell-версии: копия старой записи → стоп службы и всех `winws` / `winws2` → удаление и ожидание, пока служба пропадёт (8 с) → создание (8 попыток через 400 мс, автозапуск, описание `Zapret DPI bypass software`) → запись значений и сверка чтением → старт и ожидание `Running` (15 с) и ещё 2 с. Ошибка после удаления — новая служба удаляется, старая создаётся снова (не запускается). Код выхода `0xC0000142` — один повтор старта. ImagePath длиннее 32766 символов, без кавычек у exe или без стратегии — ошибка до любых вызовов.
+- `Remove()` — стоп службы, стоп `winws` / `winws2`, удаление `zapret`, затем стоп и удаление `WinDivert` и `WinDivert14` (в этом порядке, иначе драйвер остаётся в `STOP_PENDING`). Задачу трея не трогает.
+- `Start()` — уже запущена — ничего; ImagePath не меняется. `Stop()` — стоп и ожидание `Stopped`.
+- `Install`, `Remove`, `Start`, `Stop` без прав администратора — `ErrNotElevated` до любых вызовов. `Status` прав не требует.
+
+Служба не меняется до переустановки: Game Filter, движок, стратегия, active-fake и папка zapman — в ImagePath. Запись о стратегии — значения в ключе службы `HKLM\SYSTEM\CurrentControlSet\Services\zapret`:
+
+| Значение | Тип | Что |
+|---|---|---|
+| `zapman` | REG_SZ | имя стратегии (его же пишет PowerShell-версия) |
+| `zapmanVersion` | REG_SZ | `Strategy.Version()`, например `Flowseal 1.10.4 r3` |
+| `zapmanGames` | REG_MULTI_SZ | включённые игры с версиями, например `sky 2` |
+| `zapmanHash` | REG_SZ | SHA256 (hex) ImagePath |
+
+Значения удаляются вместе со службой, читаются без прав администратора и не видны в описании службы. Старое значение `zapret-discord-youtube` при установке удаляется и не читается.
+
+`Status(want)` — `Installed`, `State`, `ExitCode`, `Engine` (из ImagePath; `winws2.exe` проверяется первым), запись, `Edited` (хеш не совпадает с ImagePath), `Outdated` и `Reason` — первая подходящая причина:
+
+| `Reason` | Когда |
+|---|---|
+| `foreign` | нет `zapman`: службу создала другая программа (например `service.bat`) |
+| `strategy` | выбрана другая стратегия |
+| — | ImagePath совпадает с планом: не устарела |
+| `version` | другая версия стратегии или игр |
+| `legacy` | нет хеша: службу ставила PowerShell-версия, ImagePath другой |
+| `edited` | ImagePath поменяли после установки |
+| `argv` | версии те же, другая командная строка (движок, Game Filter, active-fake, папка) |
+
 ## Релиз
 
 Push аннотированного тега `vMAJOR.MINOR.PATCH` на `origin` сам запускает [Release](../.github/workflows/release.yml) **с того коммита** (YAML в теге). Job собирает zip/rar/tar.gz и создаёт **черновик**. `/releases/latest` не меняется, пока не нажмёте **Publish release**.

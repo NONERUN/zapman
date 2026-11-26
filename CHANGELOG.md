@@ -20,6 +20,7 @@
 - Go: [`internal/config`](internal/config/) — `user/config.json` (поля PowerShell-версии и новые `strategy`, `games`, `autoUpdateBricks`); атомарная запись, неизвестные поля сохраняются, ошибка называет поле. См. [`docs/dev.md`](docs/dev.md).
 - Go: свои порты Game Filter — `gameFilterTcp` / `gameFilterUdp` в `user/config.json` (список `N` / `N-M`, по умолчанию `1024-65535`), как в Flowseal `2384961`.
 - Go: [`internal/engine`](internal/engine/) — папки и `spec.Paths` (с `user/fakes/ACTIVE_*.bin`), создание недостающих `user:`-списков, сверка `bin/` с `versions.json`, командная строка движка, запуск на переднем плане с одним повтором при `0xC0000142`.
+- Go: [`internal/service`](internal/service/) — служба `zapret` (имя PowerShell-версии): установка с восстановлением старой службы при ошибке, удаление (с WinDivert), старт, стоп, статус. В ключе службы — стратегия (`zapman`), версия, игры и SHA256 ImagePath; статус говорит, устарела ли служба и почему. Без прав администратора — понятная ошибка.
 - Fake из upstream (сейчас в `strategies/fakes/`): `tls_clienthello_www_sferum_ru`, `tls_clienthello_awswaf_com`, `tls_clienthello_steam_chat_com`, `tls_clienthello_steamstatic_com`, `tls_clienthello_teamspeak_com`, `quic_initial_lemana_pro`, `quic_initial_steam_chat_com`, `quic_initial_steamstatic_com`.
 
 ### Changed
