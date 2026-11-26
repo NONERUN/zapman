@@ -52,12 +52,12 @@
 - [Использование](docs/usage.md)
 - [Проблемы](docs/troubleshooting.md)
 - [Окна GUI](docs/ui/index.md)
-- [Разработка](https://github.com/NONERUN/zapman/blob/go/docs/dev.md) — как устроен код, JSON → флаги, обновление движков, релиз (на GitHub: в архиве релиза этого файла нет)
-- [AGENTS.md](AGENTS.md) — правила для агента (раскладка, проверки, что не делать)
+- [Разработка](https://github.com/NONERUN/zapman/blob/main/docs/dev.md) — как устроен код, JSON → флаги, обновление движков, релиз (на GitHub: в архиве релиза этого файла нет)
+- [AGENTS.md](https://github.com/NONERUN/zapman/blob/main/AGENTS.md) — правила для агента (раскладка, проверки, что не делать; на GitHub)
 
 ## Разработка
 
-Ветка `go` — переписывание на Go. PowerShell-версия — на ветке `main`. Сборка, версия и релиз — [Разработка](https://github.com/NONERUN/zapman/blob/go/docs/dev.md#релиз).
+Программа написана на Go (Wails v3). Последний релиз PowerShell-версии — [`v0.1.1`](https://github.com/NONERUN/zapman/releases/tag/v0.1.1). Сборка, версия и релиз — [Разработка](https://github.com/NONERUN/zapman/blob/main/docs/dev.md#релиз).
 
 Проверки перед коммитом (в PowerShell флаг `-modfile` — в кавычках):
 

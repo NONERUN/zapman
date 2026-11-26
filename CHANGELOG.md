@@ -66,7 +66,7 @@
 
 ### Removed
 
-- PowerShell-версия на ветке `go`: `src/`, `zapman.bat`, `cli.bat`, `dev/*.ps1`, `PSScriptAnalyzerSettings.psd1`, `blinter.ini`. Иконка — в [`assets/`](assets/). PowerShell-версия остаётся на `main`.
+- PowerShell-версия: `src/`, `zapman.bat`, `cli.bat`, `dev/*.ps1`, `PSScriptAnalyzerSettings.psd1`, `blinter.ini`. Иконка — в [`assets/`](assets/). Последний релиз PowerShell-версии — `v0.1.1`.
 
 ### Fixed
 

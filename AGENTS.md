@@ -1,6 +1,6 @@
 # Инструкции для агентов
 
-**Zapret Manager** (`zapman`) запускает [zapret](https://github.com/bol-van/zapret) (`winws.exe`) и [zapret2](https://github.com/bol-van/zapret2) (`winws2.exe`) из `bin/`. Ветка `go` — переписывание на Go. PowerShell-версия (GUI, CLI, служба, трей) — только на ветке `main`. Workflow Release этой ветки собирает Go-версию (`zapman.exe`, версия — из git-тега) — [`docs/dev.md`](docs/dev.md#релиз).
+**Zapret Manager** (`zapman`) запускает [zapret](https://github.com/bol-van/zapret) (`winws.exe`) и [zapret2](https://github.com/bol-van/zapret2) (`winws2.exe`) из `bin/`. Программа на Go: GUI и трей на Wails v3 в одном `zapman.exe`. PowerShell-версия (GUI, CLI, служба, трей) — только в истории git, последний её релиз — тег `v0.1.1`. Workflow Release собирает `zapman.exe` с версией из git-тега ([`docs/dev.md`](docs/dev.md#релиз)).
 
 Какие поля JSON дают какие флаги — [`docs/dev.md`](docs/dev.md). [`CHANGELOG.md`](CHANGELOG.md) — дельты, не описание «как сейчас». Документация — на русском.
 
@@ -15,12 +15,15 @@
 | `cmd/zapman/` | GUI на Wails: окна, трей, страницы `frontend/` — [`docs/dev.md`](docs/dev.md#gui-wails) |
 | `internal/gui/` | Логика окон GUI без Wails; `backend/` — интерфейс бэкенда и фейк, `i18n/` — строки |
 | `internal/app/` | Настоящий бэкенд GUI поверх `config`, `engine`, `service`; задача трея `zapman-tray`; `Tools` — сеть, hosts, загрузки, диагностика и тесты из `internal/tools` (`NewTools`, подключён в `cmd/zapman`) |
+| `internal/tools/` | `command` (запуск программ без окна), `netreset`, `web` (теги GitHub, IPSet, hosts), `diag`, `stratest` (тесты стратегий) |
 | `strategies/` | Сток-каталог: `catalog.json`, `lists.json`, `targets.json`, `actions.json`; `flowseal/` — стратегии Flowseal; `games/` — игровые модули; `fakes/` — fake и паттерны `.bin`; `schema/` — JSON Schema (генерируется) |
 | `lists/` | Сток-списки (`list-*.txt`, `ipset-*.txt`, `*.default.txt`) |
 | `bin/` | Только файлы движков: `winws.exe`, `winws2.exe`, `cygwin1.dll`, WinDivert, `lua/`. Теги и SHA256 — [`bin/versions.json`](bin/versions.json) |
-| `.service/` | Данные для «Сверить hosts» (`hosts`) и «Скачать ipset» (`ipset-service.txt`) |
+| `.service/` | Данные для «Сверить hosts» (`hosts`) и «Скачать ipset» (`ipset-service.txt`). Программа берёт их с GitHub из ветки `main`, и старые релизы тоже: пути не менять |
 | `assets/` | Иконки (синяя `app.ico`; серая `app-idle.ico`, жёлтая `app-warn.ico`, красная `app-error.ico`) и их лицензия |
+| `docs/` | Документация: `usage.md`, `troubleshooting.md`, `ui/` — для пользователя (в архиве релиза), `dev.md` — для разработчика (не в архиве) |
 | `dev/` | Инструменты разработки (ниже) |
+| `tools/` | Отдельный модуль Go с инструментами: `golangci-lint`, `govulncheck`, `go-winres` |
 | `user/` | Данные пользователя (gitignore) |
 
 ## Не делать
@@ -30,6 +33,7 @@
 - Не разбирать строку флагов вне `internal/spec`.
 - Не добавлять чтение второго файла «если первого нет», тихий fallback на другой `engine`, предупреждение об устаревании, которое оставляет оба поведения.
 - Не писать атаки вне списка в [`docs/dev.md`](docs/dev.md).
+- Не ставить относительные ссылки на `docs/dev.md` и `AGENTS.md` в файлах архива релиза (`README.md`, `docs/usage.md`, `docs/troubleshooting.md`, `docs/ui/`): этих файлов в архиве нет. Только полный адрес GitHub (`blob/main`).
 - Не делать `git push`: пушит человек.
 
 Новые стратегии не выдумывать. Смысл атак брать из [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube). Свой набор файлов — только после явного решения в чате или issue.

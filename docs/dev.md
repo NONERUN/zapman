@@ -16,7 +16,7 @@
 
 Строку флагов разбирает и собирает только `internal/spec`. GUI, служба и всё остальное получают готовые строки и не пытаются их править: так у формата одно место, где он определён, и одно место, которое проверяют тесты.
 
-Версия продукта — git-тег `vMAJOR.MINOR.PATCH`; workflow Release вшивает его в exe (см. [«Релиз»](#релиз)). В файлах репозитория номера версии нет. У PowerShell-версии на ветке `main` всё иначе: там версия — `ModuleVersion` в `src/Zapman/Zapman.psd1`, а тег — `v` + это число.
+Версия продукта — git-тег `vMAJOR.MINOR.PATCH`; workflow Release вшивает его в exe (см. [«Релиз»](#релиз)). В файлах репозитория номера версии нет. У PowerShell-версии (теги до `v0.1.1`) было иначе: там версия — `ModuleVersion` в `src/Zapman/Zapman.psd1`, а тег — `v` + это число.
 
 Формат стратегий — `"spec": 2` (см. [«Каталог стратегий»](#каталог-стратегий)); номер формата в коде — константа `Version` в [`internal/spec`](../internal/spec/).
 
@@ -500,13 +500,13 @@ go generate ./cmd/zapman
 |---|---|
 | `cmd/zapman/` | Точка входа: окна Wails, диалоги, трей (`shell.go` — реализация `gui.Shell`) |
 | `cmd/zapman/frontend/` | Страницы: простые HTML, CSS и JS (ES-модули), по странице на окно; `index.html` — главное окно |
-| `internal/gui/` | Логика окон PS GUI (`src/gui` на `main`) без Wails: виды окон, кнопки, тексты, трей. Тесты — с фейковым `Shell` |
+| `internal/gui/` | Логика окон PS GUI (`src/gui` в теге `v0.1.1`) без Wails: виды окон, кнопки, тексты, трей. Тесты — с фейковым `Shell` |
 | `internal/gui/backend/` | Интерфейс `Backend` (всё, что GUI просит у движка, службы и конфига) и детерминированный фейк в памяти |
 | `internal/gui/i18n/` | Строки RU / EN (копия таблиц `Ui.ps1`) и строки, которых нет в PS-версии |
 | `internal/app/` | Настоящий `Backend` поверх `internal/config`, `internal/engine`, `internal/service` и `internal/tools` (`wired.go`); задача трея `zapman-tray` (`schtasks.exe`) |
 | `assets/assets.go` | `app.ico` для окон и трея (`go:embed`) |
 
-Макеты окон в [`docs/ui/`](ui/index.md) сделаны PowerShell-версией (`main`); на ветке `go` генератора макетов нет.
+Макеты окон в [`docs/ui/`](ui/index.md) сделаны PowerShell-версией (`dev/export-gui-docs.ps1` в теге `v0.1.1`); у Go-версии генератора макетов нет.
 
 ### Как страницы говорят с Go
 
@@ -587,11 +587,13 @@ Release создаётся только этим workflow: релиз, созд�
 
 ### Повтор и исправления
 
-Запустить сборку снова без нового тега можно вручную. YAML тогда берётся с ветки `--ref`, а код — с тега. Пока `go` не влит в `main`, на `main` лежит `release.yml` PowerShell-версии, поэтому для тега Go-версии нужен `--ref go`:
+Запустить сборку снова без нового тега можно вручную. YAML тогда берётся с ветки `--ref`, а код — с тега:
 
 ```text
-gh workflow run Release --repo NONERUN/zapman --ref go -f tag=v0.2.0
+gh workflow run Release --repo NONERUN/zapman --ref main -f tag=v0.2.0
 ```
+
+Тег PowerShell-версии (`v0.1.1` и раньше) так не собрать: в нём нет Go-кода.
 
 `--repo NONERUN/zapman` пишите всегда: `gh` в этой копии может смотреть на репозиторий Flowseal.
 
