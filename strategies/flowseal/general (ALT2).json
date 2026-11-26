@@ -1,0 +1,35 @@
+{
+  "$schema": "../schema/strategy.json",
+  "spec": 2,
+  "upstream": "1.10.0",
+  "rev": 3,
+  "rules": [
+    { "target": "quic-general", "action": "fake-quic-google-6" },
+    { "target": "discord-voice", "action": "fake-discord-6" },
+    { "target": "discord-media", "action": "multisplit-652-google" },
+    {
+      "target": "google",
+      "action": {
+        "desync": ["multisplit"],
+        "splitPos": "2",
+        "seqovl": 652,
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
+        "ipId": "zero"
+      }
+    },
+    { "target": "tls-only-general", "action": "multisplit-652-google" },
+    { "target": "quic-ipset", "action": "fake-quic-google-6" },
+    { "target": "tls-only-ipset", "action": "multisplit-652-google" },
+    {
+      "target": "gf-tcp",
+      "action": {
+        "desync": ["multisplit"],
+        "cutoff": 3,
+        "splitPos": "2",
+        "seqovl": 652,
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin"
+      }
+    },
+    { "target": "gf-udp", "action": "fake-game-12-n2" }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "$schema": "../schema/strategy.json",
+  "spec": 2,
+  "upstream": "1.10.4",
+  "rev": 3,
+  "rules": [
+    {
+      "target": { "l7": ["quic"], "lists": ["general"], "exclude": ["exclude-hosts", "exclude-ips"] },
+      "action": "fake-quic-google-11"
+    },
+    {
+      "target": { "udp": ["19294-19344", "50000-50100"], "l7": ["discord", "stun", "unknown"], "anyProtocol": true },
+      "action": {
+        "desync": ["fake"],
+        "repeats": 4,
+        "cutoff": 4,
+        "fake": {
+          "discord": ["cat:fakes/quic_initial_www_google_com.bin", "active:DISCORD_UDP"],
+          "stun": ["active:DISCORD_UDP"],
+          "unknownUdp": ["cat:fakes/quic_initial_www_google_com.bin", "active:DISCORD_UDP"]
+        }
+      }
+    },
+    { "target": "discord-media", "action": "fake-multisplit-681-google" },
+    { "target": "google", "action": "hostfakesplit" },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 4,
+        "splitPos": "1",
+        "seqovl": 480,
+        "seqovlPattern": "cat:fakes/stun2.bin",
+        "fooling": ["ts"],
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
+    { "target": "quic-ipset", "action": "fake-quic-google-11" },
+    {
+      "target": {
+        "tcp": ["80", "443", "8443"],
+        "l7": ["tls", "http"],
+        "lists": ["ipset-all"],
+        "exclude": ["exclude-hosts", "exclude-ips"],
+        "excludeDomains": ["fonts.googleapis.com"]
+      },
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 4,
+        "splitPos": "1",
+        "seqovl": 480,
+        "seqovlPattern": "cat:fakes/stun2.bin",
+        "fooling": ["ts"],
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
+    {
+      "target": "gf-tcp",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 8,
+        "cutoff": 4,
+        "splitPos": "1",
+        "seqovl": 664,
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_sferum_ru.bin",
+        "fooling": ["ts"],
+        "fake": {
+          "tls": ["cat:fakes/stun2.bin", "cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
+        }
+      }
+    },
+    {
+      "target": "gf-udp",
+      "action": {
+        "desync": ["fake"],
+        "repeats": 5,
+        "cutoff": 4,
+        "fake": { "unknownUdp": ["cat:fakes/quic_initial_4pda_to.bin", "active:GAME_UDP"] }
+      }
+    }
+  ]
+}

@@ -1,0 +1,359 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/NONERUN/zapman/strategies/schema/strategy.json",
+  "title": "zapman strategy (spec 2)",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "spec": {
+      "description": "format version: 2",
+      "type": "integer",
+      "const": 2
+    },
+    "upstream": {
+      "description": "flowseal/ only: the first upstream tag with the last change of the .bat file",
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z._-]*$"
+    },
+    "rev": {
+      "description": "flowseal/ only: 1 + the number of zapman changes of the argv since the upstream tag",
+      "type": "integer",
+      "minimum": 1
+    },
+    "version": {
+      "description": "zapman/ only: the version of the strategy; add 1 when the argv changes",
+      "type": "integer",
+      "minimum": 1
+    },
+    "about": {
+      "description": "a short text for people",
+      "type": "string"
+    },
+    "rules": {
+      "description": "rules in winws order (the first match wins)",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "spec",
+    "rules"
+  ],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "required": [
+        "upstream",
+        "rev"
+      ]
+    },
+    {
+      "required": [
+        "version"
+      ]
+    }
+  ],
+  "$defs": {
+    "action": {
+      "type": "object",
+      "properties": {
+        "desync": {
+          "description": "attacks, in order",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "fake",
+              "fakedsplit",
+              "hostfakesplit",
+              "multidisorder",
+              "multisplit",
+              "syndata"
+            ]
+          },
+          "minItems": 1
+        },
+        "repeats": {
+          "description": "--dpi-desync-repeats= / repeats=",
+          "type": "integer",
+          "minimum": 0
+        },
+        "ttl": {
+          "description": "--dpi-desync-ttl= / ip_ttl=",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "cutoff": {
+          "description": "number of packets (winws nN) or \"none\"",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "none"
+            }
+          ]
+        },
+        "splitPos": {
+          "description": "--dpi-desync-split-pos= / pos=",
+          "type": "string"
+        },
+        "seqovl": {
+          "description": "--dpi-desync-split-seqovl= / seqovl=",
+          "type": "integer",
+          "minimum": 0
+        },
+        "seqovlPattern": {
+          "description": "bin:, lists: or user: file",
+          "type": "string"
+        },
+        "fooling": {
+          "description": "fooling names",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "badseq",
+              "md5sig",
+              "ts"
+            ]
+          },
+          "minItems": 1
+        },
+        "badseqIncrement": {
+          "description": "--dpi-desync-badseq-increment= / tcp_seq=",
+          "type": "integer",
+          "minimum": 0
+        },
+        "ipId": {
+          "description": "--ip-id= / ip_id=",
+          "type": "string"
+        },
+        "hostfakesplitMod": {
+          "description": "--dpi-desync-hostfakesplit-mod=",
+          "type": "string"
+        },
+        "fakedsplitPattern": {
+          "description": "--dpi-desync-fakedsplit-pattern= (0x<hex> or file)",
+          "type": "string"
+        },
+        "tlsMod": {
+          "description": "--dpi-desync-fake-tls-mod= / tls_mod=",
+          "type": "string"
+        },
+        "luaPayload": {
+          "description": "winws2 payload= on each Lua attack",
+          "type": "string"
+        },
+        "fake": {
+          "description": "fake payloads per slot",
+          "$ref": "#/$defs/fakes"
+        }
+      },
+      "required": [
+        "desync"
+      ],
+      "additionalProperties": false
+    },
+    "fakes": {
+      "type": "object",
+      "properties": {
+        "quic": {
+          "description": "--dpi-desync-fake-quic=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "tls": {
+          "description": "--dpi-desync-fake-tls=; ! is the stock hello",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "http": {
+          "description": "--dpi-desync-fake-http=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "discord": {
+          "description": "--dpi-desync-fake-discord=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "stun": {
+          "description": "--dpi-desync-fake-stun=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "unknown": {
+          "description": "--dpi-desync-fake-unknown=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "unknownUdp": {
+          "description": "--dpi-desync-fake-unknown-udp=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "rule": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "description": "target name or inline target",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            },
+            {
+              "$ref": "#/$defs/target"
+            }
+          ]
+        },
+        "action": {
+          "description": "action name or inline action",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            },
+            {
+              "$ref": "#/$defs/action"
+            }
+          ]
+        }
+      },
+      "required": [
+        "target",
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "tcp": {
+          "description": "TCP ports: N or N-M; $gameFilter is the Game Filter ports",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(\\$gameFilter|[0-9]+(-[0-9]+)?)$"
+          },
+          "minItems": 1
+        },
+        "udp": {
+          "description": "UDP ports: N or N-M; $gameFilter is the Game Filter ports",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(\\$gameFilter|[0-9]+(-[0-9]+)?)$"
+          },
+          "minItems": 1
+        },
+        "l3": {
+          "description": "--filter-l3= (ipv4 or ipv6)",
+          "type": "string"
+        },
+        "l7": {
+          "description": "--filter-l7= names",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "dht",
+              "discord",
+              "http",
+              "quic",
+              "stun",
+              "tls",
+              "unknown",
+              "wireguard"
+            ]
+          },
+          "minItems": 1
+        },
+        "lists": {
+          "description": "bundle names with hostlist / ipset refs",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "minItems": 1
+        },
+        "exclude": {
+          "description": "bundle names with hostlistExclude / ipsetExclude refs",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "minItems": 1
+        },
+        "domains": {
+          "description": "--hostlist-domains=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "excludeDomains": {
+          "description": "--hostlist-exclude-domains=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "anyProtocol": {
+          "description": "winws --dpi-desync-any-protocol=1; winws2 --payload=all",
+          "type": "boolean"
+        },
+        "payload": {
+          "description": "winws2 --payload= group; only when the group from l7 / anyProtocol is not correct",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

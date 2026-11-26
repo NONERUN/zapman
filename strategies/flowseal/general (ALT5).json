@@ -1,0 +1,30 @@
+{
+  "$schema": "../schema/strategy.json",
+  "spec": 2,
+  "upstream": "1.10.0",
+  "rev": 3,
+  "rules": [
+    { "target": "quic-general", "action": "fake-quic-google-6" },
+    { "target": "discord-voice", "action": "fake-discord-6" },
+    {
+      "target": {
+        "tcp": ["80", "443", "2053", "2083", "2087", "2096", "8443"],
+        "l3": "ipv4",
+        "l7": ["tls"],
+        "exclude": ["exclude-ips"]
+      },
+      "action": { "desync": ["syndata", "multidisorder"] }
+    },
+    { "target": "gf-tcp", "action": { "desync": ["syndata", "multidisorder"], "cutoff": 4 } },
+    { "target": "quic-ipset", "action": "fake-quic-google-6" },
+    {
+      "target": "gf-udp",
+      "action": {
+        "desync": ["fake"],
+        "repeats": 14,
+        "cutoff": 3,
+        "fake": { "unknownUdp": ["active:GAME_UDP"] }
+      }
+    }
+  ]
+}

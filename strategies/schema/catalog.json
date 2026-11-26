@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/NONERUN/zapman/strategies/schema/catalog.json",
+  "title": "zapman catalog",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "description": "catalog id: stock for the catalog of zapman",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "title": {
+      "description": "name in the UI",
+      "type": "string"
+    },
+    "spec": {
+      "description": "format version: 2",
+      "type": "integer",
+      "const": 2
+    },
+    "active": {
+      "description": "defaults of the active:<NAME> fakes: NAME to a cat: file",
+      "type": "object",
+      "patternProperties": {
+        "^[A-Z0-9]+(_[A-Z0-9]+)*$": {
+          "type": "string",
+          "pattern": "^cat:[^ ]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files": {
+      "description": "SHA256 (hex) of each file but catalog.json and schema/; go generate ./internal/spec writes it",
+      "type": "object",
+      "patternProperties": {
+        "^[^/\\\\]+(/[^/\\\\]+)*$": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "spec"
+  ],
+  "additionalProperties": false
+}

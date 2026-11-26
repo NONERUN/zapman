@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/NONERUN/zapman/strategies/schema/actions.json",
+  "title": "zapman actions",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    }
+  },
+  "patternProperties": {
+    "^[a-z0-9]+(-[a-z0-9]+)*$": {
+      "$ref": "#/$defs/action"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "action": {
+      "type": "object",
+      "properties": {
+        "desync": {
+          "description": "attacks, in order",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "fake",
+              "fakedsplit",
+              "hostfakesplit",
+              "multidisorder",
+              "multisplit",
+              "syndata"
+            ]
+          },
+          "minItems": 1
+        },
+        "repeats": {
+          "description": "--dpi-desync-repeats= / repeats=",
+          "type": "integer",
+          "minimum": 0
+        },
+        "ttl": {
+          "description": "--dpi-desync-ttl= / ip_ttl=",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "cutoff": {
+          "description": "number of packets (winws nN) or \"none\"",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "none"
+            }
+          ]
+        },
+        "splitPos": {
+          "description": "--dpi-desync-split-pos= / pos=",
+          "type": "string"
+        },
+        "seqovl": {
+          "description": "--dpi-desync-split-seqovl= / seqovl=",
+          "type": "integer",
+          "minimum": 0
+        },
+        "seqovlPattern": {
+          "description": "bin:, lists: or user: file",
+          "type": "string"
+        },
+        "fooling": {
+          "description": "fooling names",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "badseq",
+              "md5sig",
+              "ts"
+            ]
+          },
+          "minItems": 1
+        },
+        "badseqIncrement": {
+          "description": "--dpi-desync-badseq-increment= / tcp_seq=",
+          "type": "integer",
+          "minimum": 0
+        },
+        "ipId": {
+          "description": "--ip-id= / ip_id=",
+          "type": "string"
+        },
+        "hostfakesplitMod": {
+          "description": "--dpi-desync-hostfakesplit-mod=",
+          "type": "string"
+        },
+        "fakedsplitPattern": {
+          "description": "--dpi-desync-fakedsplit-pattern= (0x<hex> or file)",
+          "type": "string"
+        },
+        "tlsMod": {
+          "description": "--dpi-desync-fake-tls-mod= / tls_mod=",
+          "type": "string"
+        },
+        "luaPayload": {
+          "description": "winws2 payload= on each Lua attack",
+          "type": "string"
+        },
+        "fake": {
+          "description": "fake payloads per slot",
+          "$ref": "#/$defs/fakes"
+        }
+      },
+      "required": [
+        "desync"
+      ],
+      "additionalProperties": false
+    },
+    "fakes": {
+      "type": "object",
+      "properties": {
+        "quic": {
+          "description": "--dpi-desync-fake-quic=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "tls": {
+          "description": "--dpi-desync-fake-tls=; ! is the stock hello",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "http": {
+          "description": "--dpi-desync-fake-http=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "discord": {
+          "description": "--dpi-desync-fake-discord=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "stun": {
+          "description": "--dpi-desync-fake-stun=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "unknown": {
+          "description": "--dpi-desync-fake-unknown=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "unknownUdp": {
+          "description": "--dpi-desync-fake-unknown-udp=",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

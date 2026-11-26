@@ -1,0 +1,74 @@
+{
+  "$schema": "../schema/strategy.json",
+  "spec": 2,
+  "upstream": "1.10.4",
+  "rev": 3,
+  "rules": [
+    { "target": "quic-general", "action": "fake-quic-google-6" },
+    { "target": "discord-voice", "action": "fake-discord-6" },
+    {
+      "target": "discord-media",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 6,
+        "fooling": ["badseq"],
+        "badseqIncrement": 1000,
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
+      }
+    },
+    {
+      "target": "google",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 6,
+        "fooling": ["badseq"],
+        "badseqIncrement": 1000,
+        "ipId": "zero",
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
+      }
+    },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 6,
+        "fooling": ["badseq"],
+        "badseqIncrement": 1000,
+        "fake": {
+          "tls": ["cat:fakes/stun.bin", "cat:fakes/tls_clienthello_www_google_com.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
+        }
+      }
+    },
+    { "target": "quic-ipset", "action": "fake-quic-google-6" },
+    {
+      "target": "tls-ipset",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 6,
+        "fooling": ["badseq"],
+        "badseqIncrement": 1000,
+        "fake": {
+          "tls": ["cat:fakes/stun.bin", "cat:fakes/tls_clienthello_www_google_com.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
+        }
+      }
+    },
+    {
+      "target": "gf-tcp",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 6,
+        "cutoff": 3,
+        "fooling": ["badseq"],
+        "badseqIncrement": 1000,
+        "fake": {
+          "tls": ["cat:fakes/stun.bin", "cat:fakes/tls_clienthello_www_google_com.bin"],
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "unknown": ["cat:fakes/stun.bin", "cat:fakes/tls_clienthello_www_google_com.bin"]
+        }
+      }
+    },
+    { "target": "gf-udp", "action": "fake-game-10-n2" }
+  ]
+}

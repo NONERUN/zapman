@@ -1,0 +1,34 @@
+{
+  "$schema": "./schema/targets.json",
+  "quic-general": { "udp": ["443"], "l7": ["quic"], "lists": ["general"], "exclude": ["exclude-hosts", "exclude-ips"] },
+  "discord-voice": { "udp": ["19294-19344", "50000-50100"], "l7": ["discord", "stun"] },
+  "discord-media": { "tcp": ["2053", "2083", "2087", "2096", "8443"], "l7": ["tls"], "domains": ["discord.media"] },
+  "google": { "tcp": ["443"], "l7": ["tls"], "lists": ["google"] },
+  "tls-only-general": {
+    "tcp": ["80", "443"],
+    "l7": ["tls"],
+    "lists": ["general"],
+    "exclude": ["exclude-hosts", "exclude-ips"]
+  },
+  "quic-ipset": { "udp": ["443"], "l7": ["quic"], "lists": ["ipset-all"], "exclude": ["exclude-hosts", "exclude-ips"] },
+  "tls-only-ipset": {
+    "tcp": ["80", "443", "8443"],
+    "l7": ["tls"],
+    "lists": ["ipset-all"],
+    "exclude": ["exclude-hosts", "exclude-ips"]
+  },
+  "gf-tcp": { "tcp": ["$gameFilter"], "lists": ["ipset-all"], "exclude": ["exclude-ips"], "anyProtocol": true },
+  "gf-udp": { "udp": ["$gameFilter"], "lists": ["ipset-all"], "exclude": ["exclude-ips"], "anyProtocol": true },
+  "tls-general": {
+    "tcp": ["80", "443"],
+    "l7": ["tls", "http"],
+    "lists": ["general"],
+    "exclude": ["exclude-hosts", "exclude-ips"]
+  },
+  "tls-ipset": {
+    "tcp": ["80", "443", "8443"],
+    "l7": ["tls", "http"],
+    "lists": ["ipset-all"],
+    "exclude": ["exclude-hosts", "exclude-ips"]
+  }
+}

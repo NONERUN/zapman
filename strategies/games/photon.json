@@ -1,0 +1,37 @@
+{
+  "$schema": "../schema/game.json",
+  "id": "photon",
+  "title": "Photon (UDP 5055-5058, 27000-27002)",
+  "about": {
+    "ru": "Обход для игр на сервере Photon: UDP-порты 5055-5058 и 27000-27002. По умолчанию для всех IP",
+    "en": "Bypass for games on Photon servers: UDP ports 5055-5058 and 27000-27002. By default for all IPs"
+  },
+  "version": 3,
+  "order": 30,
+  "options": {
+    "ipset": {
+      "title": {
+        "ru": "Только подсети Photon Cloud EU из списка",
+        "en": "Only the Photon Cloud EU subnets from the list"
+      },
+      "about": {
+        "ru": "lists/ipset-photon.txt и user/ipset-photon.txt",
+        "en": "lists/ipset-photon.txt and user/ipset-photon.txt"
+      }
+    }
+  },
+  "lists": { "ipset-photon": { "ipset": ["lists:ipset-photon.txt", "user:ipset-photon.txt"], "when": "ipset" } },
+  "rules": [
+    {
+      "target": { "udp": ["5055-5058", "27000-27002"], "lists": ["ipset-photon"], "anyProtocol": true },
+      "action": {
+        "desync": ["fake"],
+        "repeats": 6,
+        "ttl": 8,
+        "cutoff": 4,
+        "luaPayload": "all",
+        "fake": { "unknownUdp": ["active:GAME_UDP"] }
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "../schema/strategy.json",
+  "spec": 2,
+  "upstream": "1.10.2",
+  "rev": 3,
+  "rules": [
+    { "target": "quic-general", "action": "fake-quic-google-11" },
+    {
+      "target": "discord-voice",
+      "action": {
+        "desync": ["fake"],
+        "repeats": 5,
+        "fake": { "discord": ["active:DISCORD_UDP"], "stun": ["active:DISCORD_UDP"] }
+      }
+    },
+    {
+      "target": "discord-media",
+      "action": {
+        "desync": ["fake", "multisplit"],
+        "repeats": 7,
+        "splitPos": "1",
+        "seqovl": 681,
+        "seqovlPattern": "cat:fakes/tls_clienthello_www_google_com.bin",
+        "fooling": ["ts"],
+        "fake": { "tls": ["cat:fakes/tls_clienthello_www_google_com.bin"] }
+      }
+    },
+    {
+      "target": "google",
+      "action": { "desync": ["hostfakesplit"], "fooling": ["ts"], "hostfakesplitMod": "host=www.google.com" }
+    },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "repeats": 5,
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=mail.ru,altorder=1",
+        "fake": {
+          "tls": ["cat:fakes/tls_clienthello_sochi_park.bin", "cat:fakes/stun2.bin"],
+          "http": ["cat:fakes/tls_clienthello_sochi_park.bin"]
+        }
+      }
+    },
+    { "target": "quic-ipset", "action": "fake-quic-google-11" },
+    {
+      "target": "tls-ipset",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "repeats": 5,
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=mail.ru,altorder=1",
+        "fake": {
+          "tls": ["cat:fakes/tls_clienthello_sochi_park.bin", "cat:fakes/stun2.bin"],
+          "http": ["cat:fakes/tls_clienthello_sochi_park.bin"]
+        }
+      }
+    },
+    {
+      "target": "gf-tcp",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "repeats": 5,
+        "cutoff": 4,
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=mail.ru,altorder=1",
+        "fake": {
+          "tls": ["cat:fakes/tls_clienthello_sochi_park.bin", "cat:fakes/stun2.bin"],
+          "http": ["cat:fakes/tls_clienthello_sochi_park.bin"],
+          "unknown": ["cat:fakes/tls_clienthello_sochi_park.bin", "cat:fakes/stun2.bin"]
+        }
+      }
+    },
+    { "target": "gf-udp", "action": "fake-game-10-n4" }
+  ]
+}

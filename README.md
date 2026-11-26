@@ -39,34 +39,33 @@
 2. Скачайте архив со [страницы релизов](https://github.com/NONERUN/zapman/releases/latest) **этого** репозитория.
 3. Свойства архива → «Разблокировать» (7-Zip / PeaZip часто не требуют).
 4. Распакуйте в путь без кириллицы, пробелов и спецсимволов. Для обновления скопируйте старую папку `user/` в новую распаковку.
-5. Запустите [`zapman.bat`](./zapman.bat) (права администратора будут запрошены автоматически).
+5. Запустите `zapman.exe` из архива. Windows спросит права администратора (UAC).
 
-На **Windows 10 LTSC** и новее с рабочим столом ничего ставить не нужно. На **Windows 7 SP1 x64** — WMF 5.1 и .NET 4.5+.
+Нужна Windows 10 или новее, x64, с WebView2 (в Windows 10 и 11 он обычно уже стоит). Windows 7 не поддерживается. Консольной версии (CLI) пока нет: всё делается в GUI.
 
-Кнопки, служба, трей (`zapman-tray`), IPSet, консоль `cli.bat` — [использование](docs/usage.md).
+Кнопки, служба, трей (`zapman-tray`), IPSet, игры — [использование](docs/usage.md).
+
+Кнопка **Игры...** включает игровые модули: Sky: Children of the Light и Photon (Sker Ritual, Hazard Levels и другие игры на Photon). Их правила идут перед правилами любой стратегии. Подробнее — [Игры](docs/usage.md#игры).
 
 ## Документация
 
 - [Использование](docs/usage.md)
 - [Проблемы](docs/troubleshooting.md)
 - [Окна GUI](docs/ui/index.md)
-- [Разработка](docs/dev.md) — JSON → флаги, `dev\update-zapret.ps1`
-- [AGENTS.md](AGENTS.md) — правила для агента (5.1, WPF, что не делать)
+- [Разработка](https://github.com/NONERUN/zapman/blob/main/docs/dev.md) — как устроен код, JSON → флаги, обновление движков, релиз (на GitHub: в архиве релиза этого файла нет)
+- [AGENTS.md](https://github.com/NONERUN/zapman/blob/main/AGENTS.md) — правила для агента (раскладка, проверки, что не делать; на GitHub)
 
 ## Разработка
 
-Интерпретатор продукта — `powershell.exe` **5.1**, не `pwsh`.
+Программа написана на Go (Wails v3). Последний релиз PowerShell-версии — [`v0.1.1`](https://github.com/NONERUN/zapman/releases/tag/v0.1.1). Сборка, версия и релиз — [Разработка](https://github.com/NONERUN/zapman/blob/main/docs/dev.md#релиз).
 
-Тестирование:
-
-```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
-```
-
-После смены XAML или строк UI:
+Проверки перед коммитом (в PowerShell флаг `-modfile` — в кавычках):
 
 ```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
+go tool -modfile=tools/go.mod golangci-lint run ./...
+go tool -modfile=tools/go.mod govulncheck ./...
+go vet ./...
+go test ./...
 ```
 
 ## Поддержка проекта
@@ -78,7 +77,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
 ## Лицензия
 
 [MIT](LICENSE.txt).
-Иконка окон и трея — [`src/gui/app.LICENSE.txt`](src/gui/app.LICENSE.txt) (Heroicons, MIT).
+Иконка окон и трея — [`assets/app.LICENSE.txt`](assets/app.LICENSE.txt) (Heroicons, MIT).
 
 ## Благодарность
 

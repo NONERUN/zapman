@@ -1,153 +1,98 @@
 # Инструкции для агентов
 
-**Zapret Manager** (`zapman`) запускает [zapret](https://github.com/bol-van/zapret) (`winws.exe`) и [zapret2](https://github.com/bol-van/zapret2) (`winws2.exe`) из `bin/`. Какие поля JSON дают какие флаги — [`docs/dev.md`](docs/dev.md).
+**Zapret Manager** (`zapman`) запускает [zapret](https://github.com/bol-van/zapret) (`winws.exe`) и [zapret2](https://github.com/bol-van/zapret2) (`winws2.exe`) из `bin/`. Программа на Go: GUI и трей на Wails v3 в одном `zapman.exe`. PowerShell-версия (GUI, CLI, служба, трей) — только в истории git, последний её релиз — тег `v0.1.1`. Workflow Release собирает `zapman.exe` с версией из git-тега ([`docs/dev.md`](docs/dev.md#релиз)).
 
-В корне два `.bat`: `zapman.bat` (GUI), `cli.bat` (консоль). Третий `.bat` не добавлять. Новая логика — только `.ps1`.
+Какие поля JSON дают какие флаги — [`docs/dev.md`](docs/dev.md). [`CHANGELOG.md`](CHANGELOG.md) — дельты, не описание «как сейчас». Документация — на русском.
 
-Текущий интерфейс — этот файл, [`docs/usage.md`](docs/usage.md), [`docs/dev.md`](docs/dev.md). [`CHANGELOG.md`](CHANGELOG.md) — дельты, не описание «как сейчас».
+## Раскладка
+
+| Путь | Роль |
+|---|---|
+| `internal/spec/` | Каталог стратегий: загрузка, проверка, сборка argv winws / winws2 (`Build`). Golden-файлы — `testdata/golden/` |
+| `internal/config/` | `user/config.json`: загрузка с дефолтами, проверка полей, атомарная запись |
+| `internal/engine/` | Папки, сверка `bin/` с `versions.json`, командная строка движка, запуск на переднем плане |
+| `internal/service/` | Служба `zapret`: установка, удаление, старт, стоп, статус и «устарела ли»; SCM и реестр — за интерфейсом `Host`, в тестах подделка |
+| `cmd/zapman/` | GUI на Wails: окна, трей, страницы `frontend/` — [`docs/dev.md`](docs/dev.md#gui-wails) |
+| `internal/gui/` | Логика окон GUI без Wails; `backend/` — интерфейс бэкенда и фейк, `i18n/` — строки |
+| `internal/app/` | Настоящий бэкенд GUI поверх `config`, `engine`, `service`; задача трея `zapman-tray`; `Tools` — сеть, hosts, загрузки, диагностика и тесты из `internal/tools` (`NewTools`, подключён в `cmd/zapman`) |
+| `internal/tools/` | `command` (запуск программ без окна), `netreset`, `web` (теги GitHub, IPSet, hosts), `diag`, `stratest` (тесты стратегий) |
+| `strategies/` | Сток-каталог: `catalog.json`, `lists.json`, `targets.json`, `actions.json`; `flowseal/` — стратегии Flowseal; `games/` — игровые модули; `fakes/` — fake и паттерны `.bin`; `schema/` — JSON Schema (генерируется) |
+| `lists/` | Сток-списки (`list-*.txt`, `ipset-*.txt`, `*.default.txt`) |
+| `bin/` | Только файлы движков: `winws.exe`, `winws2.exe`, `cygwin1.dll`, WinDivert, `lua/`. Теги и SHA256 — [`bin/versions.json`](bin/versions.json) |
+| `.service/` | Данные для «Сверить hosts» (`hosts`) и «Скачать ipset» (`ipset-service.txt`). Программа берёт их с GitHub из ветки `main`, и старые релизы тоже: пути не менять |
+| `assets/` | Иконки (синяя `app.ico`; серая `app-idle.ico`, жёлтая `app-warn.ico`, красная `app-error.ico`) и их лицензия |
+| `docs/` | Документация: `usage.md`, `troubleshooting.md`, `ui/` — для пользователя (в архиве релиза), `dev.md` — для разработчика (не в архиве) |
+| `dev/` | Инструменты разработки (ниже) |
+| `tools/` | Отдельный модуль Go с инструментами: `golangci-lint`, `govulncheck`, `go-winres` |
+| `user/` | Данные пользователя (gitignore) |
 
 ## Не делать
 
 - Не читать `lists/*-user.txt`, старый `lists/ipset-all.txt` и корневой `config.json`. Свои списки и настройки — только `user/`.
-- Не оставлять `foo.bat` рядом с `foo.ps1`. Не добавлять алиас `*-Zapret*` для `*-Zapman*`.
-- Не держать второй `strategies/*.json` «для winws2». Один JSON, два argv из ZapretSpec.
-- Не разбирать строку флагов в GUI, CLI или `Bypass.ps1`. Argv собирает только [`src/ZapretSpec/`](src/ZapretSpec/).
+- Не держать второй JSON стратегии «для winws2». Один JSON, два argv из `internal/spec`.
+- Не разбирать строку флагов вне `internal/spec`.
 - Не добавлять чтение второго файла «если первого нет», тихий fallback на другой `engine`, предупреждение об устаревании, которое оставляет оба поведения.
-- Не копировать политику 5.1 / стратегий в комментарии каждого `.ps1`. Комментарии в коде — [ASD-STE100](https://www.asd-ste100.org/) Simplified Technical English.
-- Не ставить зависимость, без которой GUI на Windows 10 LTSC не открывается: нет требования Visual Studio, .NET SDK, `pwsh`, WinUI.
-- Не писать атаки вне списка в [`docs/dev.md`](docs/dev.md). Не подменять чужой `specVersion` другим числом.
+- Не писать атаки вне списка в [`docs/dev.md`](docs/dev.md).
+- Не ставить относительные ссылки на `docs/dev.md` и `AGENTS.md` в файлах архива релиза (`README.md`, `docs/usage.md`, `docs/troubleshooting.md`, `docs/ui/`): этих файлов в архиве нет. Только полный адрес GitHub (`blob/main`).
+- Не делать `git push`: пушит человек.
 
 Новые стратегии не выдумывать. Смысл атак брать из [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube). Свой набор файлов — только после явного решения в чате или issue.
 
-Смена имени `strategies/*.json` — строка в CHANGELOG Changed (`старое` → `новое`). Удаление стратегии без преемника — Breaking. Документацию (`README.md`, этот файл, `docs/`, примеры в `lists/`, JSON стратегий) править в том же изменении, что и код.
+Смена имени стратегии — строка в CHANGELOG Changed (`старое` → `новое`). Удаление стратегии без преемника — Breaking. Документацию (`README.md`, этот файл, `docs/`, `lists/`, JSON стратегий) править в том же изменении, что и код.
 
 `bin/` всегда содержит и `winws.exe`, и `winws2.exe`. Нет exe выбранного `engine` — ошибка, не переход на другой exe.
 
-## Среда выполнения
+Комментарии в коде — [ASD-STE100](https://www.asd-ste100.org/) Simplified Technical English.
 
-Интерпретатор продукта — **Windows PowerShell 5.1** (`powershell.exe`), не PowerShell 7 (`pwsh`). Не писать `??`, `?:`, `&&` / `||`, `-Parallel`.
+## Проверки
 
-Таблица — что **запускает** продукт. Разработка, агент и `dev\lint.ps1` (STA + `XamlReader.Load`) могут быть на более новой десктопной сборке. Машину агента не считать LTSC.
-
-| Платформа | Ожидание |
-|---|---|
-| Windows 10 LTSC (и новее с рабочим столом) | Запуск без допнастроек: inbox PS 5.1, .NET 4.x, WPF (`PresentationFramework`), CIM |
-| Windows 7 SP1 x64 | WMF 5.1 и .NET 4.5+ |
-| PowerShell 7 | Не цель |
-
-## Код (ловушки 5.1)
-
-Уже ломали GUI:
-
-- `return @(...)` разворачивает массив из 0/1 элемента. Для `.Count` оборачивайте в `@()` **в месте использования**.
-- `Set-StrictMode -Version Latest` запрещает обращение к несуществующим свойствам.
-- `Get-Item HKLM:\...` открывает ключ только на чтение. Для записи — `OpenSubKey(..., $true)`.
-- `$PSScriptRoot`, `Get-CimInstance`, `-LiteralPath` требуют минимум PowerShell **3.0**.
-- WPF нужен **STA**: `powershell.exe -STA`. Вход — `zapman.bat`.
-- Не писать `New-Object System.Collections.Generic.List[object]`. `List[string]` можно.
-
-[`src/Zapman/Ui.ps1`](src/Zapman/Ui.ps1) с кириллицей — **UTF-8 с BOM**. Без BOM PowerShell 5.1 ломает литералы. XAML в [`src/gui/`](src/gui/) — ASCII; тексты через `Get-ZapmanUiString`.
-
-## Линтер
-
-После правок `.ps1`, `.bat`, `src/gui/`, `src/cli/`, `src/Zapman/`, `src/Zapret/`, `src/ZapretSpec/`, `strategies/` или `dev/`:
+Перед каждым коммитом все четыре без ошибок:
 
 ```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\lint.ps1
+go tool -modfile=tools/go.mod golangci-lint run ./...
+go tool -modfile=tools/go.mod govulncheck ./...
+go vet ./...
+go test ./...
 ```
 
-Все FAIL исправить до конца задачи. После правки XAML или строк UI ещё:
+В PowerShell флаг брать в кавычки: `'-modfile=tools/go.mod'`.
+
+Линтеры — отдельный модуль [`tools/go.mod`](tools/go.mod), их зависимости не смешиваются с зависимостями программы. Версия Go — `toolchain` в `go.mod`; govulncheck нашёл уязвимость в стандартной библиотеке — поднять `toolchain` в `go.mod` и `tools/go.mod`. golangci-lint (настройки — [`.golangci.yml`](.golangci.yml)) проверяет и gofmt / goimports. `//nolint` — только с именем линтера и причиной: `//nolint:gosec // причина`.
+
+То же делает workflow [Go](.github/workflows/go.yml). Тесты не ходят в сеть.
+
+После любой правки каталога (`strategies/`, типы в `internal/spec`):
 
 ```text
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File dev\export-gui-docs.ps1
+go generate ./internal/spec
 ```
 
-`dev/lint.ps1` всегда ловит:
+Он пишет `strategies/schema/` и список `files` (SHA256) в `catalog.json`; без него тест падает.
 
-- `List[object]`; у главного окна нет `$window.IsEnabled = $false` / `Hide()` / `ShowDialog()` / `ShowInTaskbar = $false`
-- нет Forms в `src/gui/`
-- XAML только файлом (`XamlReader.Load`, `xmlns:x` если есть `x:`, без `x:Class`)
-- BOM у кириллицы / `Ui.ps1`
-- синтаксис `pwsh`
-- `-STA` в `zapman.bat`
-- `docs/ui` совпадает с генератором (`dev\export-gui-docs.ps1 -Check`)
-- `strategies/*.json`: `specVersion` и argv обоих движков; нет `--dpi-desync` на z2 и `--lua-desync` на z1; z2 `--blob=name:value`; имя blob не `0x…`; нет `blob=empty`; z2 `tls_mod` только вместе с `blob=`; winws: `fake-tls` до `fake-tls-mod`; z1 `fakedsplit-pattern` с `bin:` — путь
+Argv стратегии или игры поменялся — поднять `rev` (Flowseal) или `version` (свои стратегии, игры). Первая строка golden-файла (`# version: …`) — страж: argv другой, а версия та же — `TestGolden` падает с `argv changed: bump rev/version`. Порядок: поднять версию → обновить golden → проверить diff:
 
-Опционально: PSScriptAnalyzer; Blinter для `.bat` (`pipx install Blinter`, [`blinter.ini`](blinter.ini)).
+```text
+go test ./internal/spec -run "Golden|Edge" -update
+```
 
-## Раскладка
+`TestGolden` ещё проверяет правила argv (нет `--dpi-desync` на winws2 и `--lua-desync` на winws, `--blob=name:value` и т.д.); `TestGames` — свойства профилей Sky / Photon. `-update` их не обходит.
 
-### Входы
+## Инструменты (`dev/`)
 
-| Путь | Роль |
+| Команда | Роль |
 |---|---|
-| `zapman.bat` | GUI: inbox `powershell.exe -STA` → `src/gui/gui-boot.ps1` → `src/gui/gui.ps1`. UAC — `Start-Process -Verb RunAs` на inbox `powershell.exe`. Без предстартовых проверок: ошибка остаётся в этом окне |
-| `cli.bat` | Консоль: проверка `powershell.exe`, затем это окно — PowerShell (`src/cli/cli.ps1`) |
+| `go run ./dev/update-zapret` | Официальные zip zapret / zapret2 → `bin/` + `bin/versions.json`; сверка с `sha256sum.txt` релиза. `-dry-run`, `-zapret-tag`, `-zapret2-tag`, `-force`. Останавливает службу `zapret` и winws |
+| `go run ./dev/import-flowseal` | `general*.bat` из git-ref upstream → `strategies/flowseal/*.json` (`-write`) |
+| `go run ./dev/upstream-versions` | Сверка `upstream`-тегов стратегий Flowseal с upstream (`-write`) |
+| `go run ./dev/dist` | Папка релизного архива из закоммиченного HEAD → `.local/dist/` (`-zip`, `-tag`, `-ref`); список файлов — как в `release.yml` |
+| `dev/schemagen`, `dev/catalogfiles` | Вызываются из `go generate ./internal/spec` |
+| `dev/iconvariants` | Серая, жёлтая и красная иконки (`assets/app-idle.ico`, `app-warn.ico`, `app-error.ico`) из `assets/app.ico`; вызывается из `go generate ./assets` после правки `app.ico` |
+| `dev/commitmsg` | Хук commit-msg (ниже) |
 
-### GUI
+Флаги и коды выхода — [`docs/dev.md`](docs/dev.md) и комментарий в начале `main.go`.
 
-| Путь | Роль |
-|---|---|
-| `src/gui/gui-boot.ps1` | Короткий `-File`: скрыть консоль, UAC (этот файл), показать `Main.xaml` с [`app.ico`](src/gui/app.ico), затем разбор `gui.ps1`. `Application.Run` после разбора `gui.ps1` |
-| `src/gui/gui.ps1` | WPF code-behind. Разметка — соседние `*.xaml`. Диалоги — `gui-dialogs.ps1` (dotsource) |
+## Коммиты
 
-### Консоль
-
-| Путь | Роль |
-|---|---|
-| `src/cli/cli.ps1` | Меню или `service` / `tests` / `env` в том же процессе |
-| `src/cli/service.ps1` | Консольное меню. Elevate — этот файл, не `cli.ps1` |
-| `src/cli/test-zapret.ps1` | `cli.bat tests` → `Invoke-ZapmanStrategyTests`. Exit ≠ 0: нет прав, нет `curl.exe`, нет JSON на выбранный `engine`, нет завершённых результатов. Прогон прошёл (в том числе все ячейки красные) — exit 0 |
-
-Служба, ImagePath, IPSet, Game Filter, старт winws — [`src/Zapret/Bypass.ps1`](src/Zapret/Bypass.ps1). Пункты меню CLI могут отличаться от GUI (UAC, когда пишется `engine`). Не копировать UX GUI в CLI «чтобы было одинаково» без задачи.
-
-### Модуль и данные
-
-| Путь | Роль |
-|---|---|
-| `src/Zapman/` | Модуль (`Zapman.psd1`): config, UI, тесты, диагностика, трей. GUI и консоль импортируют его. Тег продукта — `v` + `ModuleVersion`. Auto-Update Check сравнивает с GitHub tags. [`Tray.ps1`](src/Zapman/Tray.ps1) — отдельный процесс (`-File`), не dotsource в `Zapman.psm1` |
-| `src/ZapretSpec/` | JSON → argv winws / winws2. Своя `ModuleVersion`. Zapman грузит по пути. Не стартует winws |
-| `src/Zapret/` | `Bypass.ps1`: winws, служба `zapret`, стратегии, фильтры, ipset, fake. Dotsource из Zapman, не отдельный модуль |
-| `test-results/` | Логи тестов (на лету) |
-| `strategies/*.json` | Поля стратегии (`specVersion` = ZapretSpec). Сток — `lists:`, свои файлы — `user:`, fake — `bin:` |
-| `lists/` | Сток: `list-general.txt`, `list-exclude.txt`, `list-google.txt`, `ipset-exclude.txt`, `ipset-all.default.txt` |
-| `user/` | Свои списки, рабочий `ipset-all.txt`, `user/config.json` (язык, `engine`, фильтры, Auto-Update Check, `trayWatch`). Списки создаются при старте, gitignore. Корневой `config.json` не читать. При обновлении копируют папку в новую распаковку |
-| `docs/` | `usage.md`, `troubleshooting.md`, `dev.md`. Макеты — `docs/ui/` (генератор, не править руками) |
-| `bin/` | `winws.exe`, `winws2.exe` + `lua/`, общий WinDivert. Теги и SHA256 — [`bin/versions.json`](bin/versions.json). GUI не сверяет при открытии окна; сверка при старте выбранного `engine` и в `cli.bat env`. Lua в хеше как LF |
-
-### Dev
-
-| Путь | Роль |
-|---|---|
-| `dev/lint.ps1` | 5.1/WPF + PSSA + Blinter; JSON через ZapretSpec; `-Check` макетов `docs/ui` |
-| `dev/export-gui-docs.ps1` | XAML + `Ui.ps1` → `docs/ui/*.svg` и `index.md` / `index.html` |
-| `dev/update-zapret.ps1` | Официальные zip zapret / zapret2 → `bin/` + [`bin/versions.json`](bin/versions.json). Fake `.bin` не трогает |
-| `.github/workflows/release.yml` | Push тега `v*.*.*` → черновик GitHub Release (zip с дерева тега). Publish вручную. Шаги — [`docs/dev.md`](docs/dev.md) |
-| `.githooks/commit-msg` | `Co-authored-by: Cursor` → `Assisted-by`. Включение: `git config core.hooksPath .githooks` |
-
-## Служба и фильтры
-
-Код — `src/Zapret/Bypass.ps1` (вызывают GUI и `src/cli/service.ps1`).
-
-- **Снять службы:** сначала `zapret` (дождаться Stopped), потом процессы `winws` / `winws2`, потом WinDivert / WinDivert14. Иначе драйвер зависает в `STOP_PENDING`. Задание `zapman-tray` не удалять.
-- **Install:** argv, pin (`bin/versions.json`) и ImagePath **до** `sc delete`; дождаться удаления; ImagePath из шаблона (`"exe" args`; для winws2 ещё `--chdir` на `bin/`); имя стратегии — значение `zapman` в ключе службы (старое `zapret-discord-youtube` не читать, при записи удалить); проверить реестр; старт **службой**. Не проверять установку запуском процесса с `WorkingDirectory=bin`. Сбой после create — `sc delete` и запись прежнего ImagePath, если он был.
-- **Game Filter** и **`engine`** при установленной службе сидят в ImagePath: снова **Установить службу**, не Стоп/Старт.
-- **IPSet** читается из `user/ipset-all.txt` при старте winws: достаточно Стоп/Старт. Режимы — в [`docs/usage.md`](docs/usage.md). Смена `loaded` → другое: rename файла в backup, не вечная копия.
-- **Fake…** копирует `ACTIVE_*.bin`; winws читает при старте. Как IPSet: Стоп/Старт, не Install.
-
-## GUI
-
-Главное окно (`Main.xaml`): нет списка стратегий. Кнопки **Старт службы** (выключена, если службы нет), **Стоп**, **Снять службы**, **Стратегия…**. Settings — GroupBox на главном, не отдельное окно: `cmbGame`, `cmbIpset`, `chkAuto`, `chkTray`, `btnFakes`. Смена стратегии = Install из «Стратегия…».
-
-**Стратегия…:** список `strategies/*.json`, радио `winws` / `winws2`. Радио пишет `config.json` `engine` только при **Установить службу**, **Запустить без установки** или старте тестов. **Установить службу** закрывает диалог. **Запустить без установки** останавливает службу/winws и стартует JSON (без автозапуска). **Прогнать тесты** снимает службу `zapret` на время прогона (WinDivert не трогает) и ставит снова, если JSON из снимка ещё на диске; нет файла — throw. Нет имени стратегии в реестре — службу не возвращает. **Ни одна не подходит** — `netsh winsock reset`, `netsh int ip reset all`, `netsh winhttp reset proxy`, `ipconfig /flushdns`, затем вопрос про перезагрузку. Список помечает запущенную или установленную.
-
-**Трей:** процесс [`src/Zapman/Tray.ps1`](src/Zapman/Tray.ps1), задание планировщика `zapman-tray` (`ONLOGON`, highest). По умолчанию включено (`config.json` `trayWatch`). Меню: три строки статуса, открыть GUI, Старт службы, Стоп. Старт включён только если служба есть и `Stopped`. Стоп включён если обход идёт или служба не `Stopped`. Стратегию и фильтры меняют только в GUI. Opt-out — `chkTray`.
-
-Язык RU/EN — радио на главном и пункты CLI (`cli.bat` пункт 4, `cli.bat service` пункт 11), строки `Get-ZapmanUiString`. Язык, `engine`, Game Filter, Auto-Update Check, `trayWatch` — `user/config.json`. Цели HTTP/ping тестов — [`src/Zapman/Tests.ps1`](src/Zapman/Tests.ps1) (`Get-ZapmanTestTargets`), не config.
-
-### Окно (WPF)
-
-- Крестик = выход процесса GUI. Свернуть = панель задач. Главное окно в трей не прячется.
-- Главный цикл — `Application.Run`, не `$window.ShowDialog()`. Дочерний `ShowDialog` с `Owner` можно. Не `Hide()` и не `$window.IsEnabled = $false` у главного. `ShowInTaskbar` у главного — `True`.
-- `gui-boot.ps1` делает `$window.Show()` до разбора `gui.ps1`. Сбой после скрытия консоли — снова показать консоль (`Show-GuiBootConsole`).
-- Тесты: не вешать события `Process` (`Exited`, `*DataReceived`) в scriptblock GUI.
+- Тема — по-английски, в повелительном наклонении, как в `git log` (`Add …`, `Port …`, `Fix …`). Мелкие коммиты.
+- Хук: `git config core.hooksPath .githooks`. [`.githooks/commit-msg`](.githooks/commit-msg) запускает `go run ./dev/commitmsg`: `Co-authored-by: Cursor <cursoragent@cursor.com>` → `Assisted-by: Cursor <cursoragent@cursor.com>`.
+- Хуки не пропускать (`--no-verify`).

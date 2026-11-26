@@ -1,5 +1,13 @@
-*.bat text eol=crlf
-*.ps1 text eol=crlf
 *.txt text eol=crlf
 .githooks/* text eol=lf
 bin/lua/*.lua text eol=lf
+testdata/golden/** text eol=lf
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+internal/spec/testdata/** text eol=lf
+# catalog.json "files" has the SHA256 of the bytes in git. Keep the bytes of
+# a checkout the same: no line end change.
+strategies/**/*.json text eol=lf
+*.bin binary
+*.ico binary

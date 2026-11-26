@@ -1,0 +1,87 @@
+version: "2"
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errorlint
+    - gocritic
+    - gosec
+    - intrange
+    - misspell
+    - nilerr
+    - nolintlint
+    - predeclared
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+  settings:
+    errcheck:
+      exclude-functions:
+        # Console output of CLI tools: a failed write to stdout/stderr has no recovery.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*text/tabwriter.Writer).Flush
+        # Close of a stream that is only read: there is no data to lose.
+        - (io.ReadCloser).Close
+        - (*archive/zip.ReadCloser).Close
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # Field order follows JSON and schema order, not memory layout.
+        - shadow # Only `err` in nested scopes; the idiomatic form.
+    staticcheck:
+      checks:
+        - all
+        - -ST1005 # Errors are full user-facing sentences, ported from the PowerShell version.
+        - -QF1001 # De Morgan form is less clear for character range checks.
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: dot-imports
+        - name: error-naming
+        - name: error-return
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+    gosec:
+      excludes:
+        - G104 # Same as errcheck, which has the exclude list above.
+        - G301 # Folders in the repo and in user/ are normal 0755 folders.
+        - G306 # Files in the repo and in user/ are normal 0644 files.
+        # The loader and the tools read and write paths from flags and the catalog by design.
+        - G304
+        - G703
+        - G122 # Walk of the repo catalog; no attacker controls its symlinks.
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    rules:
+      # Dev tools and tests run git and engine binaries with built argv, no shell.
+      - path: (^dev/|_test\.go$)
+        linters: [gosec]
+        text: G204
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

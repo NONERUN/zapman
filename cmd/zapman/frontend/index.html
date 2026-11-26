@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Zapret Manager</title>
+<link rel="stylesheet" href="app.css">
+<script type="module" src="main.js"></script>
+</head>
+<body>
+<!-- The places and sizes are the ones of src/gui/Main.xaml (tag v0.1.1). -->
+<label class="radio abs" style="left:292px;top:14px;width:48px;height:20px"><input type="radio" name="lang" id="rbRu" value="ru"><span data-t="LangRu"></span></label>
+<label class="radio abs" style="left:340px;top:14px;width:48px;height:20px"><input type="radio" name="lang" id="rbEn" value="en"><span data-t="LangEn"></span></label>
+
+<div id="banner" class="banner abs" style="left:16px;top:42px;width:368px;max-height:40px"></div>
+
+<div id="grpStatus" class="group click" style="left:16px;top:88px;width:368px;height:102px" data-tip="TipStatusClick">
+  <span class="hdr" data-t="GrpStatus"></span>
+  <div class="in">
+    <div id="lblBypass" class="dim abs" style="left:12px;top:2px;width:344px"></div>
+    <div id="lblService" class="dim abs" style="left:12px;top:20px;width:344px"></div>
+    <div id="lblInstalled" class="dim abs" style="left:12px;top:38px;width:344px"></div>
+    <div id="lblDivert" class="dim abs" style="left:12px;top:56px;width:344px"></div>
+  </div>
+</div>
+
+<button id="btnStart" class="abs" style="left:16px;top:198px;width:178px;height:28px" data-t="BtnStart" data-tip="TipStart"></button>
+<button id="btnStop" class="abs" style="left:206px;top:198px;width:178px;height:28px" data-t="BtnStop" data-tip="TipStop"></button>
+<button id="btnRemove" class="abs" style="left:16px;top:230px;width:178px;height:28px" data-t="BtnRemove" data-tip="TipRemove"></button>
+<button id="btnStrategy" class="abs" style="left:206px;top:230px;width:178px;height:28px" data-t="BtnStrategy" data-tip="TipStrategy"></button>
+
+<div class="group" style="left:16px;top:266px;width:368px;height:140px">
+  <span class="hdr" data-t="GrpSettings"></span>
+  <div class="in">
+    <span class="abs" style="left:12px;top:4px" data-t="LblGame"></span>
+    <select id="cmbGame" class="abs" style="left:92px;top:0;width:118px">
+      <option>disabled</option>
+      <option>TCP and UDP</option>
+      <option>TCP only</option>
+      <option>UDP only</option>
+    </select>
+    <span class="abs" style="left:216px;top:4px" data-t="LblIpset"></span>
+    <select id="cmbIpset" class="abs" style="left:276px;top:0;width:80px">
+      <option>none</option>
+      <option>loaded</option>
+      <option>any</option>
+    </select>
+    <label class="check abs" style="left:12px;top:32px" data-tip="TipAuto"><input type="checkbox" id="chkAuto"><span data-t="ChkAuto"></span></label>
+    <label class="check abs" style="left:12px;top:52px" data-tip="TipTray"><input type="checkbox" id="chkTray"><span data-t="ChkTray"></span></label>
+    <button id="btnFakes" class="abs" style="left:12px;top:80px;width:168px;height:28px" data-t="BtnFakes" data-tip="TipFakes"></button>
+    <button id="btnGames" class="abs" style="left:188px;top:80px;width:168px;height:28px" data-t="BtnGames" data-tip="TipGames"></button>
+  </div>
+</div>
+
+<div class="group" style="left:16px;top:414px;width:368px;height:92px">
+  <span class="hdr" data-t="GrpTools"></span>
+  <div class="in">
+    <button id="btnIpset" class="abs" style="left:12px;top:2px;width:168px;height:28px" data-t="BtnIpset" data-tip="TipIpset"></button>
+    <button id="btnHosts" class="abs" style="left:188px;top:2px;width:168px;height:28px" data-t="BtnHosts" data-tip="TipHosts"></button>
+    <button id="btnVersion" class="abs" style="left:12px;top:36px;width:168px;height:28px" data-t="BtnVersion" data-tip="TipVersion"></button>
+    <button id="btnDiag" class="abs" style="left:188px;top:36px;width:168px;height:28px" data-t="BtnDiag" data-tip="TipDiag"></button>
+  </div>
+</div>
+</body>
+</html>

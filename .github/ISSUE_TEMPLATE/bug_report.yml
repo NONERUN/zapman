@@ -9,10 +9,10 @@ body:
       value: |
         Сначала [README](https://github.com/NONERUN/zapman/blob/main/README.md) и [проблемы](https://github.com/NONERUN/zapman/blob/main/docs/troubleshooting.md). Кратко:
 
-        - `zapman.bat` → **Диагностика**. Если не открывается Discord — очистите кэш в конце.
-        - `zapman.bat` → **Сверить hosts** (или `cli.bat service`).
-        - Другие стратегии: **Стратегия…**. Если ни одна не подходит — та же кнопка **Ни одна не подходит**, затем перезагрузка Windows.
-        - Если без zapret всё работает: **Game Filter** = `disabled`, **IPSet Filter** = `none`, затем снова Install или запуск стратегии.
+        - `zapman.exe` → **Диагностика**. Если не открывается Discord — очистите кэш (кнопка **Исправить** в строке кэша Discord).
+        - `zapman.exe` → **Сверить hosts**.
+        - Другие стратегии и другой движок: **Стратегия...**. Если ни одна не подходит — там же **Ни одна не подходит**, затем перезагрузка Windows.
+        - Если без zapret всё работает: **Game Filter** = `disabled`, **IPSet Filter** = `none`, лишние галки в **Игры...** сняты, затем снова **Установить службу** или запуск стратегии.
         - GUI не открывается / нет стратегий: **Снять службы** → **Диагностика** → удалите папку → скачайте [релиз](https://github.com/NONERUN/zapman/releases) → распакуйте в путь без кириллицы, спецсимволов и пробелов.
         - Игры: не этот Issue. [Discussions](https://github.com/NONERUN/zapman/discussions) или [Discussions оригинального репозитория](https://github.com/Flowseal/zapret-discord-youtube/discussions).
 
@@ -28,9 +28,9 @@ body:
           required: true
         - label: Я скачал Zapret Manager из [релизов этого репозитория](https://github.com/NONERUN/zapman/releases)
           required: true
-        - label: Я прогнал **Диагностика** в `zapman.bat` (или `cli.bat service`)
+        - label: Я прогнал **Диагностика** в `zapman.exe`
           required: true
-        - label: Я пробовал другие стратегии в **Стратегия…**
+        - label: Я пробовал другие стратегии в **Стратегия...**
           required: true
         - label: Это не проблема конкретной игры (игры — в Discussions этого репозитория или [оригинального](https://github.com/Flowseal/zapret-discord-youtube/discussions))
           required: true
@@ -58,9 +58,9 @@ body:
     id: version
     attributes:
       label: Версия Zapret Manager
-      description: Строка в заголовке окна (`Zapret Manager v0.1.0`). `v0.0.0` значит поле не заполнили.
-      placeholder: v0.0.0
-      value: v0.0.0
+      description: Версия из заголовка главного окна или из первой строки окна «Статус и журнал» (клик по **Status**), например `v0.2.0`. Сборка не из релиза показывает `dev-…`. `(не заполнено)` значит поле не трогали.
+      placeholder: (не заполнено)
+      value: (не заполнено)
     validations:
       required: true
 
@@ -81,7 +81,7 @@ body:
     id: strategy
     attributes:
       label: Стратегия
-      description: Имя из **Стратегия…** (как в статусе). `(не заполнена)` значит поле не трогали.
+      description: Имя из **Стратегия...** (как в статусе). `(не заполнена)` значит поле не трогали.
       placeholder: (не заполнена)
       value: (не заполнена)
 
@@ -110,19 +110,38 @@ body:
         - не знаю
       default: 0
 
-  - type: textarea
-    id: tests
+  - type: input
+    id: games
     attributes:
-      label: Тесты
-      description: Результат **Прогнать тесты** или `cli.bat tests`. Можно вставить лог или приложить файл из `test-results/`.
+      label: Игры
+      description: Галки в **Игры...** (например `sky, photon`) или `нет`. `(не заполнено)` значит поле не трогали.
       placeholder: (не заполнено)
       value: (не заполнено)
+
+  - type: textarea
+    id: status
+    attributes:
+      label: Статус и журнал
+      description: Клик по **Status** → **Копировать** → вставьте сюда. Там версия, служба, WinDivert, последняя ошибка движка и журнал действий.
+      render: text
+    validations:
+      required: true
 
   - type: textarea
     id: diag
     attributes:
       label: Диагностика и фейки
-      description: Текст/скриншот **Диагностика** (клик по Status — полный дамп). Какие fake выбраны (Discord UDP / Game UDP). Приложите скриншоты к Issue.
+      description: Результат **Диагностика** — скриншот окна или строки с предупреждением / ошибкой. Какие fake выбраны в **Fake...** (Discord UDP / Game UDP).
+      placeholder: (не заполнено)
+      value: (не заполнено)
+    validations:
+      required: true
+
+  - type: textarea
+    id: tests
+    attributes:
+      label: Тесты
+      description: Результат **Прогнать тесты**. Можно вставить итоги или приложить лог из `test-results/`.
       placeholder: (не заполнено)
       value: (не заполнено)
 

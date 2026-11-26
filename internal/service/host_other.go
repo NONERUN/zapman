@@ -1,0 +1,28 @@
+//go:build !windows
+
+package service
+
+import "errors"
+
+// NewHost gives a Host that fails: the zapret service is only on Windows.
+func NewHost() Host { return otherHost{} }
+
+type otherHost struct{}
+
+var errNotWindows = errors.New("the zapret service is only on Windows")
+
+func (otherHost) Elevated() bool                      { return false }
+func (otherHost) Query(string) (ServiceStatus, error) { return ServiceStatus{}, errNotWindows }
+func (otherHost) ReadConfig(string) (Config, error)   { return Config{}, errNotWindows }
+func (otherHost) Create(_, _ string, _ *Config) error { return errNotWindows }
+func (otherHost) Delete(string) error                 { return errNotWindows }
+func (otherHost) Start(string) error                  { return errNotWindows }
+func (otherHost) Stop(string) error                   { return errNotWindows }
+func (otherHost) ReadRecord(string) (Record, error)   { return Record{}, errNotWindows }
+func (otherHost) WriteRecord(string, *Record) error   { return errNotWindows }
+func (otherHost) KillEngines() (int, error)           { return 0, errNotWindows }
+func (otherHost) TCPShowGlobal() ([]byte, error)      { return nil, errNotWindows }
+func (otherHost) TCPEnableTimestamps() error          { return errNotWindows }
+
+// EngineProcesses fails: the engines are only on Windows.
+func EngineProcesses() ([]EngineProcess, error) { return nil, errNotWindows }

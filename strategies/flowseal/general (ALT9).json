@@ -1,0 +1,54 @@
+{
+  "$schema": "../schema/strategy.json",
+  "spec": 2,
+  "upstream": "1.10.0",
+  "rev": 3,
+  "rules": [
+    { "target": "quic-general", "action": "fake-quic-google-6" },
+    { "target": "discord-voice", "action": "fake-discord-6" },
+    {
+      "target": "discord-media",
+      "action": {
+        "desync": ["hostfakesplit"],
+        "repeats": 4,
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=www.google.com"
+      }
+    },
+    {
+      "target": "google",
+      "action": {
+        "desync": ["hostfakesplit"],
+        "repeats": 4,
+        "fooling": ["ts"],
+        "ipId": "zero",
+        "hostfakesplitMod": "host=www.google.com"
+      }
+    },
+    {
+      "target": "tls-only-general",
+      "action": {
+        "desync": ["hostfakesplit"],
+        "repeats": 4,
+        "fooling": ["ts", "md5sig"],
+        "hostfakesplitMod": "host=ozon.ru"
+      }
+    },
+    { "target": "quic-ipset", "action": "fake-quic-google-6" },
+    {
+      "target": "tls-only-ipset",
+      "action": { "desync": ["hostfakesplit"], "repeats": 4, "fooling": ["ts"], "hostfakesplitMod": "host=ozon.ru" }
+    },
+    {
+      "target": "gf-tcp",
+      "action": {
+        "desync": ["hostfakesplit"],
+        "repeats": 4,
+        "cutoff": 3,
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=ozon.ru"
+      }
+    },
+    { "target": "gf-udp", "action": "fake-game-12-n2" }
+  ]
+}

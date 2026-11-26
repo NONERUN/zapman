@@ -1,0 +1,67 @@
+{
+  "$schema": "../schema/strategy.json",
+  "spec": 2,
+  "upstream": "1.10.4",
+  "rev": 3,
+  "rules": [
+    { "target": "quic-general", "action": "fake-quic-google-6" },
+    { "target": "discord-voice", "action": "fake-discord-6" },
+    {
+      "target": "discord-media",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=www.google.com,altorder=1",
+        "tlsMod": "rnd,dupsid,sni=www.google.com",
+        "fake": { "tls": ["!"] }
+      }
+    },
+    {
+      "target": "google",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "fooling": ["ts"],
+        "ipId": "zero",
+        "hostfakesplitMod": "host=www.google.com,altorder=1",
+        "tlsMod": "rnd,dupsid,sni=www.google.com",
+        "fake": { "tls": ["!"] }
+      }
+    },
+    {
+      "target": "tls-general",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=ya.ru,altorder=1",
+        "tlsMod": "rnd,dupsid,sni=ya.ru",
+        "fake": { "tls": ["!"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
+    { "target": "quic-ipset", "action": "fake-quic-google-6" },
+    {
+      "target": "tls-ipset",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=ya.ru,altorder=1",
+        "tlsMod": "rnd,dupsid,sni=ya.ru",
+        "fake": { "tls": ["!"], "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"] }
+      }
+    },
+    {
+      "target": "gf-tcp",
+      "action": {
+        "desync": ["fake", "hostfakesplit"],
+        "cutoff": 4,
+        "fooling": ["ts"],
+        "hostfakesplitMod": "host=ya.ru,altorder=1",
+        "tlsMod": "rnd,dupsid,sni=ya.ru",
+        "fake": {
+          "http": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"],
+          "unknown": ["cat:fakes/tls_clienthello_www_sferum_ru.bin"]
+        }
+      }
+    },
+    { "target": "gf-udp", "action": "fake-game-10-n4" }
+  ]
+}
