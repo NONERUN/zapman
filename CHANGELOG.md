@@ -26,6 +26,7 @@
 - GUI на Go: `cmd/zapman` (Wails v3.1.0) — окна PS GUI (главное, «Стратегия», «Статус», тесты, hosts, fake, загрузка, диагностика) и трей в одном процессе; новое окно «Игры...» для игровых модулей. Пока на фейковом бэкенде. См. [`docs/dev.md`](docs/dev.md).
 - Fake из upstream (сейчас в `strategies/fakes/`): `tls_clienthello_www_sferum_ru`, `tls_clienthello_awswaf_com`, `tls_clienthello_steam_chat_com`, `tls_clienthello_steamstatic_com`, `tls_clienthello_teamspeak_com`, `quic_initial_lemana_pro`, `quic_initial_steam_chat_com`, `quic_initial_steamstatic_com`.
 - Go: [`internal/tools/netreset`](internal/tools/netreset/) — сброс сети (`netsh winsock reset`, `netsh int ip reset all`, `netsh winhttp reset proxy`, `ipconfig /flushdns`) с логом как в PowerShell-версии и перезагрузка (`shutdown /r /f /t 0`). Программы запускает [`internal/tools/command`](internal/tools/command/) без окна, вывод из OEM-кодировки в UTF-8.
+- Go: [`internal/tools/web`](internal/tools/web/) — последняя версия по тегам GitHub (лимит 8 с), загрузка IPSet в `user/ipset-all.txt` с прогрессом и атомарной записью (старый файл не портится при ошибке или отмене), проверка system hosts по первой и последней строке шаблона, открытие hosts в Notepad.
 
 ### Changed
 
