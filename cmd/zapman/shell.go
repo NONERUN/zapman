@@ -244,9 +244,8 @@ func (s *shell) OpenWindow(name, title string) {
 		w = s.newWindow(name, title)
 	}
 
-	below := s.top()
-
 	s.mu.Lock()
+	mainWin := s.wins[gui.WinMain]
 	s.wins[name] = w
 	s.mu.Unlock()
 	s.modal.Open(name)
@@ -255,9 +254,12 @@ func (s *shell) OpenWindow(name, title string) {
 
 	w.SetTitle(title)
 	w.Show()
-	// The native window can be made at Show, thus set the owner after it.
-	if name != gui.WinMain && below != w {
-		setOwner(w, below)
+	// The owner of each dialog is the main window, not the dialog below:
+	// a dialog below can close or hide, and a hidden owner does not bring
+	// its dialogs to the front. The native window can be made at Show, thus
+	// set the owner after it.
+	if name != gui.WinMain {
+		setOwner(w, mainWin)
 	}
 	if w.IsMinimised() {
 		w.UnMinimise()
