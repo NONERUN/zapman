@@ -55,15 +55,17 @@ func (windowsHost) Query(name string) (ServiceStatus, error) {
 		return ServiceStatus{}, notInstalled(name, err)
 	}
 	defer windows.CloseServiceHandle(h) //nolint:errcheck // a close of a read handle.
-	var st windows.SERVICE_STATUS
-	if err := windows.QueryServiceStatus(h, &st); err != nil {
+	var st windows.SERVICE_STATUS_PROCESS
+	var need uint32
+	if err := windows.QueryServiceStatusEx(h, windows.SC_STATUS_PROCESS_INFO,
+		(*byte)(unsafe.Pointer(&st)), uint32(unsafe.Sizeof(st)), &need); err != nil { //nolint:gosec // G103: the API takes a pointer to SERVICE_STATUS_PROCESS as *byte.
 		return ServiceStatus{}, err
 	}
 	code := st.Win32ExitCode
 	if code == uint32(windows.ERROR_SERVICE_SPECIFIC_ERROR) {
 		code = st.ServiceSpecificExitCode
 	}
-	return ServiceStatus{State: State(st.CurrentState), ExitCode: code}, nil
+	return ServiceStatus{State: State(st.CurrentState), ExitCode: code, Pid: st.ProcessId}, nil
 }
 
 func connect() (*mgr.Mgr, error) {
@@ -271,29 +273,40 @@ var engineExes = []string{"winws.exe", "winws2.exe"}
 // process to stop.
 const killWait = 5000
 
-func (windowsHost) KillEngines() (int, error) {
+// EngineProcesses gives the winws.exe and winws2.exe processes of this
+// computer. It does not need administrator rights.
+func EngineProcesses() ([]EngineProcess, error) {
 	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer windows.CloseHandle(snap) //nolint:errcheck // a close of a snapshot.
 	var e windows.ProcessEntry32
 	e.Size = uint32(unsafe.Sizeof(e))
-	var pids []uint32
+	var list []EngineProcess
 	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
 		exe := windows.UTF16ToString(e.ExeFile[:])
 		for _, n := range engineExes {
 			if strings.EqualFold(exe, n) {
-				pids = append(pids, e.ProcessID)
+				list = append(list, EngineProcess{Exe: n, Pid: e.ProcessID})
 			}
 		}
 	}
 	if !errors.Is(err, windows.ERROR_NO_MORE_FILES) {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (windowsHost) KillEngines() (int, error) {
+	procs, err := EngineProcesses()
+	if err != nil {
 		return 0, err
 	}
 	var errs []error
 	killed := 0
-	for _, pid := range pids {
+	for _, p := range procs {
+		pid := p.Pid
 		h, err := windows.OpenProcess(windows.PROCESS_TERMINATE|windows.SYNCHRONIZE, false, pid)
 		if errors.Is(err, windows.ERROR_INVALID_PARAMETER) {
 			continue // the process stopped

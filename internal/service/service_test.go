@@ -549,3 +549,20 @@ func TestPlanFor(t *testing.T) {
 		t.Errorf("hash %q", p.Hash())
 	}
 }
+
+func TestStateString(t *testing.T) {
+	var st Status
+	for _, tt := range []struct {
+		s    State
+		want string
+	}{
+		{st.State, "not installed"},
+		{Running, "running"},
+		{StopPending, "stop pending"},
+		{State(9), "State(9)"},
+	} {
+		if got := tt.s.String(); got != tt.want {
+			t.Errorf("State(%d).String() = %q, want %q", uint32(tt.s), got, tt.want)
+		}
+	}
+}

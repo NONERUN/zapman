@@ -66,8 +66,10 @@ var (
 // Windows.
 type State uint32
 
-// The service states.
+// The service states. NotInstalled is not a state of Windows: Status gives
+// it when the service does not exist.
 const (
+	NotInstalled    State = 0
 	Stopped         State = 1
 	StartPending    State = 2
 	StopPending     State = 3
@@ -79,6 +81,8 @@ const (
 
 func (s State) String() string {
 	switch s {
+	case NotInstalled:
+		return "not installed"
 	case Stopped:
 		return "stopped"
 	case StartPending:
@@ -104,6 +108,15 @@ type ServiceStatus struct {
 	// specific exit code when the Win32 code is
 	// ERROR_SERVICE_SPECIFIC_ERROR.
 	ExitCode uint32
+	// Pid is the process ID of the service, or 0 when it does not run.
+	Pid uint32
+}
+
+// EngineProcess is a winws.exe or winws2.exe process.
+type EngineProcess struct {
+	// Exe is the file name of the process, for example "winws.exe".
+	Exe string
+	Pid uint32
 }
 
 // Record is the data in the registry key of the service.

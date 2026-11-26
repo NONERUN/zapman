@@ -22,3 +22,6 @@ func (otherHost) WriteRecord(string, *Record) error   { return errNotWindows }
 func (otherHost) KillEngines() (int, error)           { return 0, errNotWindows }
 func (otherHost) TCPShowGlobal() ([]byte, error)      { return nil, errNotWindows }
 func (otherHost) TCPEnableTimestamps() error          { return errNotWindows }
+
+// EngineProcesses fails: the engines are only on Windows.
+func EngineProcesses() ([]EngineProcess, error) { return nil, errNotWindows }
