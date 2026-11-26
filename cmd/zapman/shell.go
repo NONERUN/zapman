@@ -65,10 +65,16 @@ type shell struct {
 	appClose map[*application.WebviewWindow]bool
 	quitting bool
 
+	// iconMu puts the icon changes of the windows in sequence. icon is the
+	// icon of the windows.
+	iconMu sync.Mutex
+	icon   gui.Icon
+
 	trayMu   sync.Mutex
 	tray     *application.SystemTray
 	trayView gui.TrayView
 	trayOn   bool
+	trayIcon gui.Icon
 }
 
 func (s *shell) init(app *application.App, ui *gui.App) {
@@ -261,6 +267,10 @@ func (s *shell) OpenWindow(name, title string) {
 	if name != gui.WinMain {
 		setOwner(w, mainWin)
 	}
+	// The native window is made now: give it the icon of now.
+	s.iconMu.Lock()
+	setWindowIcon(w, s.icon)
+	s.iconMu.Unlock()
 	if w.IsMinimised() {
 		w.UnMinimise()
 	}
@@ -398,6 +408,39 @@ func (s *shell) Error(text string) {
 // OpenURL implements gui.Shell.
 func (s *shell) OpenURL(url string) error {
 	return s.app.Browser.OpenURL(url)
+}
+
+// iconData gives the ICO file of the icon.
+func iconData(icon gui.Icon) []byte {
+	if icon == gui.IconLive {
+		return assets.AppIcon
+	}
+	return assets.IdleIcon
+}
+
+// SetIcon implements gui.Shell. It sets the icon of the tray and of the
+// windows that are open. OpenWindow gives the icon to a window that opens
+// later.
+func (s *shell) SetIcon(icon gui.Icon) {
+	if s.isQuitting() {
+		return
+	}
+	s.trayMu.Lock()
+	s.trayIcon = icon
+	if s.tray != nil {
+		s.tray.SetIcon(iconData(icon))
+	}
+	s.trayMu.Unlock()
+
+	s.iconMu.Lock()
+	defer s.iconMu.Unlock()
+	s.icon = icon
+	s.mu.Lock()
+	wins := maps.Clone(s.wins)
+	s.mu.Unlock()
+	for _, w := range wins {
+		setWindowIcon(w, icon)
+	}
 }
 
 // SetTray implements gui.Shell. The icon is made at the first call with

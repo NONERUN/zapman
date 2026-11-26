@@ -73,6 +73,9 @@ type Shell interface {
 	OpenURL(url string) error
 	// SetTray sets the tray icon and its menu. visible false removes the icon.
 	SetTray(v TrayView, visible bool)
+	// SetIcon sets the icon of the tray and of all windows, also of the
+	// windows that open later.
+	SetIcon(icon Icon)
 }
 
 // Options are the options of New.
@@ -97,6 +100,12 @@ type App struct {
 	// wg counts the flows and the tasks; tick counts the timer.
 	wg   sync.WaitGroup
 	tick sync.WaitGroup
+
+	// iconMu puts the calls of syncIcon in sequence. icon is the last icon
+	// that went to the shell; iconSet is false before the first one.
+	iconMu  sync.Mutex
+	icon    Icon
+	iconSet bool
 
 	mu         sync.Mutex
 	started    bool
@@ -287,8 +296,25 @@ func (a *App) refresh() {
 	lang := a.lang
 	tray := a.settings.TrayWatch
 	a.mu.Unlock()
+	a.syncIcon()
 	a.shell.SetTray(trayView(lang, st), tray)
 	a.emit(EvMain)
+}
+
+// syncIcon sends the icon of the last status to the shell when it is not
+// the icon that the shell has. Thus the icon does not flicker. Two refreshes
+// can run at the same time: iconMu puts the calls in sequence, and each call
+// reads the status of now, thus the last call sends the icon of the last
+// status.
+func (a *App) syncIcon() {
+	a.iconMu.Lock()
+	defer a.iconMu.Unlock()
+	icon := iconOf(a.statusNow())
+	if a.iconSet && icon == a.icon {
+		return
+	}
+	a.shell.SetIcon(icon)
+	a.icon, a.iconSet = icon, true
 }
 
 // goTask runs fn on a new goroutine.

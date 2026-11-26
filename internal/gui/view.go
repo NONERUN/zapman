@@ -104,6 +104,24 @@ func statusLabels(lang string, st backend.Status, hasStrategies bool, lastError 
 	return l
 }
 
+// Icon is the icon of the windows and the tray.
+type Icon int
+
+const (
+	// IconIdle is the gray icon: the bypass does not work.
+	IconIdle Icon = iota
+	// IconLive is the blue icon: the zapret service or a winws runs.
+	IconLive
+)
+
+// iconOf gives the icon for the status.
+func iconOf(st backend.Status) Icon {
+	if st.Live() {
+		return IconLive
+	}
+	return IconIdle
+}
+
 // TrayView is the state of the tray icon and its menu.
 type TrayView struct {
 	// Lines are the three status items of the menu.

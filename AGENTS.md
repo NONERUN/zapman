@@ -19,7 +19,7 @@
 | `lists/` | Сток-списки (`list-*.txt`, `ipset-*.txt`, `*.default.txt`) |
 | `bin/` | Только файлы движков: `winws.exe`, `winws2.exe`, `cygwin1.dll`, WinDivert, `lua/`. Теги и SHA256 — [`bin/versions.json`](bin/versions.json) |
 | `.service/` | Данные для «Сверить hosts» (`hosts`) и «Скачать ipset» (`ipset-service.txt`) |
-| `assets/` | Иконка и её лицензия |
+| `assets/` | Иконки (синяя `app.ico` и серая `app-idle.ico`) и их лицензия |
 | `dev/` | Инструменты разработки (ниже) |
 | `user/` | Данные пользователя (gitignore) |
 
@@ -82,6 +82,7 @@ go test ./internal/spec -run "Golden|Edge" -update
 | `go run ./dev/upstream-versions` | Сверка `upstream`-тегов стратегий Flowseal с upstream (`-write`) |
 | `dev/convert-v2` | Одноразовый перевод v0.1 → v2 |
 | `dev/schemagen`, `dev/catalogfiles` | Вызываются из `go generate ./internal/spec` |
+| `dev/grayicon` | Серая иконка `assets/app-idle.ico` из `assets/app.ico`; вызывается из `go generate ./assets` после правки `app.ico` |
 | `dev/commitmsg` | Хук commit-msg (ниже) |
 
 Флаги и коды выхода — [`docs/dev.md`](docs/dev.md) и комментарий в начале `main.go`.

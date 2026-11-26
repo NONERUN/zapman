@@ -4,5 +4,6 @@ Copyright (c) Tailwind Labs, Inc.
 
 https://github.com/tailwindlabs/heroicons
 
-The glyph is rasterized into app.ico (white lock on a blue rounded square) for the GUI and tray.
+The glyph is rasterized into app.ico (white lock on a blue rounded square) for the exe file, the GUI and the tray.
+app-idle.ico is the gray variant (white lock on a gray rounded square): dev/grayicon makes it from app.ico.
 The source path is in app.svg.

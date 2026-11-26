@@ -146,6 +146,25 @@ func TestStrategyTab(t *testing.T) {
 	}
 }
 
+func TestIconOf(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		st   backend.Status
+		want Icon
+	}{
+		{"nothing", backend.Status{}, IconIdle},
+		{"service stopped", backend.Status{Service: backend.ServiceStopped, Installed: "a"}, IconIdle},
+		{"service starts", backend.Status{Service: backend.ServiceStartPending}, IconIdle},
+		{"service runs", backend.Status{Service: backend.ServiceRunning}, IconLive},
+		{"winws runs", backend.Status{BypassRunning: true}, IconLive},
+		{"winws runs, service stopped", backend.Status{BypassRunning: true, Service: backend.ServiceStopped}, IconLive},
+	} {
+		if got := iconOf(c.st); got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
 func TestTrayView(t *testing.T) {
 	v := trayView(i18n.EN, backend.Status{Service: backend.ServiceStopped, Installed: "a"})
 	if !v.StartEnabled || v.StopEnabled || v.Lines[2] != i18n.T(i18n.EN, "StatusStrategy", "a") {
