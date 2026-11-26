@@ -11,7 +11,6 @@
 
 ### Added
 
-- Sky в `general (ALT11 Photon)`: UDP fake с TTL 8 для игровых IP и TCP multisplit для WebSocket чата/заданий; `user/ipset-sky.txt` и его обновление из игрового лога через трей. Игровая проверка выполнена на winws2.
 - Sker Ritual в `general (ALT11 Photon)`: профиль UDP Photon с fake TTL 8 для подсетей из `user/ipset-sker.txt` (копия `lists/ipset-sker.default.txt`) перед общим профилем Photon. Общий профиль выкидывал из матча по `ClientTimeout`. Матч и голос проверены на winws2. Тот же профиль и подсеть Vultr `95.179.160.0/20` — для Hazard Levels.
 - Поля ZapretSpec `luaPayload`, `ttl` и `cutoff: "none"` для переноса проверенных профилей Sky без ручной правки ImagePath службы.
 - Макет главного окна в [`README.md`](README.md) ([`docs/ui/Main.svg`](docs/ui/Main.svg)).
@@ -52,6 +51,9 @@
 - Сток из upstream (Flowseal) по 2026-11: `lists/list-exclude.txt` (+`lesta.pw`), `lists/list-google.txt` (+`fonts.googleapis.com`, `www.gstatic.com`), `.service/ipset-service.txt` (источник **Скачать ipset**), `.service/hosts` (**Сверить hosts**).
 - Инструменты разработки на Go: `dev\update-zapret.ps1` → [`dev/update-zapret`](dev/update-zapret/) (ещё сверяет файлы с `sha256sum.txt` релиза), `.githooks/commit-msg` → [`dev/commitmsg`](dev/commitmsg/), правила argv и Sky из `dev\lint.ps1` / `dev\test-sky.ps1` → `go test ./...`. Workflow Lint → [Go](.github/workflows/go.yml) (golangci-lint, vet, test).
 - golangci-lint v2 и govulncheck — Go-инструменты в отдельном модуле [`tools/go.mod`](tools/go.mod) (`go tool -modfile=tools/go.mod golangci-lint run ./...`, `… govulncheck ./...`), настройки линтеров — [`.golangci.yml`](.golangci.yml); заменяют шаг gofmt в workflow Go. Toolchain Go 1.27.0 → 1.27.4 (уязвимости `net/http`, `crypto/tls`, `crypto/x509` из govulncheck).
+- Go GUI: в меню трея пункт **Выход** — закрывает программу и тогда, когда главное окно спрятано в трей. Стратегия, запущенная без службы, после выхода работает дальше, как в PowerShell-версии. Документация — без «снять галку, чтобы закрыть».
+- Go GUI: проверка версии сравнивает теги как числа `vMAJOR.MINOR.PATCH`, а не как строки. Сборка для разработки (`dev-<коммит>`, псевдоверсия, `+dirty`) обновление не получает: «Проверить версию» только показывает последний релиз.
+- Локальная сборка в [`docs/dev.md`](docs/dev.md) — с `-ldflags "-H windowsgui"`: без окна консоли.
 
 ### Removed
 
@@ -61,6 +63,10 @@
 
 - Тесты: возврат прежнего `winws` после прогона берёт аргументы и из командной строки без кавычек; нет аргументов — предупреждение вместо старта пустого `winws`. `cli.bat tests` перед «Press any key» сбрасывает клавиши, нажатые во время прогона (upstream a1552cb).
 - Диагностика: служба Happ (`HappService`) считается VPN (upstream 16cf6b8).
+- Go GUI: главное окно больше не остаётся недоступным после ошибки, отмены или закрытия крестиком дочернего окна (тесты, «Стратегия», «Статус», fake, «Игры...», загрузка, hosts, диагностика). Окна включает и выключает одно место; при ошибке «Статуса» после действия главное окно больше не остаётся в состоянии «занято».
+- Go GUI: при ошибке остановки службы перед тестами окно тестов не открывается.
+- Go: чтение настроек службы `zapret` с ImagePath длиннее 4 КБ («array bounds are invalid»).
+- Go GUI: процесс завершается после выхода, даже если цикл окон Wails не закончился (таймер 15 с).
 
 ## v0.1.1 - 2026-09-06
 
