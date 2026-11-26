@@ -20,6 +20,7 @@ var (
 		"TrayTaskFail":        "Cannot change the start of the tray at logon: {0}",
 		"NotWired":            "{0}: this action is not available in this build yet.",
 		"EngineStartFailText": "{0} did not start. Check the bin folder and antivirus exclusions.\n\n{1}",
+		"ServiceInstallFail":  "The zapret service was not installed.\n\n{0}",
 		"ServiceRestoreFail":  "The zapret service was not restored after the tests.\n\n{0}",
 	}
 	extraRU = map[string]string{
@@ -39,6 +40,7 @@ var (
 		"TrayTaskFail":        "Не удалось изменить запуск трея при входе: {0}",
 		"NotWired":            "{0}: это действие пока недоступно в этой сборке.",
 		"EngineStartFailText": "{0} не запустился. Проверьте папку bin и исключения антивируса.\n\n{1}",
+		"ServiceInstallFail":  "Служба zapret не установлена.\n\n{0}",
 		"ServiceRestoreFail":  "Служба zapret не восстановлена после тестов.\n\n{0}",
 	}
 )

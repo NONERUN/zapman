@@ -160,7 +160,7 @@ func (b *Backend) install(ctx context.Context, name string, e spec.Engine) error
 	if err := b.stopRun(); err != nil {
 		return err
 	}
-	return mapErr(b.mgr.Install(service.PlanFor(bd)))
+	return mapErrKey(b.mgr.Install(service.PlanFor(bd)), "ServiceInstallFail")
 }
 
 // SuspendService implements backend.Backend. It keeps an exact copy of the

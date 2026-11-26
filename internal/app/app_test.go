@@ -33,6 +33,8 @@ type fakeHost struct {
 	tcp      bool
 	nextPid  uint32
 	calls    []string
+	// startErr is the error of Start of the zapret service.
+	startErr error
 }
 
 type fakeSvc struct {
@@ -102,6 +104,9 @@ func (h *fakeHost) Start(name string) error {
 		return fmt.Errorf("%s: %w", name, service.ErrNotInstalled)
 	}
 	h.call("Start " + name)
+	if name == service.Name && h.startErr != nil {
+		return h.startErr
+	}
 	h.nextPid++
 	s.st = service.ServiceStatus{State: service.Running, Pid: h.nextPid}
 	if name == service.Name {
@@ -569,6 +574,23 @@ func TestSuspendRestore(t *testing.T) {
 	st, _ := e.b.Status(ctx)
 	if st.Service != backend.ServiceRunning || st.Installed != testStrategy || st.BypassName != "winws2.exe" {
 		t.Errorf("after restore: %+v", st)
+	}
+}
+
+func TestInstallFailText(t *testing.T) {
+	e := newEnv(t)
+	e.h.startErr = errors.New("access is denied by the antivirus")
+	err := e.b.Install(ctx, testStrategy, spec.Winws)
+	var me *backend.MsgError
+	if !errors.As(err, &me) || me.Key != "ServiceInstallFail" || !strings.Contains(err.Error(), "access is denied by the antivirus") {
+		t.Fatalf("got %v", err)
+	}
+	if _, ok := e.h.svcs[service.Name]; ok {
+		t.Error("the failed service is still there")
+	}
+	e.h.elevated = false
+	if k := msgKey(e.b.Install(ctx, testStrategy, spec.Winws)); k != "AdminRequired" {
+		t.Errorf("not elevated: %q", k)
 	}
 }
 
