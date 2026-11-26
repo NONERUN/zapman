@@ -1,7 +1,7 @@
 package main
 
 import (
-	"slices"
+	"maps"
 	"sync"
 	"time"
 
@@ -44,19 +44,23 @@ const stopTimeout = 5 * time.Second
 // icon.
 //
 // Wails has no modal windows. The shell disables the other windows while a
-// dialog is open, as ShowDialog of WPF does. A window that closes is
-// destroyed, so the shell makes it again at the next open.
+// dialog is open, as ShowDialog of WPF does. modal has the order of the
+// windows and sync is the only function that enables and disables them. A
+// window that closes is destroyed, so the shell makes it again at the next
+// open.
 type shell struct {
 	app *application.App
 	ui  *gui.App
 
 	// openMu puts the open and close operations in sequence.
 	openMu sync.Mutex
+	// syncMu puts the calls of sync in sequence.
+	syncMu sync.Mutex
+	modal  gui.Modal
 
 	// mu keeps the fields below. Do not call Wails while you hold it.
 	mu       sync.Mutex
 	wins     map[string]*application.WebviewWindow
-	stack    []string
 	appClose map[*application.WebviewWindow]bool
 	quitting bool
 
@@ -171,9 +175,12 @@ func (s *shell) newWindow(name, title string) *application.WebviewWindow {
 	return w
 }
 
-// userClose asks the GUI logic if the window can close.
+// userClose asks the GUI logic if the window can close. For a dialog the
+// GUI logic closes the window itself; CloseWindow here is for a window that
+// the GUI logic does not know.
 func (s *shell) userClose(name string) {
 	if !gui.Closing(s.ui, name) {
+		s.sync()
 		return
 	}
 	if name == gui.WinMain {
@@ -183,12 +190,31 @@ func (s *shell) userClose(name string) {
 	s.CloseWindow(name)
 }
 
-// top gives the window in front: the last dialog, else the main window.
-func (s *shell) topLocked() *application.WebviewWindow {
-	if n := len(s.stack); n > 0 {
-		return s.wins[s.stack[n-1]]
+// sync sets the enabled state of each window from modal. It is the only
+// function that calls SetEnabled. It sets all windows, not only the windows
+// that changed, thus a state that went wrong (for example after a message
+// box) becomes correct again at the next call.
+func (s *shell) sync() {
+	if s.isQuitting() {
+		return
 	}
-	return s.wins[gui.WinMain]
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	s.mu.Lock()
+	wins := maps.Clone(s.wins)
+	s.mu.Unlock()
+	for name, w := range wins {
+		w.SetEnabled(s.modal.Enabled(name))
+	}
+}
+
+// top gives the window in front: the last dialog, else the main window. It
+// can be nil.
+func (s *shell) top() *application.WebviewWindow {
+	name := s.modal.Top()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.wins[name]
 }
 
 // OpenWindow implements gui.Shell.
@@ -208,21 +234,11 @@ func (s *shell) OpenWindow(name, title string) {
 
 	s.mu.Lock()
 	s.wins[name] = w
-	var block []*application.WebviewWindow
-	if name != gui.WinMain && !slices.Contains(s.stack, name) {
-		for n, o := range s.wins {
-			if n != name {
-				block = append(block, o)
-			}
-		}
-		s.stack = append(s.stack, name)
-	}
-	top := s.topLocked()
 	s.mu.Unlock()
+	s.modal.Open(name)
+	s.sync()
+	top := s.top()
 
-	for _, o := range block {
-		o.SetEnabled(false)
-	}
 	w.SetTitle(title)
 	w.Show()
 	if w.IsMinimised() {
@@ -251,13 +267,13 @@ func (s *shell) CloseWindow(name string) {
 	}
 	delete(s.wins, name)
 	s.appClose[w] = true
-	s.stack = slices.DeleteFunc(s.stack, func(n string) bool { return n == name })
-	top := s.topLocked()
 	s.mu.Unlock()
+	s.modal.Close(name)
+	// The window in front is enabled before the dialog closes, thus Windows
+	// gives the activation to it.
+	s.sync()
+	top := s.top()
 
-	if top != nil {
-		top.SetEnabled(true)
-	}
 	w.Close()
 	if top != nil {
 		top.Focus()
@@ -301,13 +317,24 @@ func (s *shell) Emit(event string) {
 // owner gives the window of a message box: the window in front when it is
 // visible.
 func (s *shell) owner(d *application.MessageDialog) *application.MessageDialog {
-	s.mu.Lock()
-	w := s.topLocked()
-	s.mu.Unlock()
+	w := s.top()
 	if w != nil && w.IsVisible() {
 		d.AttachToWindow(w)
 	}
 	return d.SetTitle(dialogTitle)
+}
+
+// box counts a message box in modal. Call the function that it gives when
+// the box closes. The box disables its owner and enables it again itself;
+// a sync while the box is open keeps the owner disabled. When the box
+// closes, sync sets all windows again: the box can enable a window that
+// must stay disabled, or not enable a window that sync disabled.
+func (s *shell) box() func() {
+	s.modal.BoxOpen()
+	return func() {
+		s.modal.BoxClose()
+		s.sync()
+	}
 }
 
 // Ask implements gui.Shell.
@@ -315,6 +342,7 @@ func (s *shell) Ask(text string, defaultYes bool) bool {
 	if s.isQuitting() {
 		return false
 	}
+	defer s.box()()
 	lang := s.ui.Lang()
 	d := s.owner(s.app.Dialog.Question()).SetMessage(text)
 	yes := false
@@ -334,6 +362,7 @@ func (s *shell) Info(text string) {
 	if s.isQuitting() {
 		return
 	}
+	defer s.box()()
 	s.owner(s.app.Dialog.Info()).SetMessage(text).Show()
 }
 
@@ -342,6 +371,7 @@ func (s *shell) Error(text string) {
 	if s.isQuitting() {
 		return
 	}
+	defer s.box()()
 	s.owner(s.app.Dialog.Error()).SetMessage(text).Show()
 }
 
