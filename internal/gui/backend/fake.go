@@ -27,6 +27,9 @@ type FakeData struct {
 	Hosts         HostsCheck
 	Latest        string
 	Diag          []DiagItem
+	// TCPTimestamps tells if the TCP timestamps are on. A start of the
+	// bypass turns them on. The item "tcp" of Diag shows it.
+	TCPTimestamps bool
 	// Counters of the actions that have no state.
 	IPSetDownloads int
 	HostsOpened    int
@@ -79,6 +82,8 @@ func NewFake() *Fake {
 		Diag: []DiagItem{
 			{ID: "path", Status: DiagOK, Text: `Zapret Manager is installed in: 'C:\zapman'`},
 			{ID: "bfe", Status: DiagOK, Text: "Base Filtering Engine is running"},
+			{ID: "proxy", Status: DiagOK, Text: "System proxy is off"},
+			{ID: "tcp"},
 			{ID: "doh", Status: DiagWarn, Text: "Set Secure DNS in the browser (non-default provider) or Windows 11 Settings"},
 			{ID: "conflicts", Status: DiagFail, Text: "Conflicting bypass services: GoodbyeDPI", Action: "remove-services", ActionNames: []string{"GoodbyeDPI"}},
 			{ID: "discord", Status: DiagWarn, Text: "Discord cache found: Stable", Action: "discord-cache"},
@@ -268,6 +273,7 @@ func (f *Fake) strategy(name string, e spec.Engine) error {
 
 // startProcess sets the state of a running process of the engine.
 func (f *Fake) startProcess(name string, e spec.Engine) {
+	f.d.TCPTimestamps = true
 	st := &f.d.Status
 	st.BypassRunning = true
 	st.BypassName = ExeName(e)
@@ -563,7 +569,18 @@ func (f *Fake) Diagnostics(context.Context) ([]DiagItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f.d.clone().Diag, nil
+	items := f.d.clone().Diag
+	for i := range items {
+		if items[i].ID != "tcp" {
+			continue
+		}
+		if f.d.TCPTimestamps {
+			items[i].Status, items[i].Text = DiagOK, "TCP timestamps are enabled"
+		} else {
+			items[i].Status, items[i].Text = DiagFail, "TCP timestamps are disabled"
+		}
+	}
+	return items, nil
 }
 
 // RunDiagAction implements Backend. The action makes the item "ok".

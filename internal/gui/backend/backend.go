@@ -35,15 +35,19 @@ type Backend interface {
 	// CheckEngine returns nil when bin has the files of the engine.
 	CheckEngine(ctx context.Context, e spec.Engine) error
 
-	// StartService starts the installed zapret service.
+	// StartService starts the installed zapret service. It turns on the TCP
+	// timestamps first, as Run and Install do.
 	StartService(ctx context.Context) error
 	// Stop stops winws / winws2 and the zapret service.
 	Stop(ctx context.Context) error
 	// RemoveServices removes the zapret and WinDivert services.
 	RemoveServices(ctx context.Context) error
 	// Run starts the strategy with the engine as a process, not as a service.
+	// It turns on the TCP timestamps before the start, as the PS version
+	// does (service.Manager.EnableTCPTimestamps on branch go).
 	Run(ctx context.Context, strategy string, e spec.Engine) error
-	// Install installs and starts the zapret service with the strategy.
+	// Install installs and starts the zapret service with the strategy. It
+	// turns on the TCP timestamps first.
 	Install(ctx context.Context, strategy string, e spec.Engine) error
 	// SuspendService removes the service for the tests. Restore puts it back.
 	SuspendService(ctx context.Context) (ServiceSnapshot, error)
@@ -71,7 +75,9 @@ type Backend interface {
 	// LatestVersion gives the tag of the latest release.
 	LatestVersion(ctx context.Context) (string, error)
 
-	// Diagnostics gives the items of the diagnostics report.
+	// Diagnostics gives the items of the diagnostics report, in the order of
+	// Get-ZapmanDiagnosticReport. The item "tcp" tells if the TCP timestamps
+	// are on (service.Manager.TCPTimestamps on branch go).
 	Diagnostics(ctx context.Context) ([]DiagItem, error)
 	// RunDiagAction does the action of the item.
 	RunDiagAction(ctx context.Context, item DiagItem) error

@@ -542,14 +542,14 @@ func TestDiagRun(t *testing.T) {
 	sh.on(WinDiag, func() {
 		go func() {
 			v := a.DiagView()
-			if len(v.Rows) != 5 || !v.Rows[3].HasAction || v.Rows[0].HasAction {
+			if len(v.Rows) != 7 || !v.Rows[5].HasAction || v.Rows[0].HasAction {
 				t.Errorf("diag view = %+v", v)
 			}
 			a.DiagRun(0)
-			a.DiagRun(3)
+			a.DiagRun(5)
 			eventually(t, func() bool {
 				v := a.DiagView()
-				return !v.Busy && v.Rows[3].Status == string(backend.DiagOK)
+				return !v.Busy && v.Rows[5].Status == string(backend.DiagOK)
 			})
 			a.CloseDialog(WinDiag)
 		}()

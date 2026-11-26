@@ -217,6 +217,30 @@ func TestFakeDiag(t *testing.T) {
 	}
 }
 
+func TestFakeDiagTCPTimestamps(t *testing.T) {
+	f := NewFake()
+	tcp := func() DiagItem {
+		items, err := f.Diagnostics(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		i := slices.IndexFunc(items, func(d DiagItem) bool { return d.ID == "tcp" })
+		if i < 0 {
+			t.Fatal("no tcp item")
+		}
+		return items[i]
+	}
+	if it := tcp(); it.Status != DiagFail {
+		t.Fatalf("before the start: %+v", it)
+	}
+	if err := f.Run(ctx, "general", spec.Winws); err != nil {
+		t.Fatal(err)
+	}
+	if it := tcp(); it.Status != DiagOK || it.Text != "TCP timestamps are enabled" {
+		t.Fatalf("after Run: %+v", it)
+	}
+}
+
 type sink struct {
 	lines   []string
 	results []TestResult
