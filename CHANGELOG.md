@@ -28,6 +28,7 @@
 - Go: [`internal/tools/netreset`](internal/tools/netreset/) — сброс сети (`netsh winsock reset`, `netsh int ip reset all`, `netsh winhttp reset proxy`, `ipconfig /flushdns`) с логом как в PowerShell-версии и перезагрузка (`shutdown /r /f /t 0`). Программы запускает [`internal/tools/command`](internal/tools/command/) без окна, вывод из OEM-кодировки в UTF-8.
 - Go: [`internal/tools/web`](internal/tools/web/) — последняя версия по тегам GitHub (лимит 8 с), загрузка IPSet в `user/ipset-all.txt` с прогрессом и атомарной записью (старый файл не портится при ошибке или отмене), проверка system hosts по первой и последней строке шаблона, открытие hosts в Notepad.
 - Go: [`internal/tools/diag`](internal/tools/diag/) — диагностика: те же 18 проверок, ID, тексты и порядок, что в PowerShell-версии (`tcp` через `service.Manager.TCPTimestamps`), и действия `remove-services`, `remove-windivert`, `discord-cache` с логом `OK:` / `WARN:` / `FAIL:`.
+- Go: [`internal/tools/stratest`](internal/tools/stratest/) — тесты стратегий без службы: стандартные (17 целей, curl HTTP / TLS1.2 / TLS1.3 и ping) и DPI (набор TCP 16-20 из hyperion-cs/dpi-checkers), строки `[n/m]`, аналитика, лучшая стратегия по правилу PowerShell-версии и файл в `test-results/`. Настройки из `TEST_CURL_TIMEOUT`, `TEST_MAX_PARALLEL`, `MONITOR_*`. Отмена останавливает движок и возвращает `context.Canceled`.
 
 ### Changed
 
