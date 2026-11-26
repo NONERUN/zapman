@@ -121,5 +121,7 @@ func newBackend(root string, useFake bool) (backend.Backend, error) {
 	o := app.Options{Layout: engine.NewLayout(root), AppVersion: app.BuildVersion()}
 	// A bad exe path is an error of SetTrayAtLogon only.
 	o.TrayCommand, _ = app.TrayCommand(exe)
-	return app.New(o), nil
+	b := app.New(o)
+	b.SetTools(app.NewTools(b))
+	return b, nil
 }

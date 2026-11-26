@@ -77,10 +77,11 @@ type Backend struct {
 	op sync.Mutex
 	// cfg makes the changes of user\config.json run one at a time.
 	cfg sync.Mutex
-	// mu protects run and runName.
-	mu      sync.Mutex
-	run     *engine.Run
-	runName string
+	// mu protects run, runName and runEngine.
+	mu        sync.Mutex
+	run       *engine.Run
+	runName   string
+	runEngine spec.Engine
 }
 
 var _ backend.Backend = (*Backend)(nil)
@@ -302,7 +303,7 @@ func (b *Backend) liveRun() (*engine.Run, string) {
 	}
 	select {
 	case <-b.run.Done():
-		b.run, b.runName = nil, ""
+		b.run, b.runName, b.runEngine = nil, "", ""
 		return nil, ""
 	default:
 		return b.run, b.runName
@@ -313,7 +314,7 @@ func (b *Backend) liveRun() (*engine.Run, string) {
 func (b *Backend) stopRun() error {
 	b.mu.Lock()
 	r := b.run
-	b.run, b.runName = nil, ""
+	b.run, b.runName, b.runEngine = nil, "", ""
 	b.mu.Unlock()
 	if r == nil {
 		return nil

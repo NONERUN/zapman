@@ -8,8 +8,8 @@ import (
 
 // Tools are the actions of the network, the hosts file, the downloads, the
 // diagnostics and the strategy tests. The methods have the contracts of the
-// methods of backend.Backend with the same names. internal/tools will
-// implement Tools; cmd/zapman gives it in Options.Tools.
+// methods of backend.Backend with the same names. NewTools gives the Tools
+// of internal/tools; cmd/zapman gives it to SetTools.
 type Tools interface {
 	NetworkReset(ctx context.Context) (text string, err error)
 	Reboot(ctx context.Context) error

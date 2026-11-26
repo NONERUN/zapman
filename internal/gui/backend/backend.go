@@ -80,7 +80,7 @@ type Backend interface {
 	// SetFake copies the fake file to the slot.
 	SetFake(ctx context.Context, slot FakeSlot, file string) error
 
-	// DownloadIPSet downloads ipset-all.txt to lists/.
+	// DownloadIPSet downloads ipset-all.txt to user/.
 	DownloadIPSet(ctx context.Context, progress Progress) error
 	// CheckHosts downloads the hosts template and compares it with the
 	// system hosts file.

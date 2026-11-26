@@ -29,8 +29,7 @@ func (b *Backend) build(ctx context.Context, name string, e spec.Engine) (*engin
 	if err != nil {
 		return nil, err
 	}
-	off := spec.GameFilter{TCP: config.OffPort, UDP: config.OffPort}
-	if _, err := spec.Build(st, nil, e, spec.Paths{}, off); err != nil {
+	if !supports(st, e) {
 		return nil, backend.Msg("EngineNoFlags", string(e))
 	}
 	b.cfg.Lock()
@@ -46,6 +45,14 @@ func (b *Backend) build(ctx context.Context, name string, e spec.Engine) (*engin
 		return nil, fmt.Errorf("make the user lists: %w", err)
 	}
 	return bd, nil
+}
+
+// supports tells if the strategy has flags for the engine e: spec.Build
+// with no games works. backend.LoadCatalogInfo uses the same rule.
+func supports(st *spec.Strategy, e spec.Engine) bool {
+	off := spec.GameFilter{TCP: config.OffPort, UDP: config.OffPort}
+	_, err := spec.Build(st, nil, e, spec.Paths{}, off)
+	return err == nil
 }
 
 // elevated gives AdminRequired when the process has no administrator
@@ -133,7 +140,7 @@ func (b *Backend) Run(ctx context.Context, name string, e spec.Engine) error {
 		return backend.Msg("EngineStartFailText", filepath.Base(bd.Exe), err.Error())
 	}
 	b.mu.Lock()
-	b.run, b.runName = r, name
+	b.run, b.runName, b.runEngine = r, name, e
 	b.mu.Unlock()
 	return b.keepSelection(name, e)
 }
@@ -169,6 +176,11 @@ func (b *Backend) install(ctx context.Context, name string, e spec.Engine) error
 func (b *Backend) SuspendService(context.Context) (backend.ServiceSnapshot, error) {
 	b.op.Lock()
 	defer b.op.Unlock()
+	return b.suspend()
+}
+
+// suspend is SuspendService. The caller holds b.op.
+func (b *Backend) suspend() (backend.ServiceSnapshot, error) {
 	if err := b.elevated(); err != nil {
 		return backend.ServiceSnapshot{}, err
 	}
@@ -212,5 +224,11 @@ func (b *Backend) RestoreService(_ context.Context, snap backend.ServiceSnapshot
 	if err := b.stopRun(); err != nil {
 		return err
 	}
-	return mapErrKey(b.mgr.Restore(&s), "ServiceRestoreFail")
+	return b.restore(&s)
+}
+
+// restore makes the service of s again. It does not stop the process of
+// Run. The caller holds b.op.
+func (b *Backend) restore(s *service.Snapshot) error {
+	return mapErrKey(b.mgr.Restore(s), "ServiceRestoreFail")
 }
