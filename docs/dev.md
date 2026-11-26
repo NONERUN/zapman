@@ -76,7 +76,7 @@ JSON Schema в `strategies/schema/` генерируется из структу
 | `targets.json` | именованные цели: `tcp`, `udp`, `l3`, `l7`, `lists` (имена наборов с `hostlist` / `ipset`), `exclude` (наборы с `*Exclude`), `domains`, `excludeDomains`, `anyProtocol`, `payload` |
 | `actions.json` | именованные действия: `desync` и поля атаки из таблиц ниже; `cutoff` — число N (то же, что `nN`) или `"none"` |
 | `flowseal/<имя>.json`, `zapman/<имя>.json` | стратегия: `"spec": 2`, версия (`upstream` + `rev` или `version`, см. [«Версии»](#версии-стратегий-и-игр)), `about`, `rules[]` — пары `{ "target", "action" }` |
-| `games/<id>.json` | игровой модуль: `id` (= имя файла), `title`, `about`, `version`, `order`, `updater`, свои `lists` (с `seed`), `rules[]` |
+| `games/<id>.json` | игровой модуль: `id` (= имя файла), `title`, `about`, `version`, `order`, `updater`, `options`, свои `lists` (у набора может быть `when`), `rules[]` |
 
 `about` игры — объект `{ "ru": "…", "en": "…" }`: текст под названием игры в окне «Игры». В argv он не попадает, поэтому его правка не меняет `version`.
 
@@ -104,9 +104,10 @@ JSON Schema в `strategies/schema/` генерируется из структу
 - неизвестное поле, неизвестное имя цели, действия или набора, неверный порт;
 - путь `cat:`, которого нет в каталоге (и `bin:`, если загрузчику дана папка `bin`);
 - `active:<ИМЯ>` без дефолта в `active` из `catalog.json`;
-- набор списков игры с тем же именем, что в `lists.json`.
+- набор списков игры с тем же именем, что в `lists.json`;
+- у игры больше 4 опций, `when` набора с неизвестной опцией, опция без набора или опция, которая не меняет правила (проверяются все 2ⁿ сочетаний значений).
 
-`seed` в наборе игры — путь `lists:`; из этого файла создаётся `user:`-список игры, если его ещё нет.
+Набор игры обычно берёт два списка: стандартный `lists:` (содержимое релиза) и свой `user:` (только добавления пользователя), например `["lists:ipset-sky.txt", "user:ipset-sky.txt"]`. Начальной копии нет: новый `user:`-список игры получает комментарий и неиспользуемый адрес `203.0.113.113/32`.
 
 ### Префиксы путей
 
@@ -144,7 +145,7 @@ go generate ./internal/spec
 
 - **`wf`** — объединение портов всех целей стратегии и включённых игр, без повторов, по возрастанию первого порта. Последним идёт `$gameFilter` — порты Game Filter: `12`, если фильтр для этого протокола выключен, иначе `gameFilterTcp` / `gameFilterUdp` из `user/config.json`. winws получает `--wf-tcp=` / `--wf-udp=`, winws2 — `--wf-tcp-out=` / `--wf-udp-out=`.
 - **`payload` для winws2** выводится из `l7` и `anyProtocol`: например, `tls` + `http` дают две группы, `discord` — `discord_ip_discovery,stun`. Явный `payload` пишут, только когда вывод не подходит.
-- **Игры** идут **до** правил стратегии: их цели уже, чем общие правила на тех же портах, и иначе общее правило перехватило бы игровой трафик. Между собой игры идут по `order`, затем по `id`. Сейчас: `sky` (10), `sker` (20), `photon` (30).
+- **Игры** идут **до** правил стратегии: их цели уже, чем общие правила на тех же портах, и иначе общее правило перехватило бы игровой трафик. Между собой игры идут по `order`, затем по `id`. Сейчас: `sky` (10), `photon` (30).
 
 Lua для winws2 — только стоковые `bin/lua/zapret-lib.lua` и `bin/lua/zapret-antidpi.lua` из релиза zapret2. Своих `.lua` генератор не подключает, а Lua-атаки не переводятся в флаги winws: обе стороны генератора описывают одни и те же атаки стоковыми средствами каждого движка.
 
@@ -231,11 +232,35 @@ Lua для winws2 — только стоковые `bin/lua/zapret-lib.lua` и 
 
 Игровые модули лежат в `strategies/games/` и включаются в окне «Игры…» поверх любой стратегии. От Game Filter они не зависят: их порты всегда попадают в `wf`.
 
-- **`sky`** — Sky: Children of the Light. UDP 5000–8000 по списку `user:ipset-sky.txt` с QUIC-fake, TTL 8 и cutoff 4. TCP 443 только для `live.ws.radiance.thatgamecompany.com`: multisplit на позиции 1 с `luaPayload: all` и без cutoff, потому что WebSocket-трафик идёт и после handshake. Список создаётся из `lists/ipset-sky.default.txt`; трей (`updater: sky-log`) дополняет его только конкретными IPv4-адресами `/32` из `Sky.log`. DNS входа в игру — отдельная настройка: стратегия файл `hosts` не меняет.
-- **`sker`** — Sker Ritual и Hazard Levels (у них один разработчик): список `user:ipset-sker.txt`, fake `active:GAME_UDP`, `luaPayload: all`, TTL 8, cutoff 4. TTL здесь обязателен: fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) примерно через 10 с после входа в матч. Список создаётся из `lists/ipset-sker.default.txt` (подсети Photon Cloud EU на G-Core и Vultr) и сам не обновляется. Те же подсети использует PEAK в регионе EU, поэтому он тоже попадает в этот профиль.
-- **`photon`** — общий профиль Photon (UDP 5055–5058, 27000–27002). Он стоит после `sker`, чтобы подсети Sker обрабатывались своим профилем.
+- **`sky`** — Sky: Children of the Light. UDP 5000–8000 по спискам `lists:ipset-sky.txt` и `user:ipset-sky.txt` с QUIC-fake, TTL 8 и cutoff 4. TCP 443 только для `live.ws.radiance.thatgamecompany.com`: multisplit на позиции 1 с `luaPayload: all` и без cutoff, потому что WebSocket-трафик идёт и после handshake. Трей (`updater: sky-log`) дополняет `user:ipset-sky.txt` только конкретными IPv4-адресами `/32` из `Sky.log`. DNS входа в игру — отдельная настройка: стратегия файл `hosts` не меняет.
+- **`photon`** — игры на Photon, UDP 5055–5058 и 27000–27002: fake `active:GAME_UDP`, `unknownUdp`, `anyProtocol`, `luaPayload: all`, 6 повторов, TTL 8, cutoff 4. TTL здесь обязателен: fake без TTL доходил до сервера Photon, и игра теряла соединение (`ClientTimeout`) примерно через 10 с после входа в матч. Опция `ipset` (по умолчанию выключена) включает набор `ipset-photon` (`when: "ipset"`): `lists:ipset-photon.txt` (подсети Photon Cloud EU) и `user:ipset-photon.txt`. Выключена — правило для всех IP: так работал прежний общий профиль, и так покрыты регионы вне EU.
 
-Раньше была отдельная стратегия `general (ALT11 Photon)`; теперь это `general (ALT11)` + `sky`, `sker`, `photon`. Отличаются они только порядком профилей и портов `wf`.
+Раньше была отдельная стратегия `general (ALT11 Photon)`; теперь это `general (ALT11)` + `sky`, `photon`. Отличаются они только порядком профилей и портов `wf`.
+
+### Опции игр
+
+Опции игры описаны в `options` её файла (не больше 4):
+
+```json
+"options": {
+  "ipset": {
+    "title": { "ru": "Только подсети Photon Cloud EU из списка", "en": "Only the Photon Cloud EU subnets from the list" },
+    "about": { "ru": "…", "en": "…" },
+    "default": false
+  }
+},
+"lists": { "ipset-photon": { "ipset": ["lists:ipset-photon.txt", "user:ipset-photon.txt"], "when": "ipset" } }
+```
+
+Набор с `when` работает, только когда опция включена; при выключенной опции он пустой, и цель с этим набором идёт без `--ipset` (все IP). Загрузчик заранее собирает правила для всех сочетаний опций (`Game.With` выбирает готовый вариант) и требует, чтобы каждая опция меняла правила.
+
+Пользователь меняет опции в окне «Игры…». В `user/config.json` попадают только значения, отличные от `default`:
+
+```json
+{ "games": ["photon", "sky"], "gameOptions": { "photon": { "ipset": true } } }
+```
+
+`gameOptions` может хранить опции выключенной игры. Неизвестная игра или опция в `gameOptions` — ошибка поля `gameOptions` при сборке (`engine.Games`). Значения опций входят в версию игры для службы (`photon 3 ipset=on`, см. [`zapmanGames`](#запись-о-стратегии-и-служба-устарела)), поэтому смена опции делает службу устаревшей. `EnsureUserFiles` создаёт списки всех наборов включённой игры, в том числе набора с выключенной опцией: пользователь может заполнить список до включения опции.
 
 Свойства игровых профилей, проверенные в самих играх (TTL, cutoff, порядок профилей, один fake на профиль и т. д.), закреплены в `TestGames` (`internal/spec`) на `general (ALT11)`. Golden-файлы можно перезаписать через `-update`, а `TestGames` — нет, поэтому эти свойства не потеряются при случайном обновлении golden.
 
@@ -255,9 +280,9 @@ Lua для winws2 — только стоковые `bin/lua/zapret-lib.lua` и 
 
 ### Тесты генератора
 
-Golden-файлы — эталонный argv каждой стратегии: `testdata/golden/<движок>/<gf-off|gf-all>/<имя>.txt`. `gf-off` — Game Filter выключен (порты `12`), `gf-all` — `1024-65535` для TCP и UDP. Стратегии собираются без игр; `general (ALT11)` дополнительно собирается со всеми играми под именем `general (ALT11)+games`. Пути в golden — фиксированные (`C:\zapman\…`), active-fake — дефолты каталога. Переменная `ZAPMAN_SPEC_ROOT` позволяет прогнать тест на другом дереве с `strategies/`, `bin/` и `testdata/golden/`.
+Golden-файлы — эталонный argv каждой стратегии: `testdata/golden/<движок>/<gf-off|gf-all>/<имя>.txt`. `gf-off` — Game Filter выключен (порты `12`), `gf-all` — `1024-65535` для TCP и UDP. Стратегии собираются без игр; `general (ALT11)` дополнительно собирается со всеми играми под именем `general (ALT11)+games` (опции по умолчанию) и `general (ALT11)+games+options` (все опции включены). Пути в golden — фиксированные (`C:\zapman\…`), active-fake — дефолты каталога. Переменная `ZAPMAN_SPEC_ROOT` позволяет прогнать тест на другом дереве с `strategies/`, `bin/` и `testdata/golden/`.
 
-Первая строка golden-файла — версия: `# version: flowseal 1.10.4 r2` или `# version: zapman 3`; у `general (ALT11)+games` после стратегии перечислены игры в порядке сборки (`; sky 1; sker 1; photon 1`). Эта строка — страж: если argv изменился, а версия та же, `TestGolden` падает с `argv changed: bump rev/version`. Любое другое расхождение (или golden без строки версии) — тоже ошибка с подсказкой.
+Первая строка golden-файла — версия: `# version: flowseal 1.10.4 r2` или `# version: zapman 3`; у `general (ALT11)+games` после стратегии перечислены игры в порядке сборки со значениями опций (`; sky 3; photon 3 ipset=off`). Эта строка — страж: если argv изменился, а версия та же, `TestGolden` падает с `argv changed: bump rev/version`. Любое другое расхождение (или golden без строки версии) — тоже ошибка с подсказкой.
 
 Как менять argv стратегии:
 
@@ -345,7 +370,7 @@ go run ./dev/import-flowseal [-git .] [-ref upstream/main] [-dir strategies] [-w
 
 **Добавить свою стратегию.** Свои стратегии появляются только после явного решения в чате или issue, а смысл атак берётся из Flowseal (см. [`AGENTS.md`](../AGENTS.md)). Файл кладётся в `strategies/zapman/<имя>.json` (папку создайте с первой стратегией) с `"spec": 2`, `"version": 1`, `about` и `rules`. Дальше — `go generate ./internal/spec` и `-update` golden: появятся новые golden-файлы.
 
-**Добавить игру.** Создайте `strategies/games/<id>.json` с `id`, `title`, `about` (`ru` и `en`), `version: 1`, `order` (определяет место среди других игр), правилами и, если нужен свой список, набором `lists` с `seed` из `lists/`. Положите стартовый список в `lists/` и проверенные в игре свойства закрепите в `TestGames`. Затем `go generate ./internal/spec` и golden (`general (ALT11)+games`).
+**Добавить игру.** Создайте `strategies/games/<id>.json` с `id`, `title`, `about` (`ru` и `en`), `version: 1`, `order` (определяет место среди других игр), правилами и, если нужен свой список, набором `lists` из стандартного `lists:ipset-<id>.txt` и своего `user:ipset-<id>.txt`. Положите стандартный список в `lists/`. Если правило нужно в двух вариантах (например, все IP или только список), добавьте опцию в `options` и `when` у набора (см. [«Опции игр»](#опции-игр)). Проверенные в игре свойства закрепите в `TestGames`. Затем `go generate ./internal/spec` и golden (`general (ALT11)+games` и `+options`).
 
 **Обновить стратегии Flowseal.** `git fetch upstream` → `dev/upstream-versions` (что отстало) → `dev/import-flowseal -write` → `go generate ./internal/spec` → golden.
 
@@ -366,7 +391,8 @@ go run ./dev/import-flowseal [-git .] [-ref upstream/main] [-dir strategies] [-w
 | `language` | `ru`, `en`, `""` (язык Windows) | `""` |
 | `engine` | `winws`, `winws2` | `winws` |
 | `strategy` | имя стратегии каталога; `""` — не выбрана | `""` |
-| `games` | ID включённых игровых модулей (`sky`, `sker`, `photon`) | `[]` |
+| `games` | ID включённых игровых модулей (`sky`, `photon`) | `[]` |
+| `gameOptions` | опции игр, отличные от `default`: `{ "<игра>": { "<опция>": bool } }`; проверяется только синтаксис имён, наличие игры и опции в каталоге проверяет `engine.Games` (см. [«Опции игр»](#опции-игр)) | нет поля |
 | `gameFilter` | `disabled`, `all`, `tcp`, `udp` | `disabled` |
 | `gameFilterTcp`, `gameFilterUdp` | порты Game Filter: `N` или `N-M` через запятую, 1–65535, начало ≤ конца (правила Flowseal `service.bat`, коммит `2384961`); пробелы убираются при чтении | `1024-65535` |
 | `autoUpdateCheck` | bool | `true` |
@@ -379,9 +405,9 @@ go run ./dev/import-flowseal [-git .] [-ref upstream/main] [-dir strategies] [-w
 
 - `NewLayout(root)` — папки `bin/`, `strategies/`, `lists/`, `user/`. `Paths()` даёт `spec.Paths`; в `ActiveFiles` попадают имена `X` файлов `user/fakes/ACTIVE_<X>.bin` (префикс `ACTIVE_` и `.bin` — без учёта регистра).
 - `Exe(engine)` — путь exe выбранного движка; нет файла — ошибка (второй exe не берётся, см. [«Движки»](#движки-bin)).
-- `EnsureUserFiles(cat, games)` создаёт недостающие `user:`-списки наборов каталога и включённых игр; существующие не трогает. Содержимое нового списка: `seed` игры; иначе `lists/<имя>.default.txt` (так появляется `ipset-all.txt`); иначе одна заведомо неиспользуемая запись — `domain.example.abc` или `203.0.113.113/32`. Пустым список делать нельзя: пустой список совпадает со всеми хостами. Ещё он вызывает `EnsureActiveFakes(cat)`: если нет `user/fakes/ACTIVE_<X>.bin` (поиск как у `Paths`), туда копируется дефолт `X` из `active` в `catalog.json`; существующий файл не трогается. `internal/app` вызывает `EnsureUserFiles` до сборки argv, поэтому уже первый запуск берёт файл пользователя.
+- `EnsureUserFiles(cat, games)` создаёт недостающие `user:`-списки наборов каталога и включённых игр (всех наборов игры, в том числе с выключенной опцией); существующие не трогает. Содержимое нового списка каталога: `lists/<имя>.default.txt` (так появляется `ipset-all.txt`); иначе одна заведомо неиспользуемая запись — `domain.example.abc` или `203.0.113.113/32`. Новый ipset-список игры получает комментарий и `203.0.113.113/32`: стандартный список игры — отдельный `lists:`-файл. `UserFile(name)` даёт путь `user:`-файла и проверяет, что он внутри `user/`. Пустым список делать нельзя: пустой список совпадает со всеми хостами. Ещё он вызывает `EnsureActiveFakes(cat)`: если нет `user/fakes/ACTIVE_<X>.bin` (поиск как у `Paths`), туда копируется дефолт `X` из `active` в `catalog.json`; существующий файл не трогается. `internal/app` вызывает `EnsureUserFiles` до сборки argv, поэтому уже первый запуск берёт файл пользователя.
 - `CheckBin(bin)` сверяет файлы с `bin/versions.json` без сети. Состояние файла: `ok`, `missing` или `hash mismatch`; если `winws.exe` или `winws2.exe` нет в самом `versions.json` — `not in versions.json`. SHA256 `.lua` считается после CRLF → LF, как в `dev/update-zapret`.
-- `Build(cat, cfg)` собирает стратегию, игры и Game Filter из конфига через `spec.Build`. Нет стратегии в конфиге — `ErrNoStrategy`; игра не из каталога — ошибка поля `games`. `CommandLine()` = `"<bin>\<exe>" <строки argv через пробел>`; для winws2 первым идёт `--chdir="<bin>"` (см. [«Служба и `--chdir`»](#служба-и---chdir)). Та же строка становится ImagePath службы. Если она длиннее 32766 символов UTF-16 (предел `CreateProcess`), `Build` возвращает ошибку с советом выключить часть игр или взять путь к папке короче.
+- `Build(cat, cfg)` собирает стратегию, игры и Game Filter из конфига через `spec.Build`. Нет стратегии в конфиге — `ErrNoStrategy`; игра не из каталога — ошибка поля `games`; игры и их опции даёт `Games(cat, cfg)`, неизвестная игра или опция в `gameOptions` — ошибка поля `gameOptions`. `CommandLine()` = `"<bin>\<exe>" <строки argv через пробел>`; для winws2 первым идёт `--chdir="<bin>"` (см. [«Служба и `--chdir`»](#служба-и---chdir)). Та же строка становится ImagePath службы. Если она длиннее 32766 символов UTF-16 (предел `CreateProcess`), `Build` возвращает ошибку с советом выключить часть игр или взять путь к папке короче.
 - `Runner.Run(build)` запускает движок на переднем плане: рабочая папка `bin/`, без окна, сохраняется хвост вывода 64 КБ. Если процесс вышел в первые 2 с, это ошибка (`ExitError`). Код `0xC0000142` (`STATUS_DLL_INIT_FAILED`) при первом запуске даёт паузу 1 с и один повтор; если он повторился — ошибка с кодом и советом про исключения антивируса. Сам запуск процесса (`Runner.Start`) в тестах подменяется. Что служба сейчас не запущена, проверяет вызывающий.
 - Режим IPSet (`IPSetMode`) — не настройка, а состояние `user/ipset-all.txt`: `none` (файла нет или в нём только неиспользуемый адрес), `loaded` (список адресов), `any` (пустой файл — подходит любой адрес). `SetIPSetMode` переключает режим, а загруженный список хранит в копии (`ipset-all.txt.backup`), как PowerShell-версия.
 
@@ -413,7 +439,7 @@ go run ./dev/import-flowseal [-git .] [-ref upstream/main] [-dir strategies] [-w
 |---|---|---|
 | `zapman` | REG_SZ | имя стратегии (его же пишет PowerShell-версия) |
 | `zapmanVersion` | REG_SZ | `Strategy.Version()`, например `Flowseal 1.10.4 r3` |
-| `zapmanGames` | REG_MULTI_SZ | включённые игры с версиями, например `sky 2` |
+| `zapmanGames` | REG_MULTI_SZ | включённые игры с версиями и значениями опций, например `sky 3`, `photon 3 ipset=off` |
 | `zapmanHash` | REG_SZ | SHA256 (hex) ImagePath |
 
 Значения удаляются вместе со службой, читаются без прав администратора и не видны в описании службы. Старое значение `zapret-discord-youtube` при установке удаляется; его читает только `Snapshot`, чтобы вернуть службу как была.

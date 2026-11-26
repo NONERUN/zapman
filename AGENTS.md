@@ -71,7 +71,7 @@ Argv стратегии или игры поменялся — поднять `r
 go test ./internal/spec -run "Golden|Edge" -update
 ```
 
-`TestGolden` ещё проверяет правила argv (нет `--dpi-desync` на winws2 и `--lua-desync` на winws, `--blob=name:value` и т.д.); `TestGames` — свойства профилей Sky / Sker / Photon. `-update` их не обходит.
+`TestGolden` ещё проверяет правила argv (нет `--dpi-desync` на winws2 и `--lua-desync` на winws, `--blob=name:value` и т.д.); `TestGames` — свойства профилей Sky / Photon. `-update` их не обходит.
 
 ## Инструменты (`dev/`)
 
